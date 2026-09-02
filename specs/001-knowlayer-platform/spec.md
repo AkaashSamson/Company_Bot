@@ -99,7 +99,7 @@ A user interacts with a Streamlit chatbot that asks questions in plain language 
 
 ### Security Requirements
 
-Security controls are intentionally not the primary focus of v1. They will be addressed in future phases as the platform expands beyond a single internal policy document.
+Security controls are intentionally not the primary focus of v1. The platform assumes every user is a trusted internal user during MVP 1, and authentication/authorization are explicitly deferred to future phases as the platform expands beyond a single internal policy document.
 
 ### Architecture Boundaries
 
@@ -166,15 +166,15 @@ Security controls are intentionally not the primary focus of v1. They will be ad
 
 ## Open Questions
 
-- Which identity and authorization framework will be used in the first deployment environment?
-- Which document storage system and vector database will be selected for the initial MVP?
-- Which LLM provider will be primary in production, and which fallback provider will be supported?
-- Which HR or enterprise systems will be the first authoritative adapters beyond document search?
+- Identity and authorization framework: Not required for MVP 1; all users are treated as trusted internal users.
+- Document storage system and vector database: Local folder for document storage; Chroma DB for vector storage.
+- LLM provider: Primary provider is OpenRouter; supporting provider is Groq.
+- HR or enterprise system integration: Not part of MVP 1; HR systems and other enterprise data integrations are deferred to future phases.
 
 ## Assumptions
 
-- Users are employees or approved internal users with defined role and access scopes.
-- The initial release prioritizes document-centric knowledge plus a small set of employee-specific facts from trusted systems.
-- Authorization will be enforced before retrieval and not merely after the fact.
+- Users are trusted internal employees, and access control is intentionally out of scope for MVP 1.
+- The initial release prioritizes a single approved HR policy document and does not include employee-specific or HR-system queries.
 - The initial deployment targets a modular monolith with clean interface boundaries rather than a distributed service topology.
-- The product will require citation and provenance for every answer to support enterprise trust and auditability.
+- The product will require citation and provenance for every answer to support trust and traceability.
+- The system is intentionally designed to be extensible for future authentication, authorization, HR, and enterprise integrations.
