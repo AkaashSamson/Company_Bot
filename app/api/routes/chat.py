@@ -19,7 +19,10 @@ async def chat(request: ChatRequest):
     )
     result = orchestrator.answer(
         request.question,
-        conversation_history=[message.model_dump() for message in (request.conversation_history or [])],
+        conversation_history=[
+            message.model_dump()
+            for message in (request.conversation_history or [])
+        ],
     )
 
     citations = [
