@@ -57,17 +57,34 @@ Validation rules:
 - embedding_model must not be empty
 - collection_name must not be empty
 
+### Message
+Represents a single message in a conversational session.
+
+Fields:
+- id: string
+- session_id: string
+- role: enum { user, assistant }
+- content: string
+- created_at: datetime
+
+Validation rules:
+- content must not be empty
+- role must be one of the allowed values
+- session_id must reference a valid QuerySession
+
 ### QuerySession
-Represents a single user interaction in the chat interface.
+Represents a user chat session in the interface and keeps a rolling conversation memory.
 
 Fields:
 - id: string
 - user_input: string
+- conversation_history: list[Message]
 - created_at: datetime
 - session_status: enum { active, completed, failed }
 
 Validation rules:
 - user_input must not be empty
+- conversation_history must be a bounded rolling list of recent messages for the session
 - session_status must be one of the allowed values
 
 ### RetrievedEvidence
@@ -106,6 +123,7 @@ Validation rules:
 
 - DocumentSource has many DocumentChunk records.
 - DocumentChunk has one VectorRecord.
+- QuerySession has many Message records.
 - QuerySession has many RetrievedEvidence records.
 - QuerySession has one AnswerResponse.
 
@@ -114,10 +132,11 @@ Validation rules:
 1. A document is stored in the local folder.
 2. The ingestion service parses the document and splits it into chunks.
 3. Each chunk is embedded and saved to Chroma DB.
-4. The user submits a question through the Streamlit UI.
-5. The retrieval service searches the vector store for the most relevant chunks.
-6. The answer generation service constructs a grounded answer using the retrieved chunks.
-7. The system stores the question, evidence, and answer in the query session trail.
+4. The user submits a question through the Streamlit UI and the app attaches the session_id.
+5. The chat service loads the rolling conversation window for that session via LangChain ConversationWindowBufferMemory.
+6. The retrieval service searches the vector store for the most relevant chunks.
+7. The answer generation service constructs a grounded answer using the retrieved chunks and the recent chat context.
+8. The system stores the question, recent dialogue, evidence, and answer in the query session trail.
 
 ## Notes
 

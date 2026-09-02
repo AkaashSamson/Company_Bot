@@ -6,7 +6,8 @@
 - Vector database: Chroma DB
 - Primary LLM provider: OpenRouter
 - Supporting provider: Groq
-- Scope: single approved HR policy document, Streamlit-based Q&A chatbot
+- Conversation memory: LangChain ConversationWindowBufferMemory with a short rolling window for session continuity
+- Scope: single approved HR policy document, Streamlit-based Q&A chatbot with follow-up support
 - User model: all users are trusted internal users for MVP 1
 - Forbidden in v1: HR-system integration, employee-specific data retrieval, auth/authorization enforcement, and multi-source enterprise synthesis
 
@@ -37,6 +38,8 @@ This MVP is intentionally narrow and high-value: it delivers a grounded HR polic
 ## Architecture implications
 
 The design decision to keep a local document folder and Chroma DB does not lock the system into a single technology forever. The infrastructure layer will abstract the document loader and vector store behind interfaces so future replacement with cloud object storage or a different vector database is possible without affecting the domain layer.
+
+For conversational continuity, a LangChain ConversationWindowBufferMemory pattern is a good fit because it provides a short, bounded window of recent messages without requiring a full persistence model in v1. This supports follow-up questions such as “What about parental leave?” while keeping the MVP lightweight and simple.
 
 The architecture will continue to keep the LLM provider behind a provider abstraction so OpenRouter and Groq can be swapped or combined without changing the use-case logic.
 
