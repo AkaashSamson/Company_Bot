@@ -1,44 +1,44 @@
 # Implementation Plan: KnowLayer Platform
 
-**Branch**: `001-knowlayer-platform` | **Date**: 2026-09-01 | **Spec**: [spec.md](./spec.md)
+**Branch**: `001-knowlayer-platform` | **Date**: 2026-09-02 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `/specs/001-knowlayer-platform/spec.md`
 
 ## Summary
 
-KnowLayer is an enterprise organizational intelligence platform that gives authenticated employees secure, permission-aware access to internal policy and document knowledge, authoritative employee data, and hybrid synthesis across trusted sources. The MVP will prioritize document ingestion, permission-aware RAG, citations, basic identity/authorization, a modular monolith architecture, and a Streamlit-based UI while keeping the domain layer independent from UI, LLM, storage, and enterprise connector implementations.
+KnowLayer MVP 1 is a Streamlit-based HR policy Q&A assistant that answers questions from a single approved internal HR policy document. The project will use a modular monolith structure so the domain logic remains isolated from the UI, LLM provider, and storage implementation. The document source will live in a local folder, embeddings and retrieval will use Chroma DB, and the default model path will use OpenRouter with Groq as a supporting provider. The architecture is deliberately simple for v1 and intentionally designed for future expansion into more enterprise connectors and security controls.
 
 ## Technical Context
 
 **Language/Version**: Python 3.11+
 
-**Primary Dependencies**: FastAPI, Streamlit, Pydantic, SQLAlchemy, vector search library, OpenAI-compatible client abstraction, optional local LLM support, pytest
+**Primary Dependencies**: Streamlit, FastAPI, Pydantic, Chroma DB, sentence-transformers or a compatible embedding model, OpenRouter client, Groq client optional, pytest, python-dotenv
 
-**Storage**: PostgreSQL or equivalent relational database for application state and permissions; blob/object storage for raw document files; vector database for embeddings and search; cache for hot retrieval and session state
+**Storage**: Local folder for raw policy documents, Chroma DB for vector embeddings and retrieval metadata, local filesystem for generated artifacts and optional caches
 
-**Testing**: pytest for unit tests, API tests, security regression tests, and adapter contract tests
+**Testing**: pytest for unit tests, retrieval tests, and UI-level smoke tests
 
-**Target Platform**: Linux server with web UI, backend API, and internal enterprise deployment model
+**Target Platform**: Local development environment and internal web deployment via Streamlit app with optional API backend
 
-**Project Type**: Web service + application
+**Project Type**: Web application + modular backend service
 
-**Performance Goals**: Policy and document answers in under a few seconds for typical internal workflows; secure retrieval remains interactive for enterprise employees
+**Performance Goals**: Fast interactive answers for standard policy lookup and Q&A; target response time in the low seconds for a single-document retrieval flow
 
-**Constraints**: Authorization must occur before retrieval; provenance is mandatory; architecture must remain decoupled from runtime providers; MVP must avoid premature complexity
+**Constraints**: MVP 1 assumes all users are trusted internal users; no HR-system integration in v1; provenance and citations are mandatory; architecture must stay modular and provider-agnostic
 
-**Scale/Scope**: Small-to-medium internal organization with document knowledge, employee data, and future enterprise adapter expansion
+**Scale/Scope**: Single approved HR policy document, small user base, minimal operational complexity, future-ready architecture
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- ✅ Modular monolith with hexagonal boundaries is preserved.
-- ✅ Core intelligence is insulated from UI, LLM provider, storage, and enterprise connectors.
-- ✅ Authorization and access control are required before retrieval.
-- ✅ Source-of-truth rules are enforced for enterprise data.
+- ✅ Modular monolith with isolated boundaries is preserved.
+- ✅ Core domain logic remains independent from UI, LLM provider, and storage choices.
+- ✅ Source-of-truth requirement is respected because the approved HR policy document is the only authoritative source in v1.
 - ✅ Provenance and citation requirements are mandatory.
-- ✅ Complexity remains intentionally limited to MVP scope.
-- ✅ Security regression and contract tests are required before release.
+- ✅ Complexity remains intentionally limited to the MVP and avoids unnecessary enterprise complexity.
+- ✅ Future security and HR integrations are explicitly deferred rather than being treated as v1 requirements.
+- ✅ Testability is preserved through unit and retrieval-level validations.
 
 ## Project Structure
 
@@ -48,47 +48,85 @@ KnowLayer is an enterprise organizational intelligence platform that gives authe
 specs/001-knowlayer-platform/
 ├── spec.md
 ├── plan.md
+├── research.md
+├── data-model.md
+├── quickstart.md
+├── contracts/
+│   └── chat-api.md
 ├── tasks.md
-├── checklists/
-│   └── requirements.md
-└── artifacts/
-    └── (future design docs: research, data-model, contracts)
+└── checklists/
+    └── requirements.md
 ```
 
 ### Source Code (repository root)
 
 ```text
-backend/
-├── app/
-│   ├── api/
-│   ├── core/
-│   ├── domain/
-│   ├── infra/
+app/
+├── api/
+│   ├── routes/
+│   └── schemas/
+├── core/
+│   ├── config/
+│   ├── settings/
+│   └── logging/
+├── domain/
+│   ├── entities/
+│   ├── value_objects/
 │   ├── services/
-│   ├── security/
-│   └── utils/
-├── tests/
-│   ├── contract/
-│   ├── integration/
-│   ├── security/
-│   └── unit/
-├── migrations/
-├── config/
-├── scripts/
-└── requirements.txt
+│   └── ports/
+├── infrastructure/
+│   ├── llm/
+│   ├── storage/
+│   ├── vector/
+│   └── document/
+├── use_cases/
+│   ├── chat/
+│   └── ingestion/
+├── utils/
+├── main.py
+└── __init__.py
 
 streamlit_app/
 ├── app.py
 ├── pages/
 ├── components/
-└── services/
+├── state/
+├── services/
+└── ui_helpers.py
+
+tests/
+├── contract/
+├── integration/
+├── unit/
+├── fixtures/
+└── data/
+
+scripts/
+├── ingest_documents.py
+├── reset_vector_store.py
+└── smoke_test.py
+
+requirements.txt
+.env.example
 ```
 
-**Structure Decision**: A modular monolith with a backend service and a Streamlit UI is the chosen structure. Domain logic and authorization rules live in the backend core; provider-specific behavior sits in adapters and infrastructure modules; the UI remains a thin and replaceable interface.
+**Structure Decision**: A modular monolith is the default architecture. The project will be split into domain, use-case, infrastructure, and UI layers so the core logic can be changed or extended without rewriting the Streamlit interface or the LLM/storage adapters. The domain layer owns business rules and source contracts; infrastructure adapters handle Chroma, document loading, and model providers; the Streamlit layer stays thin and focused only on user interaction.
+
+## Why this structure is appropriate for a new team
+
+This structure is intentionally beginner-friendly:
+
+- Domain layer: defines the business concepts such as document, chunk, retrieval result, and answer. It contains the rules that say how the system interprets a question and selects evidence.
+- Use-case layer: orchestrates the workflow for a user action, such as ingesting a document or generating a response to a question.
+- Infrastructure layer: adapts the app to external systems like Chroma DB, the local folder, and the LLM provider.
+- API layer: exposes the backend contracts for internal callers or future UI integrations.
+- Streamlit layer: is responsible only for displaying questions, handling chat state, and calling the backend logic.
+
+This keeps responsibilities clean and reduces the chance that a new developer mixes UI concerns with storage, retrieval, or model logic.
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
+> No constitution violations require justification for this MVP. The design stays within the acceptable complexity bounds by keeping the system to a single-document retrieval flow and a modular but not over-engineered structure.
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
