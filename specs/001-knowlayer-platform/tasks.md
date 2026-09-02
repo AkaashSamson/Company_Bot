@@ -2,11 +2,11 @@
 
 **Input**: Design documents from `/specs/001-knowlayer-platform/`
 
-**Prerequisites**: plan.md (required), spec.md (required for user stories)
+**Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: Security regression tests and adapter contract tests are required for this feature.
+**Tests**: Test tasks are included for the MVP flows because the chat, retrieval, and follow-up behavior are core user value in v1.
 
-**Organization**: Tasks are grouped by user story to support independent delivery of MVP value.
+**Organization**: Tasks are grouped by user story so each story can be implemented and validated independently.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -16,146 +16,131 @@
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Establish the repository structure and core tooling for the modular monolith.
+**Purpose**: Establish the repository structure and tooling for the modular monolith MVP.
 
-- [ ] T001 Create repository structure under backend/, streamlit_app/, and tests/ according to plan.md
-- [ ] T002 Initialize Python project configuration and dependency management for backend and UI
+- [ ] T001 Create project structure under app/, streamlit_app/, tests/, and scripts/ according to plan.md
+- [ ] T002 Initialize Python project configuration and dependency management for the backend and Streamlit app
 - [ ] T003 [P] Configure linting, formatting, and Python test tooling
-- [ ] T004 [P] Create environment configuration, settings schema, and secret handling conventions
-- [ ] T005 Create project documentation index and development notes for KnowLayer MVP
+- [ ] T004 [P] Create environment template, settings schema, and local config conventions
+- [ ] T005 Create developer notes for local setup, document ingestion, and run steps
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: Establish the core architecture that all user stories depend on.
+**Purpose**: Establish the shared architecture that all user stories depend on.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T006 Define domain interfaces and abstract boundaries for LLM, storage, vector search, and enterprise connectors
-- [ ] T007 Implement identity, role, and access-scoping models for employees and documents
-- [ ] T008 [P] Implement authorization policy service and permission evaluation flow
-- [ ] T009 Implement structured audit logging with sensitive-data redaction conventions
-- [ ] T010 Create document metadata model and repository contract for ingested files
-- [ ] T011 Implement document ingestion and storage adapter interfaces for raw files and metadata
-- [ ] T012 Implement chunking and retrieval preparation contracts for document processing
-- [ ] T013 Set up vector indexing contract and retrieval abstraction with source provenance metadata
-- [ ] T014 Implement backend API skeleton with health, auth, query, and retrieval endpoints
-- [ ] T015 Create dependency injection and app composition boundary for domain/service wiring
-- [ ] T016 Set up the Streamlit UI shell and navigation structure for internal knowledge access
+- [ ] T006 Define domain interfaces and abstraction boundaries for document ingestion, retrieval, and LLM provider access
+- [ ] T007 Implement document source and chunk domain models in app/domain/entities/document_models.py
+- [ ] T008 Implement session and message domain models for chat continuity in app/domain/entities/chat_models.py
+- [ ] T009 Implement local document loader and file management contract in app/infrastructure/document/local_document_loader.py
+- [ ] T010 [P] Implement Chroma vector store adapter and retrieval abstraction in app/infrastructure/vector/chroma_client.py
+- [ ] T011 [P] Implement chunking and embedding preparation contract in app/use_cases/ingestion/document_processing.py
+- [ ] T012 Implement backend API skeleton and route registration in app/api/routes/
+- [ ] T013 Create Streamlit UI shell and session state structure in streamlit_app/app.py and streamlit_app/state/
+- [ ] T014 Add structured logging and environment-driven runtime configuration in app/core/
+- [ ] T015 Define the query orchestration contract for policy retrieval and answer assembly in app/use_cases/chat/
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel.
 
 ---
 
-## Phase 3: User Story 1 - Policy and document knowledge access (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 - Ask an HR policy question with grounded citations (Priority: P1) 🎯 MVP
 
-**Goal**: Allow authenticated employees to ask policy and handbook questions and receive grounded answers with citations.
+**Goal**: Allow a user to ask a policy question and receive a grounded answer with citations from the approved HR document.
 
-**Independent Test**: A user can submit a document-based policy question, receive the relevant result, and confirm all citations are present and traceable.
+**Independent Test**: A user can submit a policy question, receive a relevant answer, and confirm the answer includes citations and source references.
 
 ### Tests for User Story 1
 
-- [ ] T017 [P] [US1] Write security regression test for unauthorized document access in backend/tests/security/test_document_access.py
-- [ ] T018 [P] [US1] Write integration test for policy question flow in backend/tests/integration/test_policy_query.py
-- [ ] T019 [P] [US1] Write contract test for document retrieval interface in backend/tests/contract/test_document_repo_contract.py
+- [ ] T016 [P] [US1] Write integration test for single-document policy Q&A in tests/integration/test_policy_chat.py
+- [ ] T017 [P] [US1] Write contract test for chat API response format in tests/contract/test_chat_api_contract.py
 
 ### Implementation for User Story 1
 
-- [ ] T020 [P] [US1] Implement document ingestion pipeline in backend/app/services/document_ingestion.py
-- [ ] T021 [P] [US1] Implement metadata extraction and indexing model in backend/app/domain/document_models.py
-- [ ] T022 [US1] Implement authorized document retrieval service in backend/app/services/retrieval_service.py
-- [ ] T023 [US1] Implement citation and provenance assembly in backend/app/services/provenance_service.py
-- [ ] T024 [US1] Implement policy question answering orchestration in backend/app/services/query_orchestrator.py
-- [ ] T025 [US1] Connect the backend query API to the Streamlit UI in streamlit_app/services/query_service.py
-- [ ] T026 [US1] Add user-facing policy question UI in streamlit_app/pages/policy_chat.py
-- [ ] T027 [US1] Add logging and trace metadata for document retrieval and answer generation
+- [ ] T018 [P] [US1] Create the document ingestion script in scripts/ingest_documents.py
+- [ ] T019 [P] [US1] Implement ingestion pipeline and document indexing in app/use_cases/ingestion/ingest_documents.py
+- [ ] T020 [US1] Implement retrieval service for the approved HR document in app/use_cases/chat/retrieval_service.py
+- [ ] T021 [US1] Implement provenance and citation assembly in app/use_cases/chat/provenance_service.py
+- [ ] T022 [US1] Implement the query orchestrator for policy answer generation in app/use_cases/chat/query_orchestrator.py
+- [ ] T023 [US1] Implement the chat endpoint in app/api/routes/chat.py and response schemas in app/api/schemas/chat.py
+- [ ] T024 [US1] Connect the Streamlit UI to the backend chat API in streamlit_app/services/chat_service.py and streamlit_app/app.py
+- [ ] T025 [US1] Add the policy chat page and answer rendering with citations in streamlit_app/pages/policy_chat.py
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and independently testable.
 
 ---
 
-## Phase 4: User Story 2 - Employee-specific authoritative data (Priority: P1)
+## Phase 4: User Story 2 - Follow-up questions in the same session (Priority: P2)
 
-**Goal**: Support employee-specific questions that require real-time HR or enterprise data and must use the authoritative source.
+**Goal**: Keep a short rolling conversation window so follow-up questions like “What about parental leave?” are answered in context.
 
-**Independent Test**: A user can ask for leave balance or appraisal information and receive only the data the system authorizes for that user.
+**Independent Test**: A user can ask an initial question and then a follow-up question in the same session and receive a context-aware answer grounded in the same document.
 
 ### Tests for User Story 2
 
-- [ ] T028 [P] [US2] Write security regression test for employee access isolation in backend/tests/security/test_employee_isolation.py
-- [ ] T029 [P] [US2] Write integration test for HR balance lookup in backend/tests/integration/test_hr_lookup.py
-- [ ] T030 [P] [US2] Write adapter contract test for HR connector boundary in backend/tests/contract/test_hr_adapter_contract.py
+- [ ] T026 [P] [US2] Write integration test for follow-up question continuity in tests/integration/test_followup_chat.py
+- [ ] T027 [P] [US2] Write unit test for bounded conversation window memory in tests/unit/test_session_memory.py
 
 ### Implementation for User Story 2
 
-- [ ] T031 [P] [US2] Create authoritative data interface definitions under backend/app/domain/enterprise_interfaces.py
-- [ ] T032 [US2] Implement a mock HR adapter and data contract for testing and development in backend/app/infra/mock_hr_adapter.py
-- [ ] T033 [US2] Implement authorization-aware employee lookup workflow in backend/app/services/employee_data_service.py
-- [ ] T034 [US2] Wire authoritative data routing into the query orchestrator in backend/app/services/query_orchestrator.py
-- [ ] T035 [US2] Add employee-specific UI for leave and profile queries in streamlit_app/pages/employee_data.py
-- [ ] T036 [US2] Add provenance metadata for HR sources and retrieval timestamps
+- [ ] T028 [P] [US2] Add LangChain ConversationWindowBufferMemory integration in app/use_cases/chat/session_memory.py
+- [ ] T029 [US2] Add session persistence contract for recent conversation state in app/domain/services/session_memory_service.py
+- [ ] T030 [US2] Update the chat API to accept recent messages and session_id for context-aware calls in app/api/schemas/chat.py
+- [ ] T031 [US2] Update the Streamlit session state to store recent user and assistant messages in streamlit_app/state/chat_state.py
+- [ ] T032 [US2] Add follow-up question UI support and message history rendering in streamlit_app/pages/policy_chat.py
+- [ ] T033 [US2] Add graceful fallback when the history window is empty or no prior context exists
 
-**Checkpoint**: User Story 2 should work independently without using stale document data for authoritative facts.
+**Checkpoint**: User Story 2 should work independently by preserving chat continuity within a bounded memory window.
 
 ---
 
-## Phase 5: User Story 3 - Hybrid policy + personal synthesis (Priority: P1)
+## Phase 5: User Story 3 - Simple policy search and retrieval experience (Priority: P2)
 
-**Goal**: Combine organizational policies and employee-specific data into a single grounded answer.
+**Goal**: Support a lightweight retrieval experience where users can search the approved HR document and get the most relevant section with citations.
 
-**Independent Test**: A user can ask a hybrid question that combines policy and personal facts and receive one answer with source provenance from both sources.
+**Independent Test**: A user can search for a topic and receive the most relevant policy section and citation metadata without leaving the app.
 
 ### Tests for User Story 3
 
-- [ ] T037 [P] [US3] Write integration test for hybrid answer synthesis in backend/tests/integration/test_hybrid_query.py
-- [ ] T038 [P] [US3] Write security regression test for cross-employee hybrid leakage in backend/tests/security/test_hybrid_leakage.py
-- [ ] T039 [P] [US3] Write contract test for synthesis boundary and provenance in backend/tests/contract/test_synthesis_contract.py
+- [ ] T034 [P] [US3] Write integration test for policy search retrieval in tests/integration/test_policy_search.py
+- [ ] T035 [P] [US3] Write contract test for retrieval result structure in tests/contract/test_retrieval_contract.py
 
 ### Implementation for User Story 3
 
-- [ ] T040 [P] [US3] Define hybrid answer payload model in backend/app/domain/answer_models.py
-- [ ] T041 [US3] Implement answer synthesis and evidence aggregation in backend/app/services/hybrid_answer_service.py
-- [ ] T042 [US3] Ensure provenance and citation rendering includes document and enterprise source references
-- [ ] T043 [US3] Add UI support for combined policy and personal answers in streamlit_app/pages/hybrid_queries.py
-- [ ] T044 [US3] Add guardrails to prevent unauthorized cross-employee data in the synthesis layer
+- [ ] T036 [P] [US3] Implement document search service over the approved HR source in app/use_cases/chat/document_search.py
+- [ ] T037 [US3] Implement relevant chunk ranking and evidence extraction in app/use_cases/chat/chunk_selector.py
+- [ ] T038 [US3] Add retrieval result formatting with page/section context and citations in app/use_cases/chat/result_formatter.py
+- [ ] T039 [US3] Add policy search UI in streamlit_app/pages/search_policy.py
+- [ ] T040 [US3] Add answer rendering logic for both direct Q&A and search-based lookup in streamlit_app/components/result_card.py
 
-**Checkpoint**: At this point, the hybrid use case is independently functional and secure.
-
----
-
-## Phase 6: User Story 4 - Organizational knowledge discovery (Priority: P2)
-
-**Goal**: Support cross-document search for architecture, project, and technical knowledge with citations and authorization checks.
-
-**Independent Test**: A user can search authorized organizational documents and receive only relevant knowledge from accessible sources.
-
-### Tests for User Story 4
-
-- [ ] T045 [P] [US4] Write integration test for document search and citation output in backend/tests/integration/test_document_search.py
-- [ ] T046 [P] [US4] Write security regression test for restricted project-document visibility in backend/tests/security/test_project_document_access.py
-
-### Implementation for User Story 4
-
-- [ ] T047 [P] [US4] Implement project knowledge search service in backend/app/services/project_search_service.py
-- [ ] T048 [US4] Add project-document query UI in streamlit_app/pages/project_knowledge.py
-- [ ] T049 [US4] Ensure search results include document identifiers, chunk IDs, and retrieval timestamps
-- [ ] T050 [US4] Add organization-level document filters for team and role permissions
-
-**Checkpoint**: Organizational knowledge discovery can be tested independently and used without exposing unauthorized sources.
+**Checkpoint**: The document-backed retrieval experience is independently usable and demonstrates the value of the policy chatbot.
 
 ---
 
-## Phase 7: Polish & Cross-Cutting Concerns
+## Phase 6: Polish & Cross-Cutting Concerns
 
-**Purpose**: Hardening and operational quality across all user stories.
+**Purpose**: Final validation, lightweight quality checks, and operational readiness for the MVP.
 
-- [ ] T051 [P] Performance tuning for retrieval, indexing, and response assembly
-- [ ] T052 [P] Documentation updates for setup, usage, and security assumptions
-- [ ] T053 Security hardening review for logs, tokens, and sensitive configuration handling
-- [ ] T054 Cross-story validation of provider abstraction and dependency seams
-- [ ] T055 Run the full regression suite for unit, contract, integration, and security tests
-- [ ] T056 Validate the quickstart flow and evidence traceability in the Streamlit app
+- [ ] T041 [P] Review and clean up shared app configuration, environment, and startup behavior
+- [ ] T042 [P] Add smoke tests for ingestion, retrieval, and chat flow in scripts/smoke_test.py
+- [ ] T043 Run the relevant test suite for unit, contract, and integration coverage
+- [ ] T044 Validate the quickstart flow and ensure all main user journeys work end-to-end
+- [ ] T045 Update project documentation to match the implemented MVP and the deferred future roadmap
+
+---
+
+## Phase 7: Convergence
+
+- [x] T046 Implement the end-to-end US1 retrieval and answer workflow for the approved HR policy document in app/use_cases/chat/ and app/api/routes/chat.py (DONE: QueryOrchestrator, RetrievalService, ProvenanceService implemented; FR-002, FR-003, FR-004, US1/AC1)
+- [x] T047 Replace the sample Streamlit response with an actual backend call and citation rendering in streamlit_app/app.py and streamlit_app/services/chat_service.py (DONE: Streamlit now calls ChatService backend; citations rendered; FR-012, US1/AC1, US3/AC1)
+- [ ] T048 Add bounded session memory and follow-up question handling for US2 in app/use_cases/chat/session_memory.py, app/domain/services/session_memory_service.py, and app/api/schemas/chat.py (partial; US2/AC1, plan: rolling memory decision)
+- [ ] T049 Add the retrieval/search flow and result formatting for US3 using the approved policy document and citation metadata in app/use_cases/chat/ and streamlit_app/pages/ (missing; US3/AC1, FR-003, FR-004)
+- [ ] T050 Implement provider abstraction and runtime error handling for OpenRouter/Groq so the app can call the configured LLM provider without hardcoded sample logic (partial; FR-011, FR-015, plan: provider abstraction decision)
+- [ ] T051 Add end-to-end smoke validation for ingestion, retrieval, and chat flow in scripts/smoke_test.py and the relevant test suite (partial; NFR-006, T042, T043, T044)
+- [ ] T052 Align the implemented MVP behavior with the spec and quickstart documentation so the project reflects the actual single-document HR chatbot scope and future extensibility boundaries (partial; T045, plan: MVP scope, future extensibility)
 
 ---
 
@@ -166,21 +151,20 @@
 - **Setup (Phase 1)**: No dependencies
 - **Foundational (Phase 2)**: Depends on Setup completion; blocks all user stories
 - **User Stories (Phase 3+)**: Depend on Foundational completion
-- **Polish (Phase 7)**: Depends on all required stories being complete
+- **Polish (Phase 6)**: Depends on all required user stories being complete
 
 ### User Story Dependencies
 
-- **User Story 1 (P1)**: Can start after Phase 2, independent MVP set
-- **User Story 2 (P1)**: Requires Phase 2 and can proceed in parallel with US1 once foundation is ready
-- **User Story 3 (P1)**: Requires US1/US2 foundation and orchestrator support
-- **User Story 4 (P2)**: Can start after the retrieval platform is stable
+- **User Story 1 (P1)**: Can begin after Phase 2 and is the core MVP deliverable
+- **User Story 2 (P2)**: Can begin after Phase 2 and depends only on the session/chat foundation
+- **User Story 3 (P2)**: Can begin after the core retrieval flow is working and can be developed in parallel with US2 where possible
 
 ### Parallel Opportunities
 
 - Setup tasks marked [P] can run in parallel
 - Foundational tasks marked [P] can run in parallel
 - User story tests marked [P] can run in parallel
-- Different user stories can proceed in parallel by separate team members after the foundation is complete
+- Different story tasks can proceed in parallel after the foundational phase is complete
 
 ---
 
@@ -191,35 +175,23 @@
 1. Complete Phase 1: Setup
 2. Complete Phase 2: Foundational
 3. Complete Phase 3: User Story 1
-4. Validate independent MVP output and security gates
-5. Extend progressively to US2 and US3
+4. Validate the MVP independently against the policy Q&A flow
+5. Add follow-up and retrieval enhancements after the core story is proven
 
 ### Incremental Delivery
 
-1. Setup + Foundational → stable platform foundation
-2. Add User Story 1 → secure policy answer flow
-3. Add User Story 2 → authoritative employee data access
-4. Add User Story 3 → hybrid synthesis with citations
-5. Add User Story 4 → broader organizational knowledge discovery
+1. Setup + Foundational → Platform anchor for the MVP
+2. Add User Story 1 → Policy Q&A with citations
+3. Add User Story 2 → Follow-up question continuity
+4. Add User Story 3 → Search and retrieval experience
+5. Finish with polish and validation
 
 ### Parallel Team Strategy
 
 With multiple developers:
 
 1. Team completes Setup + Foundational together
-2. Split work by story:
-   - Developer A: US1
-   - Developer B: US2
-   - Developer C: US3
-   - Developer D: US4 / polish
-3. Validate security boundaries after each story is produced
-
----
-
-## Notes
-
-- Tasks marked [P] are independent and can be worked in parallel where the repository allows it.
-- Security and authorization tasks are not optional and must be validated before release.
-- Each user story must remain independently testable and not depend on hidden coupling across stories.
-- The MVP must avoid microservices, Kubernetes, multi-agent orchestration, and premature complexity.
-- Keep all protocol contracts explicit and domain-led rather than UI-driven.
+2. Developer A: User Story 1
+3. Developer B: User Story 2
+4. Developer C: User Story 3
+5. Final polish and smoke validation together
