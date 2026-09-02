@@ -1,4 +1,5 @@
 import streamlit as st
+import requests
 
 from streamlit_app.services.chat_service import ChatService
 
@@ -20,8 +21,15 @@ if user_input:
         st.markdown(user_input)
 
     service = ChatService(base_url="http://localhost:8000")
-    response = service.ask(user_input, session_id="streamlit-session")
-    answer = response.get("answer", "I could not find a relevant answer in the policy source.")
+    try:
+        response = service.ask(user_input, session_id="streamlit-session")
+        answer = response.get("answer", "I could not find a relevant answer in the policy source.")
+    except requests.exceptions.ConnectionError:
+        answer = "The chat backend is not running. Start FastAPI with: python -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
+        response = {"citations": []}
+    except requests.exceptions.RequestException as error:
+        answer = f"The chat backend could not process the request: {error}"
+        response = {"citations": []}
     st.session_state.messages.append({"role": "assistant", "content": answer})
     with st.chat_message("assistant"):
         st.markdown(answer)
