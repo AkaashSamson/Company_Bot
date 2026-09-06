@@ -1,3 +1,4 @@
+import re
 from typing import Dict, List
 
 import httpx
@@ -7,6 +8,21 @@ from app.domain.services.llm_provider import (
     LLMProvider,
     LLMProviderError,
 )
+
+
+def _sanitize_response_body(body: str, max_length: int = 1000) -> str:
+    sanitized = body[:max_length]
+    sanitized = re.sub(
+        r"(?i)bearer\s+[a-z0-9._-]+",
+        "Bearer [REDACTED]",
+        sanitized,
+    )
+    sanitized = re.sub(
+        r"(?i)(?:gsk_|sk-)[a-z0-9_-]+",
+        "[REDACTED_KEY]",
+        sanitized,
+    )
+    return sanitized
 
 
 class GroqClient(LLMProvider):
@@ -49,7 +65,12 @@ class GroqClient(LLMProvider):
                     json=payload,
                 )
 
-            response.raise_for_status()
+            if response.is_error:
+                raise LLMProviderError(
+                    "Groq returned HTTP "
+                    f"{response.status_code}: "
+                    f"{_sanitize_response_body(response.text)}"
+                )
 
             data = response.json()
             content = data["choices"][0]["message"]["content"]
@@ -64,7 +85,7 @@ class GroqClient(LLMProvider):
         except LLMProviderError:
             raise
 
-        except (httpx.HTTPError, KeyError, IndexError, TypeError) as error:
+        except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
             raise LLMProviderError(
                 f"Groq request failed: {error}"
             ) from error
