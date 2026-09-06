@@ -9,7 +9,10 @@ router = APIRouter(prefix="/api", tags=["chat"])
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     orchestrator = QueryOrchestrator()
-    result = orchestrator.answer(request.question)
+    result = orchestrator.answer(
+        request.question,
+        conversation_history=[message.model_dump() for message in (request.conversation_history or [])],
+    )
 
     citations = [
         Citation(

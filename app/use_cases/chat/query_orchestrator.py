@@ -1,36 +1,83 @@
+from app.core.settings import RAG_CANDIDATE_COUNT
+from app.infrastructure.llm.fallback_llm_provider import FallbackLLMProvider
+from app.infrastructure.llm.groq_client import GroqClient
+from app.infrastructure.llm.openrouter_client import OpenRouterClient
 from app.use_cases.chat.provenance_service import ProvenanceService
+from app.use_cases.chat.conversation_query_resolver import ConversationQueryResolver
 from app.use_cases.chat.retrieval_service import RetrievalService
+from app.domain.services.session_memory_service import SessionMemoryService
 
 
 class QueryOrchestrator:
-    def __init__(self):
-        self.retrieval = RetrievalService()
-        self.provenance = ProvenanceService()
+    def __init__(
+        self,
+        retrieval=None,
+        provenance=None,
+        llm=None,
+        query_resolver=None,
+        memory=None,
+    ):
+        self.retrieval = retrieval or RetrievalService()
+        self.provenance = provenance or ProvenanceService()
 
-    def answer(self, question: str):
-        results = self.retrieval.retrieve(question, top_k=3)
-        if not results:
+        self.llm = llm or FallbackLLMProvider(
+            primary=OpenRouterClient(),
+            fallback=GroqClient(),
+        )
+        self.query_resolver = query_resolver or ConversationQueryResolver(
+            self.llm,
+            memory=memory or SessionMemoryService(),
+        )
+
+    def answer(self, question: str, conversation_history=None):
+        retrieval_query = self.query_resolver.resolve(question, conversation_history)
+        selected_evidence = self.retrieval.retrieve(
+            retrieval_query,
+            top_k=RAG_CANDIDATE_COUNT,
+        )
+
+        if not selected_evidence:
             return {
-                "answer": "I could not find a relevant match in the current HR policy document.",
+                "answer": (
+                    "I could not find the requested information in the "
+                    "available documents."
+                ),
                 "citations": [],
             }
 
-        context = "\n\n".join(result.get("text", "") for result in results)
-        question_lower = question.lower()
+        context = "\n\n".join(
+            result.get("text", "")
+            for result in selected_evidence
+        )
 
-        if "leave" in question_lower or "annual leave" in question_lower:
-            answer = "The handbook describes leave entitlements and policy terms in the employee leave and holidays section."
-        elif "remote" in question_lower or "hybrid" in question_lower or "work" in question_lower:
-            answer = "The handbook outlines remote and hybrid working expectations and the applicable work policy guidance."
-        elif "attendance" in question_lower or "hours" in question_lower:
-            answer = "The handbook defines working hours and attendance expectations in the company’s workplace policy section."
-        elif "grievance" in question_lower or "complaint" in question_lower:
-            answer = "The handbook includes grievance procedures and escalation guidance in the employee relations section."
-        else:
-            answer = "Based on the current HR policy document, the relevant guidance is covered in the handbook section retrieved for this question."
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You answer questions using only the provided document context. "
+                    "Do not invent or assume information. "
+                    "For multi-part questions, answer each supported part "
+                    "and explicitly state which part is not present in the documents. "
+                    "If no part is supported, say the requested information "
+                    "could not be found in the available documents. "
+                    "Keep the answer concise and directly answer "
+                    "the user's question."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Document context:\n\n"
+                    f"{context}\n\n"
+                    f"Question: {question}"
+                ),
+            },
+        ]
+
+        answer = self.llm.generate(messages)
 
         return {
             "answer": answer,
-            "citations": self.provenance.build_citations(results),
+            "citations": self.provenance.build_citations(selected_evidence),
             "context": context,
         }

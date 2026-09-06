@@ -51,10 +51,15 @@ class ChromaVectorStore:
 
         documents = result.get("documents", [[]])[0]
         metadatas = result.get("metadatas", [[]])[0]
+        distances = result.get("distances", [[]])[0]
         if not documents:
             return []
 
         output: List[dict] = []
-        for document, metadata in zip(documents, metadatas):
-            output.append({"text": document, "metadata": metadata or {}})
+        for index, (document, metadata) in enumerate(zip(documents, metadatas)):
+            output.append({
+                "text": document,
+                "metadata": metadata or {},
+                "distance": distances[index] if index < len(distances) else None,
+            })
         return output
