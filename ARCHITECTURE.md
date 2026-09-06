@@ -1,661 +1,208 @@
-# KnowLayer Platform: Modular Monolith Architecture
+# KnowLayer Architecture
 
 ## Overview
 
-KnowLayer is built as a **modular monolith**—a single deployable application organized into independent, loosely-coupled modules. This architecture allows each module to be:
-- **Independently testable**: Each layer can be tested without external dependencies
-- **Easily replaceable**: Implementations (e.g., vector DB, LLM provider) can be swapped with minimal refactoring
-- **Logically organized**: Domain logic is separated from infrastructure concerns
-- **Future-proof**: New features can be added to future versions without touching MVP code
+KnowLayer is a modular monolith with clear boundaries between the API, use cases, domain services, infrastructure adapters, and Streamlit presentation layer. The current chat path is a document-grounded RAG flow with provider-independent LLM interfaces.
 
----
+The core request path is:
 
-## Folder Structure & Module Organization
-
-```
-Company_Bot/
-├── app/                           # Core application logic (modular monolith)
-│   ├── __init__.py
-│   ├── main.py                    # FastAPI app entry point
-│   ├── core/                      # Cross-cutting configuration
-│   │   └── settings.py            # Environment + app configuration
-│   ├── api/                       # HTTP contract layer (interface to external systems)
-│   │   ├── routes/
-│   │   │   └── chat.py            # Chat endpoint (US1, US2, US3)
-│   │   └── schemas/
-│   │       └── chat.py            # Pydantic request/response contracts
-│   ├── domain/                    # Pure business logic & entities (no framework deps)
-│   │   ├── entities/
-│   │   │   ├── document_models.py # DocumentSource, DocumentChunk, VectorRecord, Message
-│   │   │   └── chat_models.py     # QuerySession, RetrievedEvidence, AnswerResponse
-│   │   └── services/
-│   │       └── session_memory_service.py  # Bounded conversation window logic
-│   ├── use_cases/                 # Application business logic (orchestration)
-│   │   ├── chat/
-│   │   │   ├── query_orchestrator.py       # Retrieval → Answer generation (US1)
-│   │   │   ├── retrieval_service.py        # Query builder & retrieval abstraction
-│   │   │   ├── provenance_service.py       # Citation building from results
-│   │   │   └── session_memory.py           # LangChain ConversationWindowBufferMemory wrapper (US2)
-│   │   └── ingestion/
-│   │       └── document_processing.py      # Text extraction, chunking, embedding prep
-│   └── infrastructure/            # Technology-specific adapters (pluggable)
-│       ├── document/
-│       │   └── local_document_loader.py    # Filesystem document enumeration
-│       └── vector/
-│           └── chroma_client.py            # Chroma DB persistence adapter
-├── streamlit_app/                 # Streamlit frontend (separated UI)
-│   ├── app.py                     # Main chat UI
-│   ├── services/
-│   │   └── chat_service.py        # HTTP client → backend API
-│   └── state/
-│       └── __pycache__
-├── scripts/                       # Automation & utilities
-│   ├── ingest_documents.py        # Batch document ingestion
-│   └── smoke_test.py              # End-to-end validation
-├── tests/                         # Test suite (mirrors app structure)
-│   ├── unit/                      # Fast, isolated logic tests
-│   ├── contract/                  # API schema/interface validation
-│   └── integration/               # End-to-end flow tests
-├── input/                         # Document storage (local)
-│   └── Nexora_Employee_Handbook.docx
-├── .chroma/                       # Chroma persistent vector DB
-├── requirements.txt               # Dependencies
-├── .env.example                   # Environment template
-└── ARCHITECTURE.md                # This file
+```text
+User
+  -> Streamlit chat or FastAPI POST /api/chat
+  -> QueryOrchestrator
+  -> ConversationQueryResolver when the question depends on history
+  -> RetrievalService
+  -> ChromaVectorStore candidate retrieval
+  -> distance-aware relevance and redundancy selection
+  -> compact context assembly
+  -> OpenRouter primary provider
+  -> Groq fallback provider if the primary fails
+  -> answer and citations from the same selected evidence
 ```
 
----
+When no relevant evidence is selected, the orchestrator returns an information-not-found response and an empty citation list. It does not call an answer-generation provider for that path.
 
-## Core Principles & Design Patterns
+## Module Organization
 
-### 1. **Separation of Concerns**
-
-Each layer has a single responsibility:
-
-| Layer | Responsibility | Example |
-|-------|-----------------|---------|
-| **API** | HTTP contract, request validation, response serialization | `ChatRequest` → `ChatResponse` |
-| **Domain** | Pure business logic, independent of framework/tech | `QuerySession`, `DocumentChunk` |
-| **Use Cases** | Orchestration, workflow, interaction between domain objects | `QueryOrchestrator` coordinates retrieval + answering |
-| **Infrastructure** | Technology-specific adapters (database, file system, LLM APIs) | `ChromaVectorStore`, `LocalDocumentLoader` |
-
-### 2. **Dependency Injection & Inversion of Control**
-
-Infrastructure implementations are **injected** into use cases, not hard-coded:
-
-```python
-# ✅ Good: Infrastructure injected
-class QueryOrchestrator:
-    def __init__(self):
-        self.retrieval = RetrievalService()  # Can be swapped
-        self.provenance = ProvenanceService()
-
-# ❌ Bad: Direct dependency (not used)
-class QueryOrchestrator:
-    def __init__(self):
-        self.chroma = chromadb.PersistentClient(...)  # Tightly coupled
+```text
+app/
+├── main.py
+├── api/
+│   ├── routes/chat.py                    # POST /api/chat
+│   └── schemas/chat.py                   # Request/response models
+├── core/settings.py                      # Environment configuration
+├── domain/
+│   ├── entities/document_models.py       # Document and chat data classes
+│   └── services/session_memory_service.py# Bounded recent-message window
+├── infrastructure/
+│   ├── document/local_document_loader.py # Local input document enumeration
+│   ├── vector/chroma_client.py           # Persistent Chroma adapter
+│   └── llm/
+│       ├── openrouter_client.py          # Primary LLM adapter
+│       ├── groq_client.py                # Fallback LLM adapter
+│       └── fallback_llm_provider.py      # Provider failover
+└── use_cases/
+    ├── chat/
+    │   ├── query_orchestrator.py         # Chat workflow coordinator
+    │   ├── conversation_query_resolver.py# Follow-up query resolution
+    │   ├── retrieval_service.py          # Candidate/evidence selection
+    │   └── provenance_service.py         # Citation assembly
+    └── ingestion/document_processing.py  # Extraction and chunking
 ```
 
-This allows:
-- **Testing**: Swap real DB with mock/stub
-- **Future changes**: Replace Chroma with Pinecone without touching use case logic
+`streamlit_app/` is a separate presentation client. `scripts/ingest_documents.py` builds the local Chroma index, and `scripts/smoke_test.py` exercises the ingestion/retrieval/chat path.
 
-### 3. **Data Flow Through Layers**
+## Request Flow
 
-### **Request Flow (User Question → Answer)**
+1. `ChatRequest` validates the question, session ID, and optional conversation history.
+2. The route converts history messages to dictionaries and passes them to `QueryOrchestrator`.
+3. `ConversationQueryResolver` asks `SessionMemoryService` for only the most recent six messages by default.
+4. A standalone question bypasses rewriting. A likely dependent question is sent to the configured LLM with a small rewrite prompt and bounded history. The rewrite is used only as a retrieval query.
+5. `RetrievalService` retrieves candidates for the full query and explicit query parts, then filters and selects evidence.
+6. `QueryOrchestrator` joins only the selected evidence text into the document context.
+7. The original user question, rather than the rewritten retrieval query, is included in the final answer-generation prompt.
+8. `FallbackLLMProvider` tries OpenRouter first and Groq second if OpenRouter raises `LLMProviderError`.
+9. `ProvenanceService` builds citations from the selected results. The API serializes those citations, and Streamlit renders exactly what the API returns.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ 1. API Layer: Accept & Validate                             │
-│    ChatRequest(question, session_id, conversation_history)  │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ 2. Use Case Layer: Orchestrate                              │
-│    QueryOrchestrator.answer(question)                       │
-│    ├─ retrieval_service.retrieve(question) → [results]      │
-│    ├─ provenance_service.build_citations(results) → []      │
-│    └─ return { answer, citations }                          │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ 3. Infrastructure Layer: Execute                            │
-│    ChromaVectorStore.query(question, top_k=3)               │
-│    ├─ Embed question with SentenceTransformer               │
-│    ├─ Query Chroma with cosine similarity                   │
-│    └─ Return [{ text, metadata }, ...]                      │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ 4. API Layer: Serialize & Return                            │
-│    ChatResponse(                                            │
-│      session_id,                                            │
-│      answer,                                                │
-│      citations=[Citation(...), ...]                         │
-│    )                                                        │
-└─────────────────────────────────────────────────────────────┘
+## Retrieval and Evidence Selection
+
+### Vector store
+
+`ChromaVectorStore` uses `chromadb.PersistentClient` and stores its collection in `.chroma/`. It creates or opens the configured collection and uses the configured Sentence Transformers model to embed both documents and queries.
+
+The default embedding setting is:
+
+```text
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 ```
 
-### **Document Ingestion Flow**
+The collection is configured for cosine distance. Raw Chroma distances are preserved in each result as `distance`; they are not mislabeled as similarity scores. Lower distance means a closer vector match.
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│ 1. Scripts Layer: Orchestrate Ingestion                      │
-│    scripts/ingest_documents.py                               │
-│    ├─ LocalDocumentLoader.list_documents()                   │
-│    └─ DocumentProcessing.extract_text_from_document(doc)     │
-└──────────────────────────────────────────────────────────────┘
-                            ↓
-┌──────────────────────────────────────────────────────────────┐
-│ 2. Use Case Layer: Process                                   │
-│    DocumentProcessing.chunk_text(text)                       │
-│    ├─ Split by paragraphs and sentences                      │
-│    ├─ Apply metadata (source, page, section)                 │
-│    └─ Return [{ id, text, metadata }, ...]                   │
-└──────────────────────────────────────────────────────────────┘
-                            ↓
-┌──────────────────────────────────────────────────────────────┐
-│ 3. Infrastructure Layer: Persist                             │
-│    ChromaVectorStore.add_documents(documents)                │
-│    ├─ Embed each chunk with SentenceTransformer              │
-│    ├─ Add to Chroma collection with metadata                 │
-│    └─ Persist to .chroma/ directory                          │
-└──────────────────────────────────────────────────────────────┘
-```
+### Candidate retrieval
 
----
+`RAG_CANDIDATE_COUNT` controls the candidate count passed to each Chroma query and defaults to `5`. Retrieval is distinct from final evidence selection: candidate count is not the number of chunks that must be shown or sent to the LLM.
 
-## Key Module Details
+For explicit multi-part questions, `RetrievalService._query_parts()` keeps the full query and splits explicit comma-, semicolon-, and newline-delimited parts. It does not split every occurrence of `and` or `or`, so meaningful phrases such as `health and safety requirements` remain intact. Retrieved candidates retain their query-part association.
 
-### **Domain Layer** (`app/domain/`)
+### Relevance decision
 
-**Purpose**: Pure business entities and rules (framework-agnostic)
+`RetrievalService.select_relevant()` applies these deterministic rules:
 
-#### `entities/document_models.py`
-```python
-@dataclass
-class DocumentChunk:
-    id: str                      # Unique chunk identifier
-    text: str                    # The actual text content
-    metadata: Dict[str, Any]     # Source, page, section info
+1. Discard empty text, duplicate text, invalid distances, and non-finite distances.
+2. Sort remaining candidates by ascending cosine distance.
+3. Accept candidates within `RAG_DISTANCE_THRESHOLD`.
+4. For the top-ranked candidate only, allow a bounded relaxation up to `RAG_DISTANCE_THRESHOLD + RAG_DISTANCE_RELAXATION` when all of the following hold:
+   - the candidate is clearly separated from the next candidate by at least `RAG_MIN_DISTANCE_GAP`; and
+   - the candidate has generic lexical grounding with meaningful terms from the query.
+5. Do not treat a relative gap by itself as proof of relevance. This prevents the least-bad result from an entirely unrelated candidate set from becoming evidence.
+6. Prefer evidence covering distinct query parts, then fill remaining capacity by rank.
+7. Remove highly redundant chunks and enforce the maximum evidence and context-size limits.
 
-@dataclass
-class VectorRecord:
-    chunk: DocumentChunk
-    embedding: List[float]
-    similarity_score: float
+The current defaults are:
+
+```text
+RAG_DISTANCE_THRESHOLD=0.50
+RAG_DISTANCE_RELAXATION=0.05
+RAG_MIN_DISTANCE_GAP=0.10
+RAG_MAX_EVIDENCE=3
+RAG_MAX_CONTEXT_CHARS=12000
 ```
 
-**Why separate?** Domain models are reusable across:
-- FastAPI endpoints (serialization via Pydantic)
-- Use cases (orchestration logic)
-- Infrastructure (database queries)
-- Tests (mock data generation)
+There is no BM25, hybrid search, cross-encoder, semantic reranker, or additional relevance-classification LLM call in the current implementation.
 
----
+## Conversation Context
 
-### **Use Case Layer** (`app/use_cases/`)
+`SessionMemoryService` is a bounded window service. Its default `max_messages` value is `6`, and it returns only the last six messages supplied by the caller. It is not long-term memory and does not maintain a user profile.
 
-**Purpose**: Application business logic—orchestrates domain objects and infrastructure
+`ConversationQueryResolver` identifies likely dependent questions using generic references such as pronouns and continuation phrasing. For a dependent question with history, it sends a compact conversation-plus-question prompt to the configured LLM and requests only a standalone search query. It does not include retrieved document context and does not ask the model to answer the question.
 
-#### `chat/query_orchestrator.py`
-```python
-class QueryOrchestrator:
-    """Coordinates the flow: Retrieve policy → Build answer → Gather citations"""
-    
-    def answer(self, question: str):
-        # 1. Retrieve relevant policy sections
-        results = self.retrieval.retrieve(question, top_k=3)
-        
-        # 2. Build context-aware answer (heuristic for MVP)
-        answer = self._generate_answer(question, results)
-        
-        # 3. Extract citations
-        citations = self.provenance.build_citations(results)
-        
-        return { "answer": answer, "citations": citations }
+The rewritten query is used only for vector retrieval. The original user question remains the question in the final answer-generation prompt. If rewriting fails or returns an empty string, the original question is used for retrieval.
+
+## LLM Provider Boundary
+
+`LLMProvider` is the provider-independent interface with a `generate(messages)` method. `OpenRouterClient` and `GroqClient` implement that interface using OpenAI-compatible chat-completion APIs.
+
+- OpenRouter is the primary provider.
+- Groq is the fallback provider.
+- `FallbackLLMProvider` tries the primary provider first and invokes the fallback only for `LLMProviderError` failures.
+- If both providers fail, it raises an `LLMProviderError` describing that both providers failed.
+- Provider model names come from `LLM_MODEL` and `GROQ_MODEL`.
+- The currently confirmed Groq model is `openai/gpt-oss-20b`.
+- API keys come from `.env`; they must never be committed. `.env.example` contains placeholders only.
+
+Groq non-2xx responses include the HTTP status and a bounded sanitized response body in the provider error. API keys are not included in that diagnostic text.
+
+## Grounding and Provenance
+
+The final generation prompt instructs the LLM to use only the selected document context, avoid assumptions, answer supported parts of multi-part questions, and identify unsupported parts. If the selector returns no evidence, the orchestrator returns an information-not-found response with no citations.
+
+`ProvenanceService` maps each selected result to a citation using its metadata:
+
+```text
+source  <- metadata["source"] or a default source label
+section <- metadata["section"] or "Policy"
+text    <- selected result text
 ```
 
-**Why a separate orchestrator?**
-- Easy to test: mock `RetrievalService` and `ProvenanceService`
-- Easy to extend: add memory, add LLM provider, add search—just add methods
-- Clear intent: "This class answers policy questions"
+The API returns these as `Citation` objects. The Streamlit client does not independently choose or hide chunks; it displays the citations returned by the backend. This keeps LLM context, citations, and UI evidence consistent.
 
-#### `chat/retrieval_service.py`
-```python
-class RetrievalService:
-    """Abstraction over the vector database"""
-    
-    def __init__(self, collection_name=COLLECTION_NAME, persist_directory=None):
-        self.store = ChromaVectorStore(...)  # Could be Pinecone, Weaviate, etc.
-    
-    def retrieve(self, query_text: str, top_k: int = 3):
-        return self.store.query(query_text, top_k=top_k)
+## Ingestion Flow
+
+Ingestion remains separate from application startup:
+
+```text
+scripts/ingest_documents.py
+  -> LocalDocumentLoader enumerates input/
+  -> document_processing extracts text and chunks documents
+  -> ChromaVectorStore embeds and persists chunks with metadata
 ```
 
-**Why abstract?** In the future:
-- Replace `ChromaVectorStore` with `PineconeVectorStore`
-- RetrievalService doesn't change
-- No other code needs to know
+The current chunking and document-processing implementation is unchanged by the chat retrieval and provider work.
 
----
+## Configuration
 
-### **Infrastructure Layer** (`app/infrastructure/`)
+`app/core/settings.py` loads `.env` with `python-dotenv`. The code defaults are:
 
-**Purpose**: Technology-specific adapters (pluggable implementations)
-
-#### `vector/chroma_client.py`
-```python
-class ChromaVectorStore:
-    """Chroma-specific implementation (could be swapped for Pinecone, Weaviate, etc.)"""
-    
-    def __init__(self, collection_name, persist_directory):
-        self.client = chromadb.PersistentClient(path=persist_directory)
-        self.collection = self.client.get_or_create_collection(name=collection_name)
-        self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-    
-    def query(self, query_text: str, top_k: int = 3):
-        query_embedding = self.embedding_model.encode([query_text])
-        result = self.collection.query(query_embeddings=[query_embedding], n_results=top_k)
-        return [{ "text": doc, "metadata": meta } for doc, meta in zip(...)]
+```text
+DOCUMENTS_DIR=<project>/input
+COLLECTION_NAME=hr_policy_docs
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+RAG_DISTANCE_THRESHOLD=0.50
+RAG_DISTANCE_RELAXATION=0.05
+RAG_MIN_DISTANCE_GAP=0.10
+RAG_CANDIDATE_COUNT=5
+RAG_MAX_EVIDENCE=3
+RAG_MAX_CONTEXT_CHARS=12000
+OPENROUTER_API_KEY=""
+GROQ_API_KEY=""
+LLM_MODEL=openrouter/anthropic/claude-3.5-sonnet
+GROQ_MODEL=llama-3.1-8b-instant
 ```
 
-**Swappable design**: To use Pinecone instead:
-1. Create `app/infrastructure/vector/pinecone_client.py`
-2. Implement same interface: `query(query_text, top_k) → List[dict]`
-3. Update `RetrievalService.__init__()` to use `PineconeVectorStore`
-4. **All use cases and API remain unchanged**
+The values above are the Python defaults from `app/core/settings.py`. In the checked-in `.env.example` and the local working configuration, `GROQ_MODEL` is overridden to `openai/gpt-oss-20b`, the confirmed available fallback model. The Python fallback default remains `llama-3.1-8b-instant`; it was not changed. Environment variables override the Python defaults.
 
-#### `document/local_document_loader.py`
-```python
-class LocalDocumentLoader:
-    """Enumerates documents from the local input/ folder"""
-    
-    SUPPORTED_EXTENSIONS = [".docx", ".txt", ".md", ".pdf"]
-    
-    def list_documents(self) -> List[DocumentSource]:
-        # Find all .docx, .txt, .md files in input/
-        return [DocumentSource(path=f, name=f.name) for f in input_dir.glob(...)]
-    
-    def get_document(self, name: str) -> bytes:
-        # Load document binary content
-        return (input_dir / name).read_bytes()
-```
+## Testing
 
-**Future extensibility**: To load from S3 or SharePoint:
-1. Create `SharePointDocumentLoader` with same interface
-2. Update ingestion script to swap loader
-3. No other code changes needed
+The current test layout is:
 
----
+- `tests/unit/test_retrieval_selection.py`: Chroma distance preservation, absolute and relative relevance selection, lexical grounding rejection, duplicate removal, multi-part retrieval, evidence limits, and shared context/citation evidence.
+- `tests/unit/test_conversation_query_resolver.py`: standalone questions, dependent follow-ups, bounded history, unrelated follow-ups, and multi-part follow-up rewriting.
+- `tests/unit/test_llm_provider.py`: primary/fallback behavior and sanitized Groq provider errors.
+- `tests/unit/test_session_memory.py`: bounded recent-message behavior.
+- `tests/unit/test_document_ingestion.py`: document extraction and chunking.
+- `tests/contract/test_chat_api_contract.py`: `/api/chat` response shape.
+- `tests/integration/test_chat_e2e.py`: end-to-end chat requests and conversation-history requests.
+- `scripts/smoke_test.py`: manual ingestion, retrieval, and chat checks.
 
-### **API Layer** (`app/api/`)
+Tests use mocks for provider-specific unit behavior. The integration tests exercise the application boundary and may require a populated local Chroma collection and configured providers.
 
-**Purpose**: HTTP contract (how external systems talk to the app)
+## Extension Boundaries
 
-#### `routes/chat.py`
-```python
-@router.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
-    # 1. Validate input (Pydantic)
-    # 2. Call orchestrator
-    orchestrator = QueryOrchestrator()
-    result = orchestrator.answer(request.question)
-    
-    # 3. Serialize response (FastAPI/Pydantic)
-    return ChatResponse(
-        session_id=request.session_id,
-        answer=result["answer"],
-        citations=[Citation(...) for item in result["citations"]]
-    )
-```
+The current architecture leaves these replaceable boundaries:
 
-**Why separate routes?** Easy to:
-- Add new endpoints (e.g., `/search`, `/session/:id/history`)
-- Test API contracts independently
-- Version the API (`/api/v1/chat`, `/api/v2/chat`)
+- Replace `ChromaVectorStore` without moving vector-store details into the use cases.
+- Add document loaders without changing chat orchestration.
+- Replace OpenRouter or Groq adapters while preserving `LLMProvider`.
+- Replace Streamlit while preserving the FastAPI chat contract.
 
-#### `schemas/chat.py`
-```python
-class ChatRequest(BaseModel):
-    question: str = Field(..., min_length=1)
-    session_id: str = Field(default="default-session")
-    conversation_history: Optional[List[ChatMessage]] = None
-
-class Citation(BaseModel):
-    source: str         # "NEXORA_Employee_Handbook.docx"
-    section: str        # "Leave Policy"
-    text: str          # "Employees are entitled to 20 days of annual leave..."
-
-class ChatResponse(BaseModel):
-    session_id: str
-    answer: str
-    citations: List[Citation]
-```
-
-**Why contracts matter?**
-- Clear, testable interface between frontend and backend
-- Pydantic auto-validates inputs (no garbage in, no crashes)
-- API documentation auto-generated from schemas
-
----
-
-### **Presentation Layer** (`streamlit_app/`)
-
-**Purpose**: User-facing chat interface (separated from backend logic)
-
-#### `app.py`
-```python
-# UI Layer: Render chat, accept input
-user_input = st.chat_input("Ask about the HR policy...")
-
-if user_input:
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    
-    # Call backend via HTTP
-    service = ChatService(base_url="http://localhost:8001")
-    response = service.ask(user_input, session_id="streamlit-session")
-    
-    # Render response
-    st.markdown(response["answer"])
-    for citation in response["citations"]:
-        st.caption(f"Source: {citation['source']} | Section: {citation['section']}")
-```
-
-**Why separate frontend?**
-- UI can be swapped (replace Streamlit with React, Vue, etc.)
-- Backend remains unchanged
-- Can deploy frontend and backend independently
-
-#### `services/chat_service.py`
-```python
-class ChatService:
-    """HTTP client to the backend API"""
-    
-    def ask(self, question: str, session_id: str, history=None):
-        payload = {
-            "question": question,
-            "session_id": session_id,
-            "conversation_history": history or []
-        }
-        response = requests.post(f"{self.base_url}/api/chat", json=payload)
-        return response.json()
-```
-
----
-
-## Configuration & Environment Management
-
-### `app/core/settings.py`
-
-```python
-from pathlib import Path
-from pydantic_settings import BaseSettings
-
-class Settings(BaseSettings):
-    # Paths
-    BASE_DIR: Path = Path(__file__).parent.parent.parent
-    DOCUMENTS_DIR: str = str(BASE_DIR / "input")
-    
-    # Vector DB
-    COLLECTION_NAME: str = "hr_policy_docs"
-    CHROMA_PERSIST_DIR: str = str(BASE_DIR / ".chroma")
-    
-    # Embedding
-    EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
-    
-    # LLM Providers (for future use)
-    OPENROUTER_API_KEY: Optional[str] = None
-    GROQ_API_KEY: Optional[str] = None
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
-
-settings = Settings()
-```
-
-**Why centralized?**
-- Single source of truth for configuration
-- Environment variables override defaults
-- Easy to add new settings without scattering them across codebase
-- Testable: can override settings in test fixtures
-
----
-
-## Dependency Graph
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ External Systems                                            │
-├─────────────────────────────────────────────────────────────┤
-│ • Streamlit Browser UI                                      │
-│ • Local Filesystem (input/)                                 │
-│ • Chroma DB (.chroma/)                                      │
-│ • HuggingFace Hub (SentenceTransformer embeddings)          │
-└─────────────────────────────────────────────────────────────┘
-                            ↑
-                   (HTTP calls, file I/O)
-                            ↑
-┌─────────────────────────────────────────────────────────────┐
-│ API Layer (app/api/)                                        │
-├─────────────────────────────────────────────────────────────┤
-│ • Routes: /api/chat, /health                                │
-│ • Schemas: ChatRequest, ChatResponse, Citation              │
-│ • ↓ Depends on Use Cases                                    │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Use Case Layer (app/use_cases/)                             │
-├─────────────────────────────────────────────────────────────┤
-│ • QueryOrchestrator (orchestrates retrieval & answering)   │
-│ • RetrievalService (queries the vector store)               │
-│ • ProvenanceService (builds citations)                      │
-│ • DocumentProcessing (chunks & embeds documents)            │
-│ • SessionMemory (conversation state)                        │
-│ • ↓ Depends on Domain & Infrastructure                      │
-└─────────────────────────────────────────────────────────────┘
-                   ↙                    ↘
-┌──────────────────────┐    ┌──────────────────────┐
-│ Domain Layer         │    │ Infrastructure Layer │
-├──────────────────────┤    ├──────────────────────┤
-│ (app/domain/)        │    │ (app/infrastructure/)│
-│                      │    │                      │
-│ Entities:            │    │ Adapters:            │
-│ • DocumentChunk      │    │ • ChromaVectorStore  │
-│ • QuerySession       │    │ • LocalDocumentLoad. │
-│ • Message            │    │ • (Future: Pinecone) │
-│                      │    │ • (Future: SharePt.) │
-│ Services:            │    │ • (Future: OpenAI)   │
-│ • SessionMemoryServ. │    │                      │
-└──────────────────────┘    └──────────────────────┘
-```
-
----
-
-## Testing Strategy
-
-Each layer is independently testable:
-
-### **Unit Tests** (`tests/unit/`)
-Test isolated business logic without external dependencies:
-```python
-def test_document_extraction():
-    """Test document parsing (domain + use case logic)"""
-    text = extract_text_from_document("Nexora_Employee_Handbook.docx")
-    assert "NEXORA" in text
-    assert len(text) > 100
-
-def test_session_memory_bounded():
-    """Test bounded conversation window (domain logic)"""
-    memory = SessionMemoryService(max_messages=6)
-    history = [msg1, msg2, msg3, msg4, msg5, msg6, msg7]
-    recent = memory.get_recent_messages(history)
-    assert len(recent) == 6  # Only last 6
-```
-
-### **Contract Tests** (`tests/contract/`)
-Test API shape/schema (API layer):
-```python
-def test_chat_endpoint_returns_chat_response():
-    """Test that /api/chat returns valid ChatResponse schema"""
-    payload = { "question": "...", "session_id": "..." }
-    response = client.post("/api/chat", json=payload)
-    assert response.status_code == 200
-    body = response.json()
-    assert "session_id" in body
-    assert "answer" in body
-    assert "citations" in body
-    assert len(body["citations"]) >= 1
-```
-
-### **Integration Tests** (`tests/integration/`)
-Test end-to-end workflows:
-```python
-def test_chat_api_end_to_end():
-    """Test full flow: question → retrieval → answer + citations"""
-    response = client.post("/api/chat", json={
-        "question": "What is the leave policy?",
-        "session_id": "test-session",
-        "conversation_history": []
-    })
-    
-    assert response.status_code == 200
-    body = response.json()
-    assert "leave" in body["answer"].lower() or len(body["citations"]) > 0
-```
-
----
-
-## Future Extensibility Points
-
-### **1. Add Follow-Up Questions (US2)**
-```python
-# Modify chat flow to include memory
-class QueryOrchestrator:
-    def answer_with_history(self, question: str, session_id: str, history: List[Message]):
-        # Load recent conversation context
-        memory = SessionMemory()
-        memory.add_messages(history)
-        
-        # Augment question with prior context
-        augmented_q = memory.contextualize(question)
-        
-        # Retrieve & answer as before
-        return self.answer(augmented_q)
-```
-
-### **2. Add Real LLM Answers (Instead of Heuristics)**
-```python
-class QueryOrchestrator:
-    def answer(self, question: str):
-        results = self.retrieval.retrieve(question)
-        context = "\n".join([r["text"] for r in results])
-        
-        # Call LLM provider
-        llm_provider = OpenRouterProvider(api_key=settings.OPENROUTER_API_KEY)
-        answer = llm_provider.generate(
-            prompt=f"Question: {question}\n\nContext: {context}",
-            model="meta-llama/llama-2-70b"
-        )
-        
-        return { "answer": answer, "citations": ... }
-```
-
-### **3. Add Search UI (US3)**
-```python
-# New route
-@router.get("/api/search", response_model=SearchResults)
-async def search(query: str, top_k: int = 5):
-    orchestrator = QueryOrchestrator()
-    results = orchestrator.retrieval.retrieve(query, top_k=top_k)
-    return SearchResults(results=[...])
-
-# New Streamlit page: streamlit_app/pages/search_policy.py
-```
-
-### **4. Swap Vector Database**
-```python
-# Create new adapter
-class PineconeVectorStore:
-    def __init__(self, index_name, namespace, api_key):
-        self.client = pinecone.Index(index_name)
-    
-    def query(self, query_text: str, top_k: int = 3):
-        # Pinecone-specific query logic
-        return self.client.query(embeddings=[...], top_k=top_k)
-
-# Update RetrievalService
-class RetrievalService:
-    def __init__(self, use_pinecone=False):
-        if use_pinecone:
-            self.store = PineconeVectorStore(...)
-        else:
-            self.store = ChromaVectorStore(...)
-```
-
----
-
-## Key Architectural Decisions & Trade-offs
-
-| Decision | Rationale | Trade-off |
-|----------|-----------|-----------|
-| **Modular Monolith** | Single deployment, independent modules, easy testing | Not microservices (less scalability, but simpler for MVP) |
-| **Local Vector DB** | No external dependencies, fast POC | Limited to single-machine scaling (OK for MVP) |
-| **Chroma** | Python-native, embedded option, fast to set up | Less mature than enterprise DBs (fine for MVP) |
-| **Streamlit UI** | Rapid prototyping, built-in state management | Not suitable for complex multi-page apps (fine for MVP) |
-| **Heuristic Answers** | Fast MVP without LLM provider setup | Less natural language (LLM planned for future) |
-| **Local Document Storage** | Simple, no S3/SharePoint setup needed | Manual document upload (fine for MVP) |
-| **Sentence-Transformers** | Small, fast embeddings, runs locally | Less nuanced than enterprise embeddings (fine for MVP) |
-
----
-
-## Deployment & Scaling Path
-
-### **MVP (Current)**
-```
-Single Machine
-├─ FastAPI Backend (8001)
-├─ Streamlit UI (8501)
-├─ Chroma DB (.chroma/)
-└─ Documents (input/)
-```
-
-### **Future: Scale Horizontally**
-```
-Cloud Deployment
-├─ FastAPI → Cloud Run / ECS
-│   └─ Scales horizontally
-├─ Streamlit → Streamlit Cloud / Docker
-├─ Chroma → Pinecone / Weaviate Cloud
-│   └─ Managed vector DB
-├─ Documents → S3 / GCS
-│   └─ Centralized storage
-└─ LLM APIs → OpenRouter / Azure OpenAI
-    └─ Managed inference
-```
-
-### **Future: Microservices (If Needed)**
-```
-├─ Chat Service (current app/api/routes/chat.py)
-├─ Ingestion Service (current scripts/ingest_documents.py)
-├─ Retrieval Service (current app/use_cases/chat/retrieval_service.py)
-└─ Memory Service (current app/use_cases/chat/session_memory.py)
-```
-
-Each could become its own microservice with shared message queue.
-
----
-
-## Summary
-
-The **modular monolith architecture** provides:
-
-✅ **Clear separation of concerns**: API → Use Cases → Domain + Infrastructure  
-✅ **Testability**: Each layer independently mockable  
-✅ **Extensibility**: New features/providers added without touching existing code  
-✅ **Simplicity**: Single deployable app (easier than microservices for MVP)  
-✅ **Future-proof**: Can evolve to microservices or scale infrastructure as needed  
-
-This design ensures KnowLayer can start simple and scale intelligently as requirements grow.
+Authentication, authorization, enterprise HR integrations, hosted storage, and production operational controls are outside the current MVP.
