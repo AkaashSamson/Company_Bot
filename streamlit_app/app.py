@@ -16,13 +16,18 @@ for message in st.session_state.messages:
 user_input = st.chat_input("Ask about the HR policy...")
 
 if user_input:
+    conversation_history = list(st.session_state.messages)
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
 
     service = ChatService(base_url="http://localhost:8000")
     try:
-        response = service.ask(user_input, session_id="streamlit-session")
+        response = service.ask(
+            user_input,
+            session_id="streamlit-session",
+            history=conversation_history,
+        )
         answer = response.get("answer", "I could not find a relevant answer in the policy source.")
     except requests.exceptions.ConnectionError:
         answer = "The chat backend is not running. Start FastAPI with: python -m uvicorn app.main:app --host 127.0.0.1 --port 8000"

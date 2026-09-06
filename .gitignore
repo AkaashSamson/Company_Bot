@@ -1,1 +1,12 @@
+# Environment variables
 .env
+
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Chroma local database
+.chroma/
