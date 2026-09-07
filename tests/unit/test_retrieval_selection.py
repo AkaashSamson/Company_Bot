@@ -1,6 +1,7 @@
 from app.use_cases.chat.retrieval_service import RetrievalService
 from app.infrastructure.vector.chroma_client import ChromaVectorStore
 from app.use_cases.chat.query_orchestrator import QueryOrchestrator
+from app.infrastructure.llm.prompt_cache import PromptLRUCache
 
 
 def result(text, distance):
@@ -231,6 +232,7 @@ def test_orchestrator_uses_same_selected_evidence_for_context_and_citations():
         retrieval=FakeRetrieval(),
         provenance=FakeProvenance(),
         llm=llm,
+        response_cache=PromptLRUCache(maxsize=0),
     ).answer("How many sick leaves?")
 
     assert result["citations"] == [{"text": "Sick leave is 10 days per year."}]
@@ -260,6 +262,7 @@ def test_orchestrator_separates_retrieval_query_from_original_question():
         provenance=FakeProvenance(),
         llm=llm,
         query_resolver=FixedResolver(),
+        response_cache=PromptLRUCache(maxsize=0),
     ).answer("What about carrying them forward?", conversation_history=[])
 
     assert retrieval.query == "standalone carry-forward query"
@@ -276,6 +279,7 @@ def test_orchestrator_returns_fallback_without_citations_for_empty_retrieval():
         retrieval=EmptyRetrieval(),
         provenance=FakeProvenance(),
         llm=FakeLLM(),
+        response_cache=PromptLRUCache(maxsize=0),
     ).answer("Unknown policy?")
 
     assert result["citations"] == []
@@ -296,6 +300,7 @@ def test_orchestrator_rejects_out_of_domain_evidence_before_llm_context():
         retrieval=WeakRetrieval(),
         provenance=FakeProvenance(),
         llm=llm,
+        response_cache=PromptLRUCache(maxsize=0),
     ).answer("Who is the current Prime Minister of India?")
 
     assert result["citations"] == []

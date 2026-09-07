@@ -23,3 +23,8 @@ class ChatResponse(BaseModel):
     session_id: str
     answer: str
     citations: List[Citation] = []
+
+
+class FAQResponse(BaseModel):
+    faqs: str
+    citations: List[Citation] = []
