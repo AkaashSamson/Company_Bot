@@ -6,6 +6,7 @@ from app.use_cases.chat.provenance_service import ProvenanceService
 from app.use_cases.chat.conversation_query_resolver import ConversationQueryResolver
 from app.use_cases.chat.retrieval_service import RetrievalService
 from app.domain.services.session_memory_service import SessionMemoryService
+from app.infrastructure.faq.mongo_faq_store import MongoFAQStore
 
 
 class QueryOrchestrator:
@@ -16,9 +17,11 @@ class QueryOrchestrator:
         llm=None,
         query_resolver=None,
         memory=None,
+        faq_store=None,
     ):
         self.retrieval = retrieval or RetrievalService()
         self.provenance = provenance or ProvenanceService()
+        self.faq_store = faq_store or MongoFAQStore()
 
         self.llm = llm or FallbackLLMProvider(
             primary=OpenRouterClient(),
@@ -75,9 +78,11 @@ class QueryOrchestrator:
         ]
 
         answer = self.llm.generate(messages)
+        citations = self.provenance.build_citations(selected_evidence)
+        self.faq_store.save(question, answer, citations)
 
         return {
             "answer": answer,
-            "citations": self.provenance.build_citations(selected_evidence),
+            "citations": citations,
             "context": context,
         }
