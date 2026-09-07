@@ -6,6 +6,7 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DOCUMENTS_DIR = os.getenv("DOCUMENTS_DIR", str(BASE_DIR / "input"))
+UPLOADS_DIR = os.getenv("UPLOADS_DIR", str(Path(DOCUMENTS_DIR) / "uploads"))
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "hr_policy_docs")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 RAG_DISTANCE_THRESHOLD = float(os.getenv("RAG_DISTANCE_THRESHOLD", "0.50"))

@@ -10,3 +10,6 @@ __pycache__/
 
 # Chroma local database
 .chroma/
+
+# User-uploaded documents
+input/uploads/

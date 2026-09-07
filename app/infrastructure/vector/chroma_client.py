@@ -38,6 +38,19 @@ class ChromaVectorStore:
             embeddings=embeddings,
         )
 
+    def count_by_source(self, source: str) -> int:
+        """Return the number of stored chunks tagged with a source file name."""
+        result = self.collection.get(where={"source": source})
+        return len(result.get("ids", []) or [])
+
+    def delete_by_source(self, source: str) -> int:
+        """Delete every chunk tagged with a source file name and return the count."""
+        result = self.collection.get(where={"source": source})
+        ids = result.get("ids", []) or []
+        if ids:
+            self.collection.delete(ids=ids)
+        return len(ids)
+
     def query(self, query_text: str, top_k: int = 3) -> List[dict]:
         if not query_text.strip():
             return []

@@ -4,7 +4,13 @@ import requests
 from streamlit_app.services.chat_service import ChatService
 
 st.set_page_config(page_title="KnowLayer HR Chatbot", page_icon="📘")
-st.title("KnowLayer HR Policy Assistant")
+
+header_col, button_col = st.columns([5, 1])
+with header_col:
+    st.title("KnowLayer HR Policy Assistant")
+with button_col:
+    if st.button("➕ Add New Document", use_container_width=True):
+        st.switch_page("pages/1_Upload_Document.py")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
