@@ -12,6 +12,7 @@ from app.core.settings import (
     RAG_MAX_EVIDENCE,
 )
 from app.infrastructure.vector.chroma_client import ChromaVectorStore
+from app.use_cases.access.access_control_service import AccessControlService
 
 
 class RetrievalService:
@@ -26,10 +27,20 @@ class RetrievalService:
         query_text: str,
         top_k: int = RAG_CANDIDATE_COUNT,
         max_evidence: int = RAG_MAX_EVIDENCE,
+        document_ids=None,
     ):
+        """Retrieve evidence restricted to ``document_ids``.
+
+        Fails closed: with no document ids the search is not performed and an
+        empty result set is returned rather than an unscoped query.
+        """
+        where = AccessControlService.build_chroma_where(document_ids)
+        if not where:
+            return []
+
         candidates = []
         for part_index, retrieval_query in enumerate(self._query_parts(query_text)):
-            for candidate in self.store.query(retrieval_query, top_k=top_k):
+            for candidate in self.store.query(retrieval_query, top_k=top_k, where=where):
                 candidates.append({**candidate, "_query_part_index": part_index})
         return self.select_relevant(
             query_text,

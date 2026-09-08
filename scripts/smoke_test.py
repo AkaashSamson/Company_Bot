@@ -40,7 +40,12 @@ def test_orchestrator():
     """Test 3: Verify query orchestrator generates answers with citations."""
     print("\n[TEST 3] Testing query orchestrator...")
     orchestrator = QueryOrchestrator()
-    result = orchestrator.answer("What is the leave policy?")
+    # Authz-aware: only chunks of documents the seeded manager may read feed the LLM.
+    result = orchestrator.answer(
+        "What is the leave policy?",
+        employee_id="MSS001",
+        role_code="manager",
+    )
     
     assert "answer" in result, "Result missing 'answer' field"
     assert "citations" in result, "Result missing 'citations' field"

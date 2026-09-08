@@ -8,6 +8,11 @@ from app.main import app
 
 client = TestClient(app)
 
+# Requires the seeded demo stack (MongoDB up, users seeded via
+# python -m scripts.seed_users). The manager account has access to any
+# document it owns or that grants the manager role.
+AUTH_HEADERS = {"X-User-Id": "MSS001", "X-User-Role": "manager"}
+
 
 def test_chat_api_end_to_end():
     """Test that the chat API returns real retrieval results with citations."""
@@ -17,7 +22,7 @@ def test_chat_api_end_to_end():
         "conversation_history": [],
     }
     
-    response = client.post("/api/chat", json=payload)
+    response = client.post("/api/chat", json=payload, headers=AUTH_HEADERS)
     
     # Validate HTTP response
     assert response.status_code == 200, f"Expected 200, got {response.status_code}"
@@ -53,7 +58,7 @@ def test_chat_api_with_history():
         ],
     }
     
-    response = client.post("/api/chat", json=payload)
+    response = client.post("/api/chat", json=payload, headers=AUTH_HEADERS)
     
     assert response.status_code == 200
     body = response.json()

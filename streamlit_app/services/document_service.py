@@ -14,12 +14,25 @@ class DocumentService:
         file_name: str,
         file_data: bytes,
         overwrite: bool = False,
+        allowed_role_codes=None,
+        allowed_user_ids=None,
+        headers=None,
         timeout: int = 300,
     ):
         url = f"{self.base_url}/api/documents/upload?overwrite={str(overwrite).lower()}"
         files = {"file": (file_name, file_data)}
+        data = {
+            "allowed_role_codes": allowed_role_codes or [],
+            "allowed_user_ids": allowed_user_ids or [],
+        }
         try:
-            response = requests.post(url, files=files, timeout=timeout)
+            response = requests.post(
+                url,
+                files=files,
+                data=data,
+                headers=headers or {},
+                timeout=timeout,
+            )
         except requests.exceptions.ConnectionError as exc:
             raise DocumentUploadError(
                 "The backend is not running. Start FastAPI with: "

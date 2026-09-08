@@ -1,15 +1,27 @@
 import streamlit as st
 import requests
 
+from streamlit_app.auth import identity_headers, logout, render_login
 from streamlit_app.services.chat_service import ChatService
 
 st.set_page_config(page_title="KnowLayer HR Chatbot", page_icon="📘")
 
-header_col, button_col = st.columns([5, 1])
+user = render_login()
+if user is None:
+    st.stop()
+
+header_col, info_col, button_col = st.columns([4, 3, 1])
 with header_col:
     st.title("KnowLayer HR Policy Assistant")
+with info_col:
+    st.caption(
+        f"👤 {user.get('first_name', '')} {user.get('last_name', '')} "
+        f"· {user.get('employee_id', '')} · {user.get('role_code', '')}"
+    )
 with button_col:
-    if st.button("➕ Add New Document", use_container_width=True):
+    if st.button("Logout", use_container_width=True):
+        logout()
+    if st.button("➕ Add New Document"):
         st.switch_page("pages/1_Upload_Document.py")
 
 if "messages" not in st.session_state:
@@ -33,6 +45,7 @@ if user_input:
             user_input,
             session_id="streamlit-session",
             history=conversation_history,
+            headers=identity_headers(),
         )
         answer = response.get("answer", "I could not find a relevant answer in the policy source.")
     except requests.exceptions.ConnectionError:

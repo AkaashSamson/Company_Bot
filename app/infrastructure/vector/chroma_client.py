@@ -51,16 +51,24 @@ class ChromaVectorStore:
             self.collection.delete(ids=ids)
         return len(ids)
 
-    def query(self, query_text: str, top_k: int = 3) -> List[dict]:
+    def query(
+        self,
+        query_text: str,
+        top_k: int = 3,
+        where: Optional[Dict[str, Any]] = None,
+    ) -> List[dict]:
         if not query_text.strip():
             return []
 
         query_embedding = self.embedding_model.encode([query_text], convert_to_numpy=True).tolist()[0]
-        result = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
-            include=["documents", "metadatas", "distances"],
-        )
+        query_kwargs = {
+            "query_embeddings": [query_embedding],
+            "n_results": top_k,
+            "include": ["documents", "metadatas", "distances"],
+        }
+        if where:
+            query_kwargs["where"] = where
+        result = self.collection.query(**query_kwargs)
 
         documents = result.get("documents", [[]])[0]
         metadatas = result.get("metadatas", [[]])[0]

@@ -5,7 +5,8 @@ from app.main import app
 client = TestClient(app)
 
 
-def test_chat_endpoint_returns_chat_response():
+def test_chat_endpoint_requires_authentication():
+    """Chat is now a protected resource; anonymous callers get 401."""
     payload = {
         "question": "What is the annual leave policy?",
         "session_id": "session-123",
@@ -15,8 +16,14 @@ def test_chat_endpoint_returns_chat_response():
         ],
     }
     response = client.post("/api/chat", json=payload)
-    assert response.status_code == 200
-    body = response.json()
-    assert body["session_id"] == "session-123"
-    assert "answer" in body
-    assert len(body["citations"]) >= 1
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Authentication required"
+
+
+def test_upload_endpoint_requires_authentication():
+    response = client.post(
+        "/api/documents/upload",
+        files={"file": ("policy.txt", b"content")},
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Authentication required"

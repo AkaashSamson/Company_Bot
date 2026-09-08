@@ -47,12 +47,14 @@ class DocumentIngestionService:
         source_name: Optional[str] = None,
         overwrite: bool = False,
         section: str = "Policy",
+        document_id: Optional[str] = None,
     ) -> IngestionResult:
         path = Path(file_path)
         if not path.exists():
             raise FileNotFoundError(file_path)
 
         source = source_name or path.name
+        doc_id = document_id or path.stem
 
         existing_chunks = self.store.count_by_source(source)
         if existing_chunks > 0 and not overwrite:
@@ -82,6 +84,7 @@ class DocumentIngestionService:
                 "text": chunk,
                 "metadata": {
                     "source": source,
+                    "document_id": doc_id,
                     "chunk_index": index,
                     "section": section,
                 },

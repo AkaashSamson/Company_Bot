@@ -153,9 +153,14 @@ def test_retrieve_queries_full_question_and_distinct_parts():
         def __init__(self):
             self.queries = []
 
-        def query(self, query_text, top_k):
+        def query(self, query_text, top_k, where=None):
             self.queries.append(query_text)
-            return [result(f"Distinct section {len(self.queries)}", 0.2)]
+            return [
+                {
+                    **result(f"Distinct section {len(self.queries)}", 0.2),
+                    "metadata": {"document_id": "DOC001"},
+                }
+            ]
 
     service = RetrievalService.__new__(RetrievalService)
     service.store = Store()
@@ -164,6 +169,7 @@ def test_retrieve_queries_full_question_and_distinct_parts():
         "Explain eligibility, documentation, and approval requirements.",
         top_k=2,
         max_evidence=3,
+        document_ids=["DOC001"],
     )
 
     assert service.store.queries == [
@@ -174,6 +180,14 @@ def test_retrieve_queries_full_question_and_distinct_parts():
     ]
     assert len(selected) == 3
     assert [item["_query_part_index"] for item in selected] == [0, 1, 2]
+
+
+def test_retrieve_fails_closed_without_document_ids():
+    service = RetrievalService.__new__(RetrievalService)
+    service.store = object()  # must never be reached
+
+    assert service.retrieve("Why?", document_ids=None) == []
+    assert service.retrieve("Why?", document_ids=[]) == []
 
 
 def test_chroma_query_preserves_distance():
@@ -205,15 +219,23 @@ def test_chroma_query_preserves_distance():
 
 
 class FakeRetrieval:
-    def retrieve(self, question, top_k):
+    def retrieve(self, question, top_k, document_ids=None):
         return [
-            result("Sick leave is 10 days per year.", 0.2),
+            {
+                **result("Sick leave is 10 days per year.", 0.2),
+                "metadata": {"document_id": "DOC001"},
+            }
         ]
 
 
 class FakeProvenance:
     def build_citations(self, results):
         return [{"text": item["text"]} for item in results]
+
+
+class FakeAuthorization:
+    def get_accessible_document_ids(self, employee_id):
+        return ["DOC001"]
 
 
 class FakeLLM:
@@ -231,7 +253,8 @@ def test_orchestrator_uses_same_selected_evidence_for_context_and_citations():
         retrieval=FakeRetrieval(),
         provenance=FakeProvenance(),
         llm=llm,
-    ).answer("How many sick leaves?")
+        authorization=FakeAuthorization(),
+    ).answer("How many sick leaves?", employee_id="MSS001")
 
     assert result["citations"] == [{"text": "Sick leave is 10 days per year."}]
     assert "Sick leave is 10 days per year." in llm.messages[1]["content"]
@@ -242,9 +265,14 @@ class RecordingRetrieval:
     def __init__(self):
         self.query = None
 
-    def retrieve(self, question, top_k):
+    def retrieve(self, question, top_k, document_ids=None):
         self.query = question
-        return [result("Carry-forward is described in the policy.", 0.2)]
+        return [
+            {
+                **result("Carry-forward is described in the policy.", 0.2),
+                "metadata": {"document_id": "DOC001"},
+            }
+        ]
 
 
 class FixedResolver:
@@ -260,14 +288,15 @@ def test_orchestrator_separates_retrieval_query_from_original_question():
         provenance=FakeProvenance(),
         llm=llm,
         query_resolver=FixedResolver(),
-    ).answer("What about carrying them forward?", conversation_history=[])
+        authorization=FakeAuthorization(),
+    ).answer("What about carrying them forward?", conversation_history=[], employee_id="MSS001")
 
     assert retrieval.query == "standalone carry-forward query"
     assert "What about carrying them forward?" in llm.messages[1]["content"]
 
 
 class EmptyRetrieval:
-    def retrieve(self, question, top_k):
+    def retrieve(self, question, top_k, document_ids=None):
         return []
 
 
@@ -276,14 +305,15 @@ def test_orchestrator_returns_fallback_without_citations_for_empty_retrieval():
         retrieval=EmptyRetrieval(),
         provenance=FakeProvenance(),
         llm=FakeLLM(),
-    ).answer("Unknown policy?")
+        authorization=FakeAuthorization(),
+    ).answer("Unknown policy?", employee_id="MSS001")
 
     assert result["citations"] == []
     assert "could not find" in result["answer"].lower()
 
 
 class WeakRetrieval:
-    def retrieve(self, question, top_k):
+    def retrieve(self, question, top_k, document_ids=None):
         return RetrievalService.select_relevant(
             question,
             [result("An unrelated policy passage.", 0.9)],
@@ -296,7 +326,8 @@ def test_orchestrator_rejects_out_of_domain_evidence_before_llm_context():
         retrieval=WeakRetrieval(),
         provenance=FakeProvenance(),
         llm=llm,
-    ).answer("Who is the current Prime Minister of India?")
+        authorization=FakeAuthorization(),
+    ).answer("Who is the current Prime Minister of India?", employee_id="MSS001")
 
     assert result["citations"] == []
     assert "could not find" in result["answer"].lower()
