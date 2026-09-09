@@ -1,12 +1,30 @@
-# Environment variables
-.env
-
-# Virtual environment
-.venv/
-
-# Python cache
+# Python cache and bytecode
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
 
-# Chroma local database
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# Local databases & Chroma vector store
 .chroma/
+*.sqlite3
+
+# Environment variables
+.env
+.env.local
+
+# Testing & coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE and OS metadata
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
