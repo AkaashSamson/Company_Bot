@@ -20,7 +20,14 @@ class ChromaVectorStore:
             name=self.collection_name,
             metadata={"hnsw:space": "cosine"},
         )
-        self.embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+        self._embedding_model = None
+
+    @property
+    def embedding_model(self):
+        """Lazy load the embedding model to avoid blocking on startup."""
+        if self._embedding_model is None:
+            self._embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+        return self._embedding_model
 
     def add_documents(self, documents: List[Dict[str, Any]]) -> None:
         if not documents:
