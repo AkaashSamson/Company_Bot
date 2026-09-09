@@ -1,3 +1,4 @@
+from app.core.prompt_config import load_prompt
 from app.core.settings import RAG_CANDIDATE_COUNT
 from app.infrastructure.llm.fallback_llm_provider import FallbackLLMProvider
 from app.infrastructure.llm.groq_client import GroqClient
@@ -56,16 +57,7 @@ class QueryOrchestrator:
         messages = [
             {
                 "role": "system",
-                "content": (
-                    "You answer questions using only the provided document context. "
-                    "Do not invent or assume information. "
-                    "For multi-part questions, answer each supported part "
-                    "and explicitly state which part is not present in the documents. "
-                    "If no part is supported, say the requested information "
-                    "could not be found in the available documents. "
-                    "Keep the answer concise and directly answer "
-                    "the user's question."
-                ),
+                "content": load_prompt("rag_answer_generation"),
             },
             {
                 "role": "user",
