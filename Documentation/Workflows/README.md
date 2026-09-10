@@ -2,6 +2,7 @@
 
 Workflow guides for the SQL organization-access feature:
 
+- [Authentication and bootstrap](authentication-and-bootstrap.md): Admin setup, password rotation, Manager onboarding, and protected requests.
 - [User management](user-management.md): Users page, user CRUD, authorization, Unit of Work, and persistence adapters.
 - [Project membership](project-membership.md): department scope, many-to-many assignment, idempotency, and rollback.
 - [Document management](document-management.md): optional project assignment, lifecycle, ingestion metadata, and unassigned documents.

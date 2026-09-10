@@ -17,6 +17,14 @@ class User:
     status: str = "active"
     created_at: datetime = field(default_factory=utc_now)
     updated_at: datetime = field(default_factory=utc_now)
+    username: str = ""
+    password_representation: str = ""
+    password_changed_at: Optional[datetime] = None
+    must_change_password: bool = False
+
+    def __post_init__(self):
+        if not self.username:
+            self.username = self.uid
 
 
 @dataclass(slots=True)

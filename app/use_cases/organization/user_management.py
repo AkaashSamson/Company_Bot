@@ -3,6 +3,7 @@ from typing import Callable
 
 from app.domain.entities.organization_models import Department, User
 from app.domain.services.organization_errors import ConflictError, ForbiddenError, NotFoundError
+from app.infrastructure.authentication.password_hasher import PasswordHasher
 
 
 def utc_now():
@@ -10,8 +11,9 @@ def utc_now():
 
 
 class UserManagementService:
-    def __init__(self, unit_of_work_factory: Callable):
+    def __init__(self, unit_of_work_factory: Callable, password_hasher=None):
         self.unit_of_work_factory = unit_of_work_factory
+        self.password_hasher = password_hasher or PasswordHasher()
 
     def create_department(self, actor_uid: str, department_id: str, department_name: str):
         with self.unit_of_work_factory() as uow:
@@ -29,19 +31,25 @@ class UserManagementService:
         with self.unit_of_work_factory() as uow:
             return list(uow.departments.list())
 
-    def create_user(self, actor_uid, uid, name, email, role, department_id):
+    def create_user(self, actor_uid, uid, name, email, role, department_id, username=None, initial_password=None):
         with self.unit_of_work_factory() as uow:
             actor = uow.users.get_by_uid(actor_uid)
             if actor is None or actor.status != "active":
                 raise ForbiddenError("Active authenticated user required")
-            if uow.users.get_by_uid(uid) or uow.users.get_by_email(email):
+            username = username or uid
+            if uow.users.get_by_uid(uid) or uow.users.get_by_email(email) or uow.users.get_by_username(username):
                 raise ConflictError("User UID or email already exists")
             if not uow.departments.get(department_id):
                 raise NotFoundError("Department not found")
             if actor.role.casefold() != "admin" and actor.department_id != department_id:
                 raise ForbiddenError("User is outside manager scope")
             now = utc_now()
-            user = User(uid, name, email, role, department_id, created_at=now, updated_at=now)
+            user = User(
+                uid, name, email, role, department_id, created_at=now, updated_at=now,
+                username=username,
+                password_representation=self.password_hasher.hash(initial_password) if initial_password else "",
+                must_change_password=bool(initial_password),
+            )
             uow.users.save(user)
             uow.commit()
             return user

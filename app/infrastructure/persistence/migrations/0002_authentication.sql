@@ -1,0 +1,5 @@
+ALTER TABLE users ADD COLUMN username VARCHAR(128) NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN password_representation VARCHAR(512) NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN password_changed_at TIMESTAMP NULL;
+ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT 0;
+CREATE UNIQUE INDEX IF NOT EXISTS ix_users_username ON users (username);

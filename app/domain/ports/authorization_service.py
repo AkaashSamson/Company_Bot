@@ -5,6 +5,7 @@ from typing import Protocol, Sequence
 @dataclass(frozen=True, slots=True)
 class AuthenticatedPrincipal:
     uid: str
+    token: str | None = None
 
 
 class AuthorizationService(Protocol):

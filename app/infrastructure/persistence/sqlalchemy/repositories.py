@@ -17,7 +17,12 @@ from app.infrastructure.persistence.sqlalchemy.models import (
 
 
 def _user(record: UserRecord) -> User:
-    return User(record.uid, record.name, record.email, record.role, record.department_id, record.status, record.created_at, record.updated_at)
+    return User(
+        record.uid, record.name, record.email, record.role, record.department_id,
+        record.status, record.created_at, record.updated_at,
+        record.username or record.uid, record.password_representation,
+        record.password_changed_at, record.must_change_password,
+    )
 
 
 def _department(record: DepartmentRecord) -> Department:
@@ -48,6 +53,10 @@ class SqlAlchemyUserRepository:
         record = self.session.scalar(select(UserRecord).where(UserRecord.email == email))
         return _user(record) if record else None
 
+    def get_by_username(self, username):
+        record = self.session.scalar(select(UserRecord).where(UserRecord.username == username))
+        return _user(record) if record else None
+
     def list(self):
         return [_user(record) for record in self.session.scalars(select(UserRecord)).all()]
 
@@ -57,12 +66,16 @@ class SqlAlchemyUserRepository:
             record = UserRecord(uid=user.uid)
             self.session.add(record)
         record.name = user.name
+        record.username = user.username or user.uid
         record.email = user.email
         record.role = user.role
         record.department_id = user.department_id
         record.status = user.status
         record.created_at = user.created_at
         record.updated_at = user.updated_at
+        record.password_representation = user.password_representation
+        record.password_changed_at = user.password_changed_at
+        record.must_change_password = user.must_change_password
         self.session.flush()
         return _user(record)
 

@@ -214,3 +214,5 @@ The persistence factory selects the configured relational adapter and supplies a
 Document registration stores a nullable project assignment. The document use case validates optional project scope, persists the active record, and can invoke the existing ingestion handler. Archiving changes lifecycle status rather than removing project history. During chat, authorization resolves the active project set before the retrieval adapter receives project filters; the LLM sees only selected evidence and citations are built from that same evidence.
 
 Detailed sequence guides are maintained in [Documentation/Workflows/README.md](Documentation/Workflows/README.md).
+
+Authentication is a replaceable domain boundary. A configured bootstrap operation creates one Admin account, the authentication service verifies PBKDF2 password representations and issues signed bearer tokens, and FastAPI resolves those tokens into trusted principals before protected operations. Streamlit stores only the returned session state and calls the authentication endpoints over HTTP.

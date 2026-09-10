@@ -14,5 +14,9 @@ class ForbiddenError(OrganizationError):
     pass
 
 
+class AuthenticationError(OrganizationError):
+    pass
+
+
 class PersistenceError(OrganizationError):
     pass

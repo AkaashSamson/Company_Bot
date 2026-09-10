@@ -34,7 +34,7 @@
 - [X] T015 Register the organization and document routers with the existing FastAPI application in `app/main.py`
 - [X] T016 [P] Add repository contract tests that can run against the configured adapter in `tests/contract/test_repository_contract.py`
 
-**Checkpoint**: Persistence ports, adapter factory, Unit of Work, authentication boundary, and FastAPI registration are ready for story implementation.
+**Checkpoint**: Persistence ports, adapter factory, Unit of Work, trusted-principal boundary, and FastAPI registration are ready for story implementation; username/password authentication is delivered in Phase 10.
 
 ---
 
@@ -193,6 +193,46 @@
 - [X] T076 Run the full regression suite with `pytest`, then record the command, result, and any known environment limitations in `Documentation/Team_logs/Roshan.md`
 - [X] T077 Validate every workflow document link, every required task checkbox, and the scenarios in `specs/002-sql-user-management/quickstart.md` before completion
 
+---
+
+## Phase 10: Basic Authentication and Organization Bootstrap
+
+**Purpose**: Add the newly specified username/password authentication flow while preserving the completed organization, document, workflow, and validation history from Phases 1-9.
+
+**Dependency**: Depends on the completed persistence, user-management, authorization, API, and Streamlit foundations from T001-T077. Existing task IDs and completion states must remain unchanged.
+
+### Setup and contracts
+
+- [X] T078 Add the selected password-hashing and session/token dependencies to `requirements.txt`, add secure Admin credential settings to `app/core/settings.py`, and document non-secret configuration names in `.env.example`
+- [X] T079 [P] Add authentication domain port and error contracts for login, authenticated-principal resolution, password changes, and default-password rotation in `app/domain/ports/authentication_service.py` and `app/domain/services/organization_errors.py`
+
+### Tests for authentication and bootstrap
+
+- [X] T080 [P] Add unit tests for password hashing, invalid credentials, inactive users, password changes, default-password rotation, and authenticated-principal resolution in `tests/unit/test_authentication_service.py`
+- [X] T081 [P] Add API contract tests for `POST /auth/login`, `POST /auth/change-password`, invalid credentials, Admin-only password changes, and protected requests in `tests/contract/test_authentication_api.py`
+- [X] T082 Add SQLite integration tests for pre-seeded Admin bootstrap, first Admin login, default-password change, Admin-created Manager login, Manager-created employee login, and persistence across sessions in `tests/integration/test_authentication_bootstrap_e2e.py`
+- [X] T083 [P] Add security regression tests proving plaintext passwords are absent from persistence, responses, and audit records, and that old passwords stop working after a change in `tests/integration/test_authentication_security_e2e.py`
+
+### Authentication implementation
+
+- [X] T084 Implement password hashing, credential verification, login, authenticated-principal issuance, and password-change rules behind the authentication port in `app/domain/services/authentication_service.py` and `app/infrastructure/authentication/password_hasher.py`
+- [X] T085 Extend the User domain model and SQLAlchemy persistence with unique `username`, secure password representation, password-change metadata, and initial-password state in `app/domain/entities/organization_models.py`, `app/infrastructure/persistence/sqlalchemy/models.py`, and `app/infrastructure/persistence/sqlalchemy/repositories.py`
+- [X] T086 Add the authentication schema migration and indexes for username lookup in `app/infrastructure/persistence/migrations/0002_authentication.sql`
+- [X] T087 Implement secure pre-seeded Admin provisioning, configured default credentials, first-login/default-password rotation, and idempotent bootstrap behavior in `app/infrastructure/authentication/bootstrap.py` and `app/infrastructure/persistence/factory.py`
+- [X] T088 Add login, logout/session or token, and password-change schemas and routes in `app/api/schemas/authentication.py` and `app/api/routes/authentication.py`
+- [X] T089 Wire authentication dependencies and trusted principal resolution into protected organization, document, and chat routes in `app/api/dependencies.py`, `app/api/routes/organization.py`, `app/api/routes/documents.py`, and `app/api/routes/chat.py`
+- [X] T090 Extend Admin and Manager user-creation flows to accept initial passwords, enforce unique usernames, and allow in-scope Managers to onboard employees in `app/api/schemas/organization.py` and `app/use_cases/organization/user_management.py`
+- [X] T091 Add authenticated Streamlit login state, logout behavior, and password-change controls without direct persistence access in `streamlit_app/services/authentication_service.py`, `streamlit_app/app.py`, and `streamlit_app/pages/users.py`
+- [X] T092 Add structured authentication audit events for login success/failure, logout, bootstrap, and password changes without recording passwords or tokens in `app/infrastructure/audit/authentication_events.py` and `app/api/routes/authentication.py`
+
+### Documentation and verification
+
+- [X] T093 [P] Document authentication bootstrap, default-password rotation, Manager onboarding, and protected-request flow in `Documentation/Workflows/authentication-and-bootstrap.md` and `Documentation/Workflows/README.md`
+- [X] T094 [P] Update `README.md`, `ARCHITECTURE.md`, and `.env.example` with local authentication setup, secure Admin credential configuration, and password-handling boundaries
+- [ ] T095 Run the authentication quickstart scenarios from `specs/002-sql-user-management/quickstart.md`, record any environment blockers, and verify the pre-seeded Admin to Manager to employee onboarding path in `Documentation/Team_logs/Akaash.md`
+- [ ] T096 Run `pytest tests/unit tests/contract tests/integration`, fix authentication regressions, and record the result in `Documentation/Team_logs/Akaash.md`
+- [ ] T097 Validate all Phase 10 task checkboxes, authentication workflow links, migration references, and the unchanged completion state of T001-T077 in `specs/002-sql-user-management/tasks.md`
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -206,6 +246,7 @@
 - **Phase 7 User Story 5**: Depends on the authorization and management paths from US1-US4.
 - **Phase 8 Polish and Document completion**: Document tasks may begin after Foundational; final validation depends on the desired user stories.
 - **Phase 9 Workflow and Verification**: Depends on all implementation tasks; T075 and T076 are the completion gates.
+- **Phase 10 Basic Authentication and Organization Bootstrap**: Depends on Phases 1-9 and adds the username/password, pre-seeded Admin, password-change, and Manager-onboarding behavior from the updated specification.
 
 ### User Story Dependencies
 
@@ -224,6 +265,7 @@
 - US4 authorization tests, chat schema work, and Streamlit chat selection work can run in parallel once the authorization contract is fixed.
 - Document API, document page, and document integration tests can run in parallel after the Document repository port exists.
 - README and architecture documentation can run in parallel with final UI smoke testing.
+- Phase 10 authentication unit tests, API contract tests, and security tests can run in parallel after the authentication contracts are defined; implementation tasks affecting the same authentication files remain sequential.
 
 ## Parallel Example: User Story 1
 
@@ -259,6 +301,7 @@ Task T051: Streamlit project selector in streamlit_app/services/chat_service.py 
 5. Create workflow documentation and update Roshan's team log for every code-file change.
 6. Run `pytest tests/unit`, then run `pytest`; resolve failures before completion.
 7. Run the quickstart scenarios and full regression suite.
+8. Complete Phase 10 authentication bootstrap and password lifecycle work without rewriting or renumbering T001-T077.
 
 ## Format Validation
 

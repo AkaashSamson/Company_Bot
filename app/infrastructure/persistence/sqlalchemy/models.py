@@ -13,6 +13,7 @@ class UserRecord(Base):
     __tablename__ = "users"
 
     uid: Mapped[str] = mapped_column(String(128), primary_key=True)
+    username: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True, default="")
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True, index=True)
     role: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -20,6 +21,9 @@ class UserRecord(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    password_representation: Mapped[str] = mapped_column(String(512), nullable=False, default="")
+    password_changed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    must_change_password: Mapped[bool] = mapped_column(nullable=False, default=False)
 
 
 class DepartmentRecord(Base):

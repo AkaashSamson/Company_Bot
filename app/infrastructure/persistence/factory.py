@@ -6,6 +6,8 @@ from app.infrastructure.persistence.sqlalchemy.session import (
     initialize_database,
 )
 from app.infrastructure.persistence.sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork
+from app.infrastructure.authentication.bootstrap import bootstrap_admin
+from app.infrastructure.authentication.password_hasher import PasswordHasher
 
 
 @lru_cache(maxsize=1)
@@ -15,6 +17,7 @@ def get_session_factory():
         database_url = f"sqlite:///{BASE_DIR / 'instance' / 'knowlayer.db'}"
     engine, session_factory = create_engine_and_session_factory(database_url)
     initialize_database(engine)
+    bootstrap_admin(lambda: SqlAlchemyUnitOfWork(session_factory), PasswordHasher())
     return session_factory
 
 

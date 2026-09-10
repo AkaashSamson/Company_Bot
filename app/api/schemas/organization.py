@@ -13,10 +13,12 @@ class DepartmentResponse(DepartmentCreate):
 
 class UserCreate(BaseModel):
     uid: str = Field(min_length=1)
+    username: str | None = Field(default=None, min_length=1)
     name: str = Field(min_length=1)
     email: EmailStr
     role: str = Field(min_length=1)
     department_id: str = Field(min_length=1)
+    initial_password: str | None = Field(default=None, min_length=8)
 
 
 class UserUpdate(BaseModel):
@@ -27,8 +29,15 @@ class UserUpdate(BaseModel):
     status: str | None = Field(default=None, pattern="^(active|inactive)$")
 
 
-class UserResponse(UserCreate):
+class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
+    uid: str
+    username: str
+    name: str
+    email: EmailStr
+    role: str
+    department_id: str
     status: str
 
 

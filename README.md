@@ -268,3 +268,7 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) for the modular-monolith layers, request
 The SQL adapter factory creates a Unit of Work backed by the configured `DATABASE_URL`; SQLite is the default and PostgreSQL-compatible configuration uses the same domain ports. FastAPI routes resolve the trusted principal, authorize the operation, and then commit through the Unit of Work. Streamlit pages call those routes through the shared `STREAMLIT_API_BASE_URL`.
 
 Documents have a nullable `project_id`, so registration may precede project assignment. Active project identity is attached to ingestion metadata, and archived or unassigned documents are excluded from project-scoped answers. See the [workflow index](Documentation/Workflows/README.md) for the complete Users, Projects, Documents, Chat, and Streamlit-to-FastAPI flows.
+
+## Authentication Bootstrap
+
+Set `ADMIN_USERNAME`, `ADMIN_INITIAL_PASSWORD`, and a private `AUTH_SECRET_KEY` in `.env` before first startup. The database provisions the Admin account idempotently. Log in through `/api/auth/login`, change the default password, create Managers with initial passwords, and let Managers onboard employees within their departments. Passwords are stored only as secure representations; never commit `.env`.
