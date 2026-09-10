@@ -48,6 +48,9 @@ class SqlAlchemyUserRepository:
         record = self.session.scalar(select(UserRecord).where(UserRecord.email == email))
         return _user(record) if record else None
 
+    def list(self):
+        return [_user(record) for record in self.session.scalars(select(UserRecord)).all()]
+
     def save(self, user):
         record = self.session.get(UserRecord, user.uid)
         if record is None:

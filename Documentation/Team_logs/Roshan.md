@@ -37,3 +37,22 @@ Code files added or changed:
 
 Summary: Added database-agnostic domain ports, SQLite/PostgreSQL adapter seams, Unit of Work, SQLAlchemy mappings, FastAPI dependency boundaries, router registration, and repository contract coverage.
 Validation: Phase 2 syntax validation, SQLite metadata creation, authorization resolution, and repository contract test passed (1 passed).
+
+## Feature: SQL Organization Access - Phase 3 US1
+
+Code files added or changed:
+- requirements.txt
+- app/api/schemas/organization.py
+- app/api/dependencies.py
+- app/api/routes/organization.py
+- app/domain/ports/organization_repositories.py
+- app/infrastructure/persistence/sqlalchemy/repositories.py
+- app/use_cases/organization/user_management.py
+- streamlit_app/services/organization_service.py
+- streamlit_app/pages/users.py
+- tests/unit/test_user_management.py
+- tests/contract/test_user_management_api.py
+- tests/integration/test_user_management_e2e.py
+
+Summary: Implemented admin user and department CRUD with flexible roles, validation, authentication boundaries, and the Streamlit Users page.
+Validation: Focused US1 suite passed: 7 tests.

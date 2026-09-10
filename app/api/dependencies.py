@@ -3,6 +3,7 @@ from fastapi import HTTPException, Request
 from app.domain.ports.authorization_service import AuthenticatedPrincipal
 from app.domain.services.authorization_service import OrganizationAuthorizationService
 from app.infrastructure.persistence.factory import create_unit_of_work
+from app.use_cases.organization.user_management import UserManagementService
 
 
 def get_current_principal(request: Request) -> AuthenticatedPrincipal:
@@ -18,3 +19,7 @@ def get_unit_of_work():
 
 def get_authorization_service():
     return OrganizationAuthorizationService(create_unit_of_work())
+
+
+def get_user_management_service():
+    return UserManagementService(create_unit_of_work)

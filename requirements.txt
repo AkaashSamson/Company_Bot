@@ -1,6 +1,7 @@
 streamlit>=1.36.0
 fastapi>=0.111.0
 pydantic>=2.7.0
+email-validator>=2.1.0
 uvicorn>=0.30.0
 python-dotenv>=1.0.1
 langchain>=0.3.0

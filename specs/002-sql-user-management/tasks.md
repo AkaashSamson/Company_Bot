@@ -46,19 +46,19 @@
 
 ### Tests for User Story 1
 
-- [ ] T017 [P] [US1] Add API contract tests for user create, read, update, and delete behavior in `tests/contract/test_user_management_api.py`
-- [ ] T018 [P] [US1] Add user-management use-case tests for flexible roles, duplicate UID/email conflicts, invalid email, unknown department, and inactive status in `tests/unit/test_user_management.py`
-- [ ] T019 [P] [US1] Add FastAPI integration tests for admin user CRUD against the configured SQLite adapter in `tests/integration/test_user_management_e2e.py`
+- [X] T017 [P] [US1] Add API contract tests for user create, read, update, and delete behavior in `tests/contract/test_user_management_api.py`
+- [X] T018 [P] [US1] Add user-management use-case tests for flexible roles, duplicate UID/email conflicts, invalid email, unknown department, and inactive status in `tests/unit/test_user_management.py`
+- [X] T019 [P] [US1] Add FastAPI integration tests for admin user CRUD against the configured SQLite adapter in `tests/integration/test_user_management_e2e.py`
 
 ### Implementation for User Story 1
 
-- [ ] T020 [P] [US1] Add Pydantic request and response schemas for users and departments in `app/api/schemas/organization.py`
-- [ ] T021 [US1] Implement admin user and department management use cases using `UserRepository`, `DepartmentRepository`, and `UnitOfWork` in `app/use_cases/organization/user_management.py`
-- [ ] T022 [US1] Implement `POST /users`, `GET /users/{uid}`, `PATCH /users/{uid}`, `DELETE /users/{uid}`, and department endpoints in `app/api/routes/organization.py`
-- [ ] T023 [US1] Add the FastAPI dependency providers that construct user-management use cases from the repository factory in `app/api/dependencies.py`
-- [ ] T024 [US1] Add the Streamlit HTTP client methods for users and departments in `streamlit_app/services/organization_service.py`
-- [ ] T025 [US1] Build the simple Streamlit Users page for listing, creating, editing, and deactivating users in `streamlit_app/pages/users.py`
-- [ ] T026 [US1] Add user-page error, empty, loading, and success states without direct database access in `streamlit_app/pages/users.py`
+- [X] T020 [P] [US1] Add Pydantic request and response schemas for users and departments in `app/api/schemas/organization.py`
+- [X] T021 [US1] Implement admin user and department management use cases using `UserRepository`, `DepartmentRepository`, and `UnitOfWork` in `app/use_cases/organization/user_management.py`
+- [X] T022 [US1] Implement `POST /users`, `GET /users/{uid}`, `PATCH /users/{uid}`, `DELETE /users/{uid}`, and department endpoints in `app/api/routes/organization.py`
+- [X] T023 [US1] Add the FastAPI dependency providers that construct user-management use cases from the repository factory in `app/api/dependencies.py`
+- [X] T024 [US1] Add the Streamlit HTTP client methods for users and departments in `streamlit_app/services/organization_service.py`
+- [X] T025 [US1] Build the simple Streamlit Users page for listing, creating, editing, and deactivating users in `streamlit_app/pages/users.py`
+- [X] T026 [US1] Add user-page error, empty, loading, and success states without direct database access in `streamlit_app/pages/users.py`
 
 **Checkpoint**: User Story 1 is independently usable by an admin through the FastAPI contract and Streamlit Users page.
 
