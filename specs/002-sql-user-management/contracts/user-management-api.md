@@ -63,11 +63,39 @@ Admin, or Manager when both target user and project are in the Manager's departm
 
 Same scope rules as assignment. Revokes membership without deleting project data. Returns `204` when already revoked.
 
+## Document management
+
+The Streamlit Documents page uses these endpoints through a thin HTTP client. Document operations remain separate from organization entities and invoke the existing ingestion workflow.
+
+### `GET /documents`
+
+Returns documents available to the authenticated administrator or manager.
+
+Responses: `200`, `403`.
+
+### `POST /documents`
+
+Uploads or registers a supported document for ingestion. The server validates the file and optionally associates it with a selected project; an unassigned document cannot be used for project-scoped answers.
+
+Responses: `201`, `400`, `403`, `404`, `409`.
+
+### `DELETE /documents/{document_id}`
+
+Removes or archives a document according to the document-retention policy and prevents it from being used for new answers.
+
+Responses: `204`, `403`, `404`.
+
+## Streamlit page mapping
+
+- `pages/users.py` calls `/users`, `/users/{uid}`, and `/departments`.
+- `pages/projects.py` calls `/projects` and project membership endpoints.
+- `pages/documents.py` calls `/documents` and does not access storage directly.
+
 ## Chat authorization
 
 ### `POST /chat`
 
-Existing chat request gains trusted auth context and an optional project scope. The route resolves authorized project IDs before constructing the `QueryOrchestrator` retrieval call.
+Existing chat request gains trusted auth context and an optional `project_id` scope. When omitted, the route resolves all authorized project IDs; when provided, it verifies the project is authorized and resolves only that project before constructing the retrieval call.
 
 An unauthorized explicit project request returns:
 
@@ -75,8 +103,4 @@ An unauthorized explicit project request returns:
 {"detail":"Access denied"}
 ```
 
-with status `403`. No restricted vector query or LLM generation is performed. A request with no authorized projects returns an empty evidence result according to the existing chat response contract.
-
-## Audit behavior
-
-Every successful or denied management operation creates one AuditEvent. Audit persistence failures must be observable and must not expose secrets; transaction semantics for the business operation are defined in the implementation plan.
+with status `403`. No restricted vector query or LLM generation is performed. A request with no authorized projects returns an empty evidence result according to the existing chat response contract. A selected unauthorized project returns `403` before retrieval.

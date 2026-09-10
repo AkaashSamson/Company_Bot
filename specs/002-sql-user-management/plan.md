@@ -4,7 +4,7 @@
 
 ## Summary
 
-Integrate the corrected Department–User–Project ERD into KnowLayer through a PostgreSQL-compatible persistence adapter, management API contracts, and an authorization service that resolves project access before Chroma retrieval. User role remains a flexible string; `Admin` and `Manager` are special values, and no Role or Permission table is introduced. The User–Project many-to-many relationship is represented by the required associative database table with uniqueness and foreign-key constraints.
+Integrate the corrected Department–User–Project ERD into KnowLayer through database-agnostic persistence ports, a configurable relational adapter, management API contracts, and an authorization service that resolves project access before retrieval. User role remains a flexible string; `Admin` and `Manager` are special values, and no Role or Permission table is introduced. The User–Project many-to-many relationship is represented by the required associative database table with uniqueness and foreign-key constraints.
 
 ## Technical Context
 
@@ -12,7 +12,7 @@ Integrate the corrected Department–User–Project ERD into KnowLayer through a
 
 **Primary Dependencies**: FastAPI, Pydantic 2, pytest, existing Chroma/LLM adapters; SQLAlchemy 2 and Alembic are the planned relational persistence dependencies.
 
-**Storage**: SQLite database file at `./instance/sqlite.db` for organization/access data; Chroma remains the vector store and must carry project identity in retrieval metadata.
+**Storage**: A relational persistence port with SQLite as the initial configuration and PostgreSQL as a compatible future configuration; Chroma remains the vector store and carries project identity in retrieval metadata.
 
 **Testing**: pytest unit tests, FastAPI contract tests, integration tests against a temporary SQLite database, and authorization regression tests proving zero restricted retrieval.
 
@@ -22,9 +22,9 @@ Integrate the corrected Department–User–Project ERD into KnowLayer through a
 
 **Performance Goals**: Typical user lookup and project authorization under 100ms; preserve the existing low-seconds interactive chat target.
 
-**Constraints**: Authorization must occur before vector retrieval; no secrets in audit data; dynamic roles must not require migrations; domain logic cannot depend on SQLAlchemy, Chroma, FastAPI, or Streamlit; existing chat behavior must remain usable when no project scope is supplied only through an explicit compatibility policy.
+**Constraints**: Authorization must occur before vector retrieval; dynamic roles must not require migrations; domain logic cannot depend on SQLAlchemy, Chroma, FastAPI, or Streamlit; existing chat behavior must remain usable when no project scope is supplied only through an explicit compatibility policy.
 
-**Scale/Scope**: SQLite supports up to ~100 concurrent users; the design can scale to PostgreSQL later without schema changes; initial model includes User, Department, Project, UserProject, and AuditEvent.
+**Scale/Scope**: Initial lightweight deployment uses SQLite; the same repository contracts must support PostgreSQL later without changing domain or use-case code. The model includes User, Department, Project, Document, and UserProject.
 
 ## Constitution Check
 
@@ -33,13 +33,12 @@ Integrate the corrected Department–User–Project ERD into KnowLayer through a
 - PASS: Persistence and authorization are isolated behind domain ports and infrastructure adapters.
 - PASS: SQL becomes the authoritative source for organization and access facts; the LLM remains synthesis-only.
 - PASS: Authorization is resolved before retrieval, and project IDs are injected into the retrieval context.
-- PASS: Audit events cover management operations and denied access without raw secrets or unrestricted content.
 - PASS: Unit, contract, integration, and security regression tests are planned.
 - PASS: The design avoids Role/Permission entities, microservices, and premature enterprise complexity.
 
 ## Phase 0: Research Summary
 
-See [research.md](./research.md). Decisions resolve the technology and integration questions: relational constraints, associative membership, pre-retrieval authorization, department-scoped Manager operations, structured audits, and migrations.
+See [research.md](./research.md). Decisions resolve the technology and integration questions: relational constraints, associative membership, pre-retrieval authorization, department-scoped Manager operations, and migrations.
 
 ## Phase 1: Design Summary
 
@@ -59,18 +58,26 @@ app/
 │   └── settings.py                         # SQL URL and feature settings
 ├── domain/
 │   ├── entities/
-│   │   └── organization_models.py          # User, Department, Project, membership values
+│   │   └── organization_models.py          # User, Department, Project, Document, membership values
 │   ├── ports/
-│   │   ├── organization_repository.py      # persistence abstraction
-│   │   └── authorization_service.py        # access abstraction
+│   │   ├── user_repository.py             # user persistence port
+│   │   ├── department_repository.py       # department persistence port
+│   │   ├── project_repository.py          # project persistence port
+│   │   ├── membership_repository.py       # user-project persistence port
+│   │   ├── unit_of_work.py                # transaction boundary
+│   │   └── authorization_service.py       # access abstraction
 │   └── services/
 │       └── authorization_service.py        # pre-retrieval rules
 ├── infrastructure/
-│   └── sql/
-│       ├── database.py                      # engine/session lifecycle
-│       ├── models.py                        # SQLAlchemy mappings
-│       ├── repositories.py                  # repository adapter
-│       └── migrations/                      # Alembic revisions
+│   └── persistence/
+│       ├── sqlalchemy/                       # shared relational adapter
+│       │   ├── models.py
+│       │   ├── repositories.py
+│       │   ├── unit_of_work.py
+│       │   └── session.py
+│       ├── sqlite/                           # SQLite configuration
+│       ├── postgres/                         # PostgreSQL configuration
+│       └── factory.py                        # selects configured adapter
 └── use_cases/
     ├── organization/
     │   ├── user_management.py
@@ -80,12 +87,21 @@ app/
         └── query_orchestrator.py            # consume authorized project IDs
 
 streamlit_app/
+├── app.py                                  # navigation and chat page
+├── pages/
+│   ├── users.py                             # user and department management
+│   ├── projects.py                          # project and membership management
+│   └── documents.py                         # document listing and ingestion controls
 └── services/
-    └── organization_service.py              # thin API client as needed
+    ├── chat_service.py                      # chat API client
+    ├── organization_service.py              # users/projects API client
+    └── document_service.py                  # documents API client
 
 tests/
 ├── contract/
-│   └── test_user_management_api.py
+│   ├── test_user_management_api.py
+│   ├── test_document_management_api.py
+│   └── test_streamlit_management_pages.py
 ├── integration/
 │   └── test_sql_authorization_e2e.py
 └── unit/
@@ -93,24 +109,24 @@ tests/
     └── test_project_membership.py
 ```
 
-**Structure Decision**: Extend the existing modular monolith. Domain entities, ports, and authorization rules remain framework-independent. SQLAlchemy/Alembic belongs under infrastructure; routes remain thin; use cases own transaction orchestration. The existing Chroma adapter is changed only to accept authorized project filters and project metadata.
+**Structure Decision**: Extend the existing modular monolith. Domain entities, repository ports, authorization rules, and use cases remain database-agnostic. A shared SQLAlchemy-based relational adapter is configured for SQLite initially and can be configured for PostgreSQL later. FastAPI routes receive use cases through dependency injection; Streamlit pages call the same FastAPI application over HTTP. Document management remains a thin operational page over document endpoints and the existing ingestion use case.
 
 ## Implementation Sequence
 
-1. Add SQL configuration, engine/session lifecycle, migration baseline, and relational mappings.
-2. Add domain entities and repository/authorization ports with fake implementations for unit tests.
-3. Implement user, department, project, and membership use cases with transaction and audit behavior.
-4. Add organization API schemas/routes and trusted authentication-context dependency boundary.
-5. Add pre-retrieval project authorization to FastAPI and Streamlit chat paths; update Chroma metadata/filter contracts.
-6. Add unit, API contract, SQL integration, and unauthorized-retrieval regression tests.
-7. Run the quickstart scenarios and document migration/configuration operations.
+1. Add database-agnostic repository ports for users, departments, projects, documents, memberships, and Unit of Work; configure SQLite first.
+2. Add domain entities and authorization services with in-memory fake repositories for unit tests.
+3. Implement user, department, project, and membership use cases using the Unit of Work boundary.
+4. Add organization and document API schemas/routes plus trusted authentication-context dependencies; make chat project scope optional.
+5. Add pre-retrieval project authorization to FastAPI and Streamlit chat paths; intersect an optional selected project with the user's authorized project set before retrieval.
+6. Add Streamlit Users, Projects, and Documents pages backed by small HTTP client services.
+7. Add repository contract, SQLite integration, API contract, UI smoke, and unauthorized-retrieval regression tests.
+8. Run the quickstart scenarios and document adapter configuration and migration operations.
 
 ## Risks and Mitigations
 
-- Existing Chroma documents may lack project IDs: fail closed for restricted requests and provide a migration/re-ingestion step.
+- Existing documents may lack project IDs: fail closed for restricted requests and provide a migration/re-ingestion step.
 - No authentication provider is currently present: keep a narrow principal port and use a development-only explicit test principal; do not trust caller-supplied UID in production.
 - Manager scope interpretation could drift: enforce same-department user and project ownership in one authorization service and contract-test it.
-- Audit writes could affect business transactions: define whether audit is in-transaction for management writes and use an observable failure path for denied/read events.
 
 ## Post-Design Constitution Check
 
