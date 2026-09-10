@@ -262,3 +262,9 @@ Run the automated tests with:
 ## Architecture and Roadmap
 
 Read [ARCHITECTURE.md](ARCHITECTURE.md) for the modular-monolith layers, request and ingestion flows, evidence-selection strategy, provider boundary, and testing strategy. Authentication, authorization, enterprise HR systems, hosted storage, and production security controls remain future extensions.
+
+## Organization and Document Management
+
+The SQL adapter factory creates a Unit of Work backed by the configured `DATABASE_URL`; SQLite is the default and PostgreSQL-compatible configuration uses the same domain ports. FastAPI routes resolve the trusted principal, authorize the operation, and then commit through the Unit of Work. Streamlit pages call those routes through the shared `STREAMLIT_API_BASE_URL`.
+
+Documents have a nullable `project_id`, so registration may precede project assignment. Active project identity is attached to ingestion metadata, and archived or unassigned documents are excluded from project-scoped answers. See the [workflow index](Documentation/Workflows/README.md) for the complete Users, Projects, Documents, Chat, and Streamlit-to-FastAPI flows.

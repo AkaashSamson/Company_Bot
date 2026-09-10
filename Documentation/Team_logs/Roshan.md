@@ -104,3 +104,31 @@ Code files added or changed:
 
 Summary: Added optional project selection, authorized-project intersection before retrieval, Chroma project filtering, Document/Project chunk metadata, Streamlit project scope selection, and Admin-wide project access tests.
 Validation: US4/US5 and retrieval compatibility suite passed: 24 tests. Existing chat contract remains environment-sensitive because the current local Chroma data returned zero citations.
+
+## Feature: SQL Organization Access - Phases 8 and 9
+
+Date: 2026-09-10
+
+Code files added or changed:
+- app/domain/ports/document_repository.py (T058): dedicated Document repository port; validation: compileall passed.
+- app/domain/ports/unit_of_work.py (T058): imports the dedicated Document repository port; validation: compileall passed.
+- app/api/schemas/documents.py (T059): document registration and response schemas; validation: compileall passed.
+- app/api/routes/documents.py (T059): authenticated list, register, and archive endpoints; validation: compileall passed.
+- app/use_cases/organization/document_management.py (T060): role/scope checks, optional project assignment, lifecycle status, and ingestion-handler boundary; validation: compileall passed.
+- app/api/dependencies.py (T060): document use-case dependency provider; validation: compileall passed.
+- streamlit_app/services/document_service.py (T061): HTTP client for document operations; validation: compileall passed.
+- streamlit_app/pages/documents.py (T061): document registration, listing, and archive UI; validation: compileall passed.
+- streamlit_app/app.py, streamlit_app/services/chat_service.py, streamlit_app/services/organization_service.py (T063): shared API base URL and navigation; validation: compileall passed.
+- tests/fixtures/organization_repositories.py, tests/unit/test_document_management.py (T062/T074): in-memory document fake and focused document behavior tests; validation: compileall passed; pytest blocked because pytest is not installed.
+- tests/contract/test_document_management_api.py, tests/contract/test_streamlit_management_pages.py (T062/T064): API and UI smoke coverage; validation: compileall passed; pytest blocked because FastAPI/pytest are not installed.
+
+Documentation files:
+- Documentation/Workflows/user-management.md (T067)
+- Documentation/Workflows/project-membership.md (T068)
+- Documentation/Workflows/document-management.md (T069)
+- Documentation/Workflows/question-answering.md (T070)
+- Documentation/Workflows/streamlit-fastapi-integration.md (T071)
+- Documentation/Workflows/README.md (T072)
+- README.md and ARCHITECTURE.md (T065)
+
+Validation result: `python -m compileall -q app streamlit_app tests` passed. `python -m pytest tests/unit` and `python -m pytest` could not run in the active environment because `pytest` and `fastapi` are unavailable.

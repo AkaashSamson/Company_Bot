@@ -7,6 +7,11 @@ from streamlit_app.services.organization_service import OrganizationService
 st.set_page_config(page_title="KnowLayer HR Chatbot", page_icon="📘")
 st.title("KnowLayer HR Policy Assistant")
 
+st.sidebar.page_link("app.py", label="Chat")
+st.sidebar.page_link("pages/users.py", label="Users")
+st.sidebar.page_link("pages/projects.py", label="Projects")
+st.sidebar.page_link("pages/documents.py", label="Documents")
+
 try:
     project_options = {"All authorized projects": None}
     project_options.update({
@@ -34,7 +39,7 @@ if user_input:
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    service = ChatService(base_url="http://localhost:8000")
+    service = ChatService()
     try:
         response = service.ask(
             user_input,

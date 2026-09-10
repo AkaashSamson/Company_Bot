@@ -2,11 +2,11 @@ from typing import Protocol
 
 from app.domain.ports.organization_repositories import (
     DepartmentRepository,
-    DocumentRepository,
     MembershipRepository,
     ProjectRepository,
     UserRepository,
 )
+from app.domain.ports.document_repository import DocumentRepository
 
 
 class UnitOfWork(Protocol):

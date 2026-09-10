@@ -6,6 +6,7 @@ from app.infrastructure.persistence.factory import create_unit_of_work
 from app.use_cases.organization.user_management import UserManagementService
 from app.use_cases.organization.membership_management import MembershipManagementService
 from app.use_cases.organization.project_management import ProjectManagementService
+from app.use_cases.organization.document_management import DocumentManagementService
 
 
 def get_current_principal(request: Request) -> AuthenticatedPrincipal:
@@ -37,3 +38,7 @@ def get_project_management_service():
 
 def get_membership_management_service():
     return MembershipManagementService(create_unit_of_work)
+
+
+def get_document_management_service():
+    return DocumentManagementService(create_unit_of_work)

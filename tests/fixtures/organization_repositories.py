@@ -1,4 +1,4 @@
-from app.domain.entities.organization_models import Department, Project, User, UserProject
+from app.domain.entities.organization_models import Department, Document, Project, User, UserProject
 
 
 class InMemoryUserRepository:
@@ -75,12 +75,32 @@ class InMemoryMembershipRepository:
             membership.status = "revoked"
 
 
+class InMemoryDocumentRepository:
+    def __init__(self, documents=None):
+        self.documents = {item.document_id: item for item in (documents or [])}
+
+    def get(self, document_id):
+        return self.documents.get(document_id)
+
+    def list(self):
+        return list(self.documents.values())
+
+    def save(self, document):
+        self.documents[document.document_id] = document
+        return document
+
+    def delete(self, document_id):
+        document = self.documents.get(document_id)
+        if document:
+            document.status = "archived"
+
+
 class InMemoryUnitOfWork:
-    def __init__(self, users=None, departments=None, projects=None, memberships=None):
+    def __init__(self, users=None, departments=None, projects=None, memberships=None, documents=None):
         self.users = InMemoryUserRepository(users)
         self.departments = InMemoryDepartmentRepository(departments)
         self.projects = InMemoryProjectRepository(projects)
-        self.documents = None
+        self.documents = InMemoryDocumentRepository(documents)
         self.memberships = InMemoryMembershipRepository(memberships)
 
     def __enter__(self):

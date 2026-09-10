@@ -163,14 +163,14 @@
 
 **Purpose**: Deliver the Document entity and keep the management UI simple, consistent, and validated.
 
-- [ ] T058 [P] Add Document domain model, repository port, and Unit of Work integration for optional Project assignment in `app/domain/entities/organization_models.py`, `app/domain/ports/document_repository.py`, and `app/infrastructure/persistence/sqlalchemy/repositories.py`
-- [ ] T059 [P] Add document API schemas and `GET /documents`, `POST /documents`, and `DELETE /documents/{document_id}` in `app/api/schemas/documents.py` and `app/api/routes/documents.py`
-- [ ] T060 Implement document registration, optional project assignment, status handling, and ingestion orchestration in `app/use_cases/organization/document_management.py`
-- [ ] T061 Add document client methods and the simple Streamlit Documents page in `streamlit_app/services/document_service.py` and `streamlit_app/pages/documents.py`
-- [ ] T062 Add document API and partial Project-Document participation tests in `tests/contract/test_document_management_api.py` and `tests/integration/test_document_management_e2e.py`
-- [ ] T063 [P] Add Streamlit navigation for chat, Users, Projects, and Documents in `streamlit_app/app.py`
-- [ ] T064 [P] Add UI smoke tests proving all management pages call the same FastAPI base URL in `tests/contract/test_streamlit_management_pages.py`
-- [ ] T065 [P] Update `README.md` and `ARCHITECTURE.md` with the adapter factory, FastAPI endpoint flow, project filtering, Document lifecycle, and Streamlit page responsibilities
+- [X] T058 [P] Add Document domain model, repository port, and Unit of Work integration for optional Project assignment in `app/domain/entities/organization_models.py`, `app/domain/ports/document_repository.py`, and `app/infrastructure/persistence/sqlalchemy/repositories.py`
+- [X] T059 [P] Add document API schemas and `GET /documents`, `POST /documents`, and `DELETE /documents/{document_id}` in `app/api/schemas/documents.py` and `app/api/routes/documents.py`
+- [X] T060 Implement document registration, optional project assignment, status handling, and ingestion orchestration in `app/use_cases/organization/document_management.py`
+- [X] T061 Add document client methods and the simple Streamlit Documents page in `streamlit_app/services/document_service.py` and `streamlit_app/pages/documents.py`
+- [X] T062 Add document API and partial Project-Document participation tests in `tests/contract/test_document_management_api.py` and `tests/integration/test_document_management_e2e.py`
+- [X] T063 [P] Add Streamlit navigation for chat, Users, Projects, and Documents in `streamlit_app/app.py`
+- [X] T064 [P] Add UI smoke tests proving all management pages call the same FastAPI base URL in `tests/contract/test_streamlit_management_pages.py`
+- [X] T065 [P] Update `README.md` and `ARCHITECTURE.md` with the adapter factory, FastAPI endpoint flow, project filtering, Document lifecycle, and Streamlit page responsibilities
 - [ ] T066 Run the complete validation scenarios from `specs/002-sql-user-management/quickstart.md` and record any implementation blockers
 
 ---
@@ -181,14 +181,14 @@
 
 **Purpose**: Document the major implemented workflows, record code changes, and require executable test confirmation before the feature is considered complete.
 
-- [ ] T067 [P] Create the user-management workflow document, including Streamlit Users page, FastAPI endpoints, authorization, Unit of Work, and persistence adapter flow in `Documentation/Workflows/user-management.md`
-- [ ] T068 [P] Create the project-membership workflow document, including department scope, many-to-many assignment, manager restrictions, and rollback behavior in `Documentation/Workflows/project-membership.md`
-- [ ] T069 [P] Create the document-management workflow document, including optional project assignment, Project-Document partial participation, ingestion, and unassigned-document behavior in `Documentation/Workflows/document-management.md`
-- [ ] T070 [P] Create the question-answering workflow document, including optional project selection, authorized-project intersection, filtered retrieval, LLM generation, and citations in `Documentation/Workflows/question-answering.md`
-- [ ] T071 [P] Create the Streamlit-to-FastAPI workflow document, including Users, Projects, Documents, and Chat page HTTP calls in `Documentation/Workflows/streamlit-fastapi-integration.md`
-- [ ] T072 Create the workflow index with links to every major workflow and ownership notes in `Documentation/Workflows/README.md`
-- [ ] T073 Record every implementation code-file change for this feature in `Documentation/Team_logs/Roshan.md`, including date, file path, change summary, related task ID, and validation result
-- [ ] T074 Add or complete focused unit tests for domain entities, authorization, repository ports, Unit of Work behavior, membership rules, document assignment, and optional project selection in `tests/unit/`
+- [X] T067 [P] Create the user-management workflow document, including Streamlit Users page, FastAPI endpoints, authorization, Unit of Work, and persistence adapter flow in `Documentation/Workflows/user-management.md`
+- [X] T068 [P] Create the project-membership workflow document, including department scope, many-to-many assignment, manager restrictions, and rollback behavior in `Documentation/Workflows/project-membership.md`
+- [X] T069 [P] Create the document-management workflow document, including optional project assignment, Project-Document partial participation, ingestion, and unassigned-document behavior in `Documentation/Workflows/document-management.md`
+- [X] T070 [P] Create the question-answering workflow document, including optional project selection, authorized-project intersection, filtered retrieval, LLM generation, and citations in `Documentation/Workflows/question-answering.md`
+- [X] T071 [P] Create the Streamlit-to-FastAPI workflow document, including Users, Projects, Documents, and Chat page HTTP calls in `Documentation/Workflows/streamlit-fastapi-integration.md`
+- [X] T072 Create the workflow index with links to every major workflow and ownership notes in `Documentation/Workflows/README.md`
+- [X] T073 Record every implementation code-file change for this feature in `Documentation/Team_logs/Roshan.md`, including date, file path, change summary, related task ID, and validation result
+- [X] T074 Add or complete focused unit tests for domain entities, authorization, repository ports, Unit of Work behavior, membership rules, document assignment, and optional project selection in `tests/unit/`
 - [ ] T075 Run the complete unit-test suite with `pytest tests/unit` and fix all failures before marking the feature complete
 - [ ] T076 Run the full regression suite with `pytest`, then record the command, result, and any known environment limitations in `Documentation/Team_logs/Roshan.md`
 - [ ] T077 Validate every workflow document link, every required task checkbox, and the scenarios in `specs/002-sql-user-management/quickstart.md` before completion

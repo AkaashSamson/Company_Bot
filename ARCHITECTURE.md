@@ -206,3 +206,11 @@ The current architecture leaves these replaceable boundaries:
 - Replace Streamlit while preserving the FastAPI chat contract.
 
 Authentication, authorization, enterprise HR integrations, hosted storage, and production operational controls are outside the current MVP.
+
+## SQL Organization Flow
+
+The persistence factory selects the configured relational adapter and supplies a SQLAlchemy Unit of Work. Repository ports expose User, Department, Project, Document, and UserProject operations without leaking SQLAlchemy into domain services. FastAPI dependencies construct use cases, routes translate domain failures into HTTP responses, and Streamlit pages use HTTP clients only.
+
+Document registration stores a nullable project assignment. The document use case validates optional project scope, persists the active record, and can invoke the existing ingestion handler. Archiving changes lifecycle status rather than removing project history. During chat, authorization resolves the active project set before the retrieval adapter receives project filters; the LLM sees only selected evidence and citations are built from that same evidence.
+
+Detailed sequence guides are maintained in [Documentation/Workflows/README.md](Documentation/Workflows/README.md).
