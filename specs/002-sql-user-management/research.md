@@ -35,3 +35,9 @@
 **Rationale**: Schema changes need repeatable deployment and rollback review. Repository contract tests can run against a temporary SQL database or a temporary SQLite database, while authorization unit tests use fakes for fast feedback.
 
 **Alternatives considered**: Creating tables at application startup was rejected because it obscures schema history and can race in multi-worker deployments.
+
+## Decision: Include basic username/password authentication with a pre-seeded Admin
+
+**Rationale**: The feature now owns the minimum login boundary required to bootstrap an organization. A securely configured pre-seeded Admin can change the default password, create Managers, and allow Managers to onboard employees. Passwords remain behind an authentication service boundary and are persisted only as secure representations; protected organization and retrieval operations consume the resulting authenticated principal.
+
+**Alternatives considered**: Assuming an existing authentication provider was rejected because initial setup requires a usable Admin login. Social login, multi-factor authentication, and a full enterprise identity platform remain outside MVP scope.

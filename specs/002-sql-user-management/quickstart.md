@@ -6,21 +6,26 @@
 - Project dependencies installed from `requirements.txt`
 - SQLite database file at `./instance/sqlite.db` for organization/access data
 - Existing chat environment variables configured as described in `README.md`
-- Authenticated principal integration configured for the API/UI test path
+- Initial Admin username and password supplied through secure local configuration
 
 ## Setup
 
 1. Configure the database URL through the persistence adapter factory; use SQLite first.
 2. Run the feature migration command documented by the implementation once migrations are added.
-3. Seed one Admin, two Departments, one Manager per department, two regular users, and two Projects.
-4. Assign User A to Project A and User B to Project B; leave one user with no memberships.
-5. Ensure the configured persistence adapter creates indexes for department ownership and user-project membership.
+3. Seed the pre-configured Admin account, then log in with the default credentials and change the default password.
+4. Have Admin create one Manager per department with initial passwords; Managers create the regular users in their departments.
+5. Create two Departments and two Projects, then assign User A to Project A and User B to Project B; leave one user with no memberships.
+6. Ensure the configured persistence adapter creates indexes for department ownership and user-project membership.
 
 ## Validation scenarios
 
 ### Flexible roles
 
 Create a user with role `Solution Architect`, then read it back. The operation must succeed without adding a predefined role or changing the role model. See [data-model.md](./data-model.md).
+
+### Authentication bootstrap
+
+Log in as the pre-seeded Admin with the configured default credentials, change the Admin password, create a Manager with an initial password, and confirm the Manager can log in. Confirm the Manager can create an employee in scope and that the employee can log in with the initial password.
 
 ### Department-scoped management
 

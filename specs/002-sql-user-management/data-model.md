@@ -11,16 +11,21 @@ Represents an authenticated organization member.
 
 Fields:
 - `uid`: string, primary key, immutable external identity key
+- `username`: string, required, unique login identifier
 - `name`: string, required
 - `email`: string, required, unique, normalized for comparison
 - `role`: string, required, non-empty, case-normalized for special-role checks but preserved for display
 - `department_id`: foreign key to Department, required
 - `status`: enum `active` or `inactive`, default `active`
+- `password_representation`: secure password hash or equivalent representation; plaintext passwords are never persisted
+- `password_changed_at`: timestamp for password-change tracking
 - `created_at`: timestamp
 - `updated_at`: timestamp
 
 Rules:
 - `Admin` and `Manager` are special role values; any other non-empty organization-defined value is valid.
+- One Admin account is pre-seeded with an initial username and password supplied through secure configuration or deployment setup.
+- Admin-created users receive an initial password and can change their own password; Admin can change a user's password.
 - Inactive users cannot manage records or retrieve project evidence.
 
 ### Department
@@ -99,3 +104,10 @@ Constraints:
 5. Missing, inactive, or unknown principals receive no project IDs and cannot retrieve restricted evidence.
 6. If no project is selected, authorize all active projects assigned to the user; if a project is selected, authorize only that project after intersecting it with the user's allowed project set.
 7. Authorization executes before vector-store retrieval and before answer generation.
+
+## Authentication rules
+
+1. Login accepts a username and password and returns the authenticated principal through the configured session or token boundary.
+2. The pre-seeded Admin must be able to log in during initial setup and should change the configured default password before normal administration.
+3. Admin-created users, including Managers, can log in with their initial passwords after account creation.
+4. Password changes replace the stored secure password representation and apply to subsequent login attempts.

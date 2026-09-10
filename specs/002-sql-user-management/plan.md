@@ -4,13 +4,13 @@
 
 ## Summary
 
-Integrate the corrected Department–User–Project ERD into KnowLayer through database-agnostic persistence ports, a configurable relational adapter, management API contracts, and an authorization service that resolves project access before retrieval. User role remains a flexible string; `Admin` and `Manager` are special values, and no Role or Permission table is introduced. The User–Project many-to-many relationship is represented by the required associative database table with uniqueness and foreign-key constraints.
+Integrate the corrected Department–User–Project ERD into KnowLayer through database-agnostic persistence ports, basic username/password authentication, a configurable relational adapter, management API contracts, and an authorization service that resolves project access before retrieval. User role remains a flexible string; `Admin` and `Manager` are special values, and no Role or Permission table is introduced. The User–Project many-to-many relationship is represented by the required associative database table with uniqueness and foreign-key constraints.
 
 ## Technical Context
 
 **Language/Version**: Python 3.11+
 
-**Primary Dependencies**: FastAPI, Pydantic 2, pytest, existing Chroma/LLM adapters; SQLAlchemy 2 and Alembic are the planned relational persistence dependencies.
+**Primary Dependencies**: FastAPI, Pydantic 2, pytest, password hashing/session or token support, existing Chroma/LLM adapters; SQLAlchemy 2 and Alembic are the planned relational persistence dependencies.
 
 **Storage**: A relational persistence port with SQLite as the initial configuration and PostgreSQL as a compatible future configuration; Chroma remains the vector store and carries project identity in retrieval metadata.
 
@@ -22,7 +22,7 @@ Integrate the corrected Department–User–Project ERD into KnowLayer through d
 
 **Performance Goals**: Typical user lookup and project authorization under 100ms; preserve the existing low-seconds interactive chat target.
 
-**Constraints**: Authorization must occur before vector retrieval; dynamic roles must not require migrations; domain logic cannot depend on SQLAlchemy, Chroma, FastAPI, or Streamlit; existing chat behavior must remain usable when no project scope is supplied only through an explicit compatibility policy.
+**Constraints**: Authentication and authorization must occur before protected operations and vector retrieval; passwords must be stored only as secure representations; dynamic roles must not require migrations; domain logic cannot depend on SQLAlchemy, Chroma, FastAPI, or Streamlit; existing chat behavior must remain usable when no project scope is supplied only through an explicit compatibility policy.
 
 **Scale/Scope**: Initial lightweight deployment uses SQLite; the same repository contracts must support PostgreSQL later without changing domain or use-case code. The model includes User, Department, Project, Document, and UserProject.
 
@@ -64,9 +64,11 @@ app/
 │   │   ├── department_repository.py       # department persistence port
 │   │   ├── project_repository.py          # project persistence port
 │   │   ├── membership_repository.py       # user-project persistence port
+│   │   ├── authentication_service.py       # username/password authentication boundary
 │   │   ├── unit_of_work.py                # transaction boundary
 │   │   └── authorization_service.py       # access abstraction
 │   └── services/
+│       ├── authentication_service.py       # login and password-change rules
 │       └── authorization_service.py        # pre-retrieval rules
 ├── infrastructure/
 │   └── persistence/
@@ -113,19 +115,20 @@ tests/
 
 ## Implementation Sequence
 
-1. Add database-agnostic repository ports for users, departments, projects, documents, memberships, and Unit of Work; configure SQLite first.
-2. Add domain entities and authorization services with in-memory fake repositories for unit tests.
-3. Implement user, department, project, and membership use cases using the Unit of Work boundary.
-4. Add organization and document API schemas/routes plus trusted authentication-context dependencies; make chat project scope optional.
-5. Add pre-retrieval project authorization to FastAPI and Streamlit chat paths; intersect an optional selected project with the user's authorized project set before retrieval.
-6. Add Streamlit Users, Projects, and Documents pages backed by small HTTP client services.
-7. Add repository contract, SQLite integration, API contract, UI smoke, and unauthorized-retrieval regression tests.
-8. Run the quickstart scenarios and document adapter configuration and migration operations.
+1. Add basic username/password authentication with a pre-seeded Admin, password-change behavior, and a trusted authenticated-principal boundary.
+2. Add database-agnostic repository ports for users, departments, projects, documents, memberships, and Unit of Work; configure SQLite first.
+3. Add domain entities and authorization services with in-memory fake repositories for unit tests.
+4. Implement user, department, project, and membership use cases using the Unit of Work boundary, including Admin-created initial passwords.
+5. Add organization and document API schemas/routes plus authentication-context dependencies; make chat project scope optional.
+6. Add pre-retrieval project authorization to FastAPI and Streamlit chat paths; intersect an optional selected project with the user's authorized project set before retrieval.
+7. Add Streamlit Users, Projects, and Documents pages backed by small HTTP client services.
+8. Add repository contract, SQLite integration, authentication/API contract, UI smoke, and unauthorized-retrieval regression tests.
+9. Run the quickstart scenarios and document adapter configuration, authentication bootstrap, and migration operations.
 
 ## Risks and Mitigations
 
 - Existing documents may lack project IDs: fail closed for restricted requests and provide a migration/re-ingestion step.
-- No authentication provider is currently present: keep a narrow principal port and use a development-only explicit test principal; do not trust caller-supplied UID in production.
+- No external authentication provider is required for the basic flow: keep a narrow authentication/principal port, pre-seed the Admin through secure configuration, and do not trust caller-supplied UID in production.
 - Manager scope interpretation could drift: enforce same-department user and project ownership in one authorization service and contract-test it.
 
 ## Post-Design Constitution Check

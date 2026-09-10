@@ -2,7 +2,17 @@
 
 Base path: `/api`
 
-All endpoints require an authenticated principal supplied by the existing authentication integration. The caller's UID is taken from trusted auth context, not from a mutable request body field.
+Protected endpoints require an authenticated principal supplied by the feature's username/password login flow. The caller's UID is taken from trusted auth context, not from a mutable request body field.
+
+## Authentication
+
+### `POST /auth/login`
+
+Accepts a username and password for the pre-seeded Admin or an Admin-created user. Valid credentials return an authenticated session or token; invalid credentials return `401` without revealing which credential failed.
+
+### `POST /auth/change-password`
+
+An authenticated user changes their own password. Admin may change a user's password through the user-management flow. The server stores only a secure password representation and subsequent logins use the new password.
 
 ## Users
 
@@ -13,7 +23,7 @@ Admin only. Creates a user.
 Request:
 
 ```json
-{"uid":"u-123","name":"Asha Rao","email":"asha@example.com","role":"Solution Architect","department_id":"dept-eng"}
+{"uid":"u-123","username":"asha.rao","name":"Asha Rao","email":"asha@example.com","role":"Solution Architect","department_id":"dept-eng","initial_password":"configured-at-creation"}
 ```
 
 Responses:
@@ -22,6 +32,8 @@ Responses:
 - `404`: department does not exist
 - `409`: UID or email already exists
 - `403`: caller is not Admin
+
+The initial password is accepted only for account creation and is never returned in the response.
 
 ### `GET /users/{uid}`
 

@@ -18,7 +18,7 @@
 
 ### User Story 1 - Administrators manage organizational users (Priority: P1)
 
-An administrator can create, view, update, deactivate, and delete user accounts with a free-form organizational role value. The system stores the user and department relationship so the account can participate in project access checks.
+An administrator must authenticate with the admin login before creating, viewing, updating, deactivating, or deleting user accounts with a free-form organizational role value. During initial setup, the pre-seeded Admin uses the configured default credentials, changes the default password, and creates the organization's Managers. Managers then onboard other employees within their department scope, while the Admin remains available for organization-wide administration and troubleshooting when required. The system stores the user and department relationship so the account can participate in project access checks.
 
 **Independent Test**: An admin creates a user with a new role value and department, then reads the account back from the system.
 
@@ -27,6 +27,10 @@ An administrator can create, view, update, deactivate, and delete user accounts 
 1. **Given** an authenticated admin, **When** they provide a valid UID, name, email, role, and department, **Then** the user account is created and available in the system.
 2. **Given** an admin provides a duplicate UID or email, **When** they create the user, **Then** the system returns a conflict without a partial record.
 3. **Given** an admin provides an invalid email or unknown department, **When** they create the user, **Then** the system returns a validation error.
+4. **Given** an authenticated admin creates a user, **When** they provide an initial password, **Then** the user account is created with that password representation and the user can log in.
+5. **Given** the system has been set up with the pre-seeded Admin account, **When** the Admin logs in with the configured default credentials, **Then** the Admin is prompted or permitted to change the default password before continuing normal administration.
+6. **Given** an authenticated Admin, **When** they create a user with the `Manager` role and department, **Then** the Manager can authenticate and manage users within that department's scope.
+7. **Given** an authenticated Manager, **When** they create or manage employees in their department, **Then** those employee accounts are available for the organization's normal onboarding and access-management process.
 
 ### User Story 2 - Managers manage users in their scope (Priority: P1)
 
@@ -67,7 +71,7 @@ Before answering a question, the system evaluates the authenticated user's proje
 
 ### User Story 5 - Admin has special troubleshooting access (Priority: P2)
 
-Admin is a special system-level role value used by authorized developers for troubleshooting. Admin can access all departments, users, projects, memberships, and project questions.
+The system provides one pre-seeded Admin account with a configured initial username and password. The Admin authenticates through the login flow and may change the Admin password after login. Admin is a special system-level role value used by authorized developers for troubleshooting. Admin can access all departments, users, projects, memberships, and project questions.
 
 **Independent Test**: An authenticated admin reads and modifies records across departments and accesses every project without being individually assigned to each project.
 
@@ -75,6 +79,7 @@ Admin is a special system-level role value used by authorized developers for tro
 
 1. **Given** a developer has authenticated admin credentials, **When** they log in, **Then** they have access to all projects and users without project restrictions.
 2. **Given** the admin attempts to view or modify any user or project, **When** the operation is valid, **Then** it succeeds without scope errors.
+3. **Given** the pre-seeded Admin account has its configured initial credentials, **When** the Admin submits them to the login endpoint, **Then** authentication succeeds and an authenticated session or token is issued.
 
 ## Edge Cases
 
@@ -95,7 +100,7 @@ Admin is a special system-level role value used by authorized developers for tro
 
 ### User
 
-Attributes: UID, name, email, role, department, and status.
+Attributes: UID, username, name, email, role, department, status, password representation, and password-change metadata.
 
 A user belongs to one department and may belong to many projects.
 
@@ -127,7 +132,7 @@ A document may be created before it is assigned to a project. Once assigned, it 
 ## Non-Goals
 
 - Implementing a specific frontend UI framework or design language.
-- Building a complete authentication system from scratch; existing authentication supplies an authenticated principal.
+- Supporting advanced authentication features beyond basic username/password login and password changes.
 - Supporting social login or third-party identity providers in MVP.
 - Creating a full-featured enterprise permission system or separate Role/Permission entities.
 - Implementing advanced search or filtering beyond project-based access control.
@@ -145,17 +150,23 @@ A document may be created before it is assigned to a project. Once assigned, it 
 6. **Scoped Management**: Managers can manage users and memberships only within their authorized department scope.
 7. **Project Question Access**: Authorization is evaluated before answering, and users receive information only for assigned projects.
 8. **Admin Elevated Privileges**: The admin role value grants organization-wide access for approved troubleshooting.
+9. **Admin Login**: The system provides a pre-seeded Admin account with a configured initial username and password; valid credentials authenticate the Admin and issue an authenticated session or token.
+10. **User Login**: Users created by an authenticated Admin receive an initial password and can authenticate with their username and password before accessing protected features.
+11. **Admin Creates Users**: An authenticated Admin can create users with a unique username and initial password while preserving the password only as a secure password representation.
+12. **Password Changes**: An authenticated user can change their own password, and an authenticated Admin can change a user's password; subsequent login attempts use the new password.
 
 ### Non-Functional Requirements
 
 1. **Performance**: User lookup and project authorization should complete in under 100ms for typical workloads.
-2. **Security**: Authentication credentials remain outside this feature; passwords and access tokens are not exposed by this feature.
+2. **Security**: Passwords are not stored or exposed in plain text; only secure password representations are persisted, and access tokens or sessions are not exposed by this feature.
 3. **Scalability**: The system supports the expected initial organization size and can grow without changing the organizational concepts.
 4. **Reliability**: Changes preserve valid relationships and do not leave partial updates.
 
 ### Assumptions
 
-- Existing authentication provides user login and an authenticated user identifier.
+- Basic username/password authentication is included in this feature and supplies an authenticated user identifier for protected requests.
+- The initial Admin username and password are supplied through secure configuration or deployment setup and are not committed as source code.
+- Users receive an initial password when created by an authenticated Admin.
 - The system can identify the authenticated user for each request.
 - `Admin` and `Manager` are special role values; all other role values are organization-defined strings.
 - A department contains users and projects.
@@ -172,6 +183,9 @@ A document may be created before it is assigned to a project. Once assigned, it 
 - [ ] Regular users can only access questions from assigned projects.
 - [ ] Projects can contain multiple documents, with partial participation on the Project-Document relationship.
 - [ ] Admin has unrestricted access for troubleshooting.
+- [ ] The pre-seeded Admin can log in with the configured initial credentials.
+- [ ] Admin-created users can log in with their initial passwords.
+- [ ] Users can change their own passwords, and Admin can change user passwords successfully.
 
 - [ ] Authorization checks complete within performance targets.
 - [ ] The specification contains no unresolved clarification items.
