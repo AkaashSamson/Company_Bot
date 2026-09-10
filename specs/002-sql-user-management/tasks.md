@@ -72,16 +72,16 @@
 
 ### Tests for User Story 2
 
-- [ ] T027 [P] [US2] Add authorization unit tests for Admin, Manager same-department, Manager cross-department, inactive actor, and dynamic-role behavior in `tests/unit/test_organization_authorization.py`
-- [ ] T028 [P] [US2] Add API contract tests for manager-scoped user updates and deletes in `tests/contract/test_user_scope_api.py`
-- [ ] T029 [US2] Add integration tests proving denied cross-department operations do not partially update SQLite state in `tests/integration/test_manager_scope_e2e.py`
+- [X] T027 [P] [US2] Add authorization unit tests for Admin, Manager same-department, Manager cross-department, inactive actor, and dynamic-role behavior in `tests/unit/test_organization_authorization.py`
+- [X] T028 [P] [US2] Add API contract tests for manager-scoped user updates and deletes in `tests/contract/test_user_scope_api.py`
+- [X] T029 [US2] Add integration tests proving denied cross-department operations do not partially update SQLite state in `tests/integration/test_manager_scope_e2e.py`
 
 ### Implementation for User Story 2
 
-- [ ] T030 [US2] Implement current-user authorization and department-scope checks in `app/domain/services/authorization_service.py`
-- [ ] T031 [US2] Apply manager scope checks to user-management use cases in `app/use_cases/organization/user_management.py`
-- [ ] T032 [US2] Return consistent `401`, `403`, `404`, and `409` responses for scoped management failures in `app/api/routes/organization.py`
-- [ ] T033 [US2] Add manager-scoped controls and forbidden-operation messages to `streamlit_app/pages/users.py`
+- [X] T030 [US2] Implement current-user authorization and department-scope checks in `app/domain/services/authorization_service.py`
+- [X] T031 [US2] Apply manager scope checks to user-management use cases in `app/use_cases/organization/user_management.py`
+- [X] T032 [US2] Return consistent `401`, `403`, `404`, and `409` responses for scoped management failures in `app/api/routes/organization.py`
+- [X] T033 [US2] Add manager-scoped controls and forbidden-operation messages to `streamlit_app/pages/users.py`
 
 **Checkpoint**: User Stories 1 and 2 both work independently, with manager authorization enforced before mutation.
 
@@ -95,18 +95,18 @@
 
 ### Tests for User Story 3
 
-- [ ] T034 [P] [US3] Add project and membership API contract tests for create, list, assign, revoke, idempotency, and scope errors in `tests/contract/test_project_membership_api.py`
-- [ ] T035 [P] [US3] Add membership unit tests for many-to-many relationships, duplicate assignments, revoked assignments, and department scope in `tests/unit/test_project_membership.py`
-- [ ] T036 [US3] Add SQLite integration tests for project membership transaction rollback and bidirectional reads in `tests/integration/test_project_membership_e2e.py`
+- [X] T034 [P] [US3] Add project and membership API contract tests for create, list, assign, revoke, idempotency, and scope errors in `tests/contract/test_project_membership_api.py`
+- [X] T035 [P] [US3] Add membership unit tests for many-to-many relationships, duplicate assignments, revoked assignments, and department scope in `tests/unit/test_project_membership.py`
+- [X] T036 [US3] Add SQLite integration tests for project membership transaction rollback and bidirectional reads in `tests/integration/test_project_membership_e2e.py`
 
 ### Implementation for User Story 3
 
-- [ ] T037 [P] [US3] Add project, membership, and department response schemas in `app/api/schemas/organization.py`
-- [ ] T038 [US3] Implement project creation, listing, and membership use cases with Unit of Work transactions in `app/use_cases/organization/project_management.py` and `app/use_cases/organization/membership_management.py`
-- [ ] T039 [US3] Implement `POST /projects`, `GET /projects`, `POST /projects/{project_id}/members/{uid}`, and `DELETE /projects/{project_id}/members/{uid}` in `app/api/routes/organization.py`
-- [ ] T040 [US3] Add project and membership methods to `streamlit_app/services/organization_service.py`
-- [ ] T041 [US3] Build the simple Streamlit Projects page for project listing, creation, membership assignment, and membership removal in `streamlit_app/pages/projects.py`
-- [ ] T042 [US3] Add project-page scope, duplicate-assignment, empty-state, and forbidden-operation handling in `streamlit_app/pages/projects.py`
+- [X] T037 [P] [US3] Add project, membership, and department response schemas in `app/api/schemas/organization.py`
+- [X] T038 [US3] Implement project creation, listing, and membership use cases with Unit of Work transactions in `app/use_cases/organization/project_management.py` and `app/use_cases/organization/membership_management.py`
+- [X] T039 [US3] Implement `POST /projects`, `GET /projects`, `POST /projects/{project_id}/members/{uid}`, and `DELETE /projects/{project_id}/members/{uid}` in `app/api/routes/organization.py`
+- [X] T040 [US3] Add project and membership methods to `streamlit_app/services/organization_service.py`
+- [X] T041 [US3] Build the simple Streamlit Projects page for project listing, creation, membership assignment, and membership removal in `streamlit_app/pages/projects.py`
+- [X] T042 [US3] Add project-page scope, duplicate-assignment, empty-state, and forbidden-operation handling in `streamlit_app/pages/projects.py`
 
 **Checkpoint**: User Stories 1 through 3 provide usable organization and project-access administration.
 

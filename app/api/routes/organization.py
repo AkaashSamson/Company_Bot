@@ -1,14 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from app.api.dependencies import get_current_principal, get_user_management_service
+from app.api.dependencies import (
+    get_current_principal,
+    get_membership_management_service,
+    get_project_management_service,
+    get_user_management_service,
+)
 from app.api.schemas.organization import (
     DepartmentCreate,
     DepartmentResponse,
+    ProjectCreate,
+    ProjectResponse,
     UserCreate,
     UserResponse,
     UserUpdate,
 )
-from app.domain.services.organization_errors import ConflictError, NotFoundError
+from app.domain.services.organization_errors import ConflictError, ForbiddenError, NotFoundError
 
 router = APIRouter(prefix="/api", tags=["organization"])
 
@@ -18,6 +25,8 @@ def _error(error):
         return HTTPException(status_code=409, detail=str(error))
     if isinstance(error, NotFoundError):
         return HTTPException(status_code=404, detail=str(error))
+    if isinstance(error, ForbiddenError):
+        return HTTPException(status_code=403, detail=str(error))
     return HTTPException(status_code=400, detail=str(error))
 
 
@@ -73,7 +82,7 @@ def get_user(
     service=Depends(get_user_management_service),
 ):
     try:
-        return service.get_user(uid)
+        return service.get_user(uid, principal.uid)
     except Exception as error:
         raise _error(error) from error
 
@@ -99,6 +108,57 @@ def deactivate_user(
 ):
     try:
         service.deactivate_user(principal.uid, uid)
+    except Exception as error:
+        raise _error(error) from error
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/projects", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+def create_project(
+    payload: ProjectCreate,
+    principal=Depends(get_current_principal),
+    service=Depends(get_project_management_service),
+):
+    try:
+        return service.create_project(principal.uid, **payload.model_dump())
+    except Exception as error:
+        raise _error(error) from error
+
+
+@router.get("/projects", response_model=list[ProjectResponse])
+def list_projects(
+    principal=Depends(get_current_principal),
+    service=Depends(get_project_management_service),
+):
+    try:
+        return service.list_projects(principal.uid)
+    except Exception as error:
+        raise _error(error) from error
+
+
+@router.post("/projects/{project_id}/members/{uid}", status_code=status.HTTP_204_NO_CONTENT)
+def assign_member(
+    project_id: str,
+    uid: str,
+    principal=Depends(get_current_principal),
+    service=Depends(get_membership_management_service),
+):
+    try:
+        service.assign(principal.uid, uid, project_id)
+    except Exception as error:
+        raise _error(error) from error
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/projects/{project_id}/members/{uid}", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_member(
+    project_id: str,
+    uid: str,
+    principal=Depends(get_current_principal),
+    service=Depends(get_membership_management_service),
+):
+    try:
+        service.revoke(principal.uid, uid, project_id)
     except Exception as error:
         raise _error(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)

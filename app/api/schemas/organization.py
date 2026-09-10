@@ -30,3 +30,14 @@ class UserUpdate(BaseModel):
 class UserResponse(UserCreate):
     model_config = ConfigDict(from_attributes=True)
     status: str
+
+
+class ProjectCreate(BaseModel):
+    project_id: str = Field(min_length=1)
+    project_name: str = Field(min_length=1)
+    department_id: str = Field(min_length=1)
+
+
+class ProjectResponse(ProjectCreate):
+    model_config = ConfigDict(from_attributes=True)
+    status: str

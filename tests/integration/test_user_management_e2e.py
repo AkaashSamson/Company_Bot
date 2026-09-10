@@ -16,6 +16,6 @@ def test_authenticated_admin_can_deactivate_user_when_storage_is_configured():
     client = TestClient(app)
     try:
         response = client.delete("/api/users/missing")
-        assert response.status_code in {404, 500}
+        assert response.status_code == 403
     finally:
         app.dependency_overrides.clear()

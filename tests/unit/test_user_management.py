@@ -9,7 +9,8 @@ from tests.fixtures.organization_repositories import InMemoryUnitOfWork
 
 
 def make_service(users=None, departments=None):
-    return UserManagementService(lambda: InMemoryUnitOfWork(users, departments))
+    admin = User("admin", "Admin", "admin@example.com", "Admin", "d1")
+    return UserManagementService(lambda: InMemoryUnitOfWork([admin, *(users or [])], departments))
 
 
 def test_admin_can_create_user_with_dynamic_role():

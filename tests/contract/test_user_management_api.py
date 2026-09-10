@@ -1,3 +1,4 @@
+from app.domain.entities.organization_models import Department, User
 from fastapi.testclient import TestClient
 
 from app.api.dependencies import get_current_principal, get_unit_of_work, get_user_management_service
@@ -8,7 +9,7 @@ from tests.fixtures.organization_repositories import InMemoryUnitOfWork
 
 
 def test_admin_can_create_and_read_user():
-    unit_of_work = InMemoryUnitOfWork()
+    unit_of_work = InMemoryUnitOfWork(users=[User("admin", "Admin", "admin@example.com", "Admin", "d1")])
     app.dependency_overrides[get_current_principal] = lambda: AuthenticatedPrincipal("admin")
     app.dependency_overrides[get_unit_of_work] = lambda: unit_of_work
     app.dependency_overrides[get_user_management_service] = lambda: UserManagementService(lambda: unit_of_work)

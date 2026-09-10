@@ -57,3 +57,27 @@ Code files added or changed:
 
 Summary: Implemented admin user and department CRUD with flexible roles, validation, authentication boundaries, and the Streamlit Users page.
 Validation: Focused US1 suite passed: 7 tests.
+
+## Feature: SQL Organization Access - Phases 4 and 5
+
+Code files added or changed:
+- app/use_cases/organization/user_management.py
+- app/use_cases/organization/project_management.py
+- app/use_cases/organization/membership_management.py
+- app/api/schemas/organization.py
+- app/api/dependencies.py
+- app/api/routes/organization.py
+- streamlit_app/services/organization_service.py
+- streamlit_app/pages/projects.py
+- tests/unit/test_organization_authorization.py
+- tests/unit/test_project_membership.py
+- tests/contract/test_user_scope_api.py
+- tests/contract/test_project_membership_api.py
+- tests/integration/test_manager_scope_e2e.py
+- tests/integration/test_project_membership_e2e.py
+- tests/unit/test_user_management.py
+- tests/contract/test_user_management_api.py
+- tests/integration/test_user_management_e2e.py
+
+Summary: Added Manager department scoping, project CRUD, many-to-many membership assignment/revocation, idempotent membership behavior, Projects Streamlit page, and SQLite integration coverage.
+Validation: Combined US1-US3 focused suite passed: 16 tests.
