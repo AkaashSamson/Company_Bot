@@ -21,18 +21,18 @@
 
 **Purpose**: Implement the boundaries that every user story depends on. No story work should begin until this phase is complete.
 
-- [ ] T005 Define framework-independent User, Department, Project, Document, and UserProject domain models in `app/domain/entities/organization_models.py`
-- [ ] T006 [P] Define `UserRepository`, `DepartmentRepository`, `ProjectRepository`, `DocumentRepository`, and `MembershipRepository` protocols in `app/domain/ports/`
-- [ ] T007 Define the Unit of Work protocol and transaction error types in `app/domain/ports/unit_of_work.py` and `app/domain/services/organization_errors.py`
-- [ ] T008 [P] Define authenticated principal and authorization service protocols in `app/domain/ports/authorization_service.py` and `app/domain/services/authorization_service.py`
-- [ ] T009 Implement database-agnostic SQLAlchemy mappings for User, Department, Project, Document, and UserProject in `app/infrastructure/persistence/sqlalchemy/models.py`
-- [ ] T010 Implement the SQLAlchemy session lifecycle, foreign-key setup, and transaction boundary in `app/infrastructure/persistence/sqlalchemy/session.py` and `app/infrastructure/persistence/sqlalchemy/unit_of_work.py`
-- [ ] T011 Implement the repository adapter and database configuration factory for SQLite now and PostgreSQL-compatible configuration later in `app/infrastructure/persistence/sqlalchemy/repositories.py`, `app/infrastructure/persistence/sqlite/configuration.py`, `app/infrastructure/persistence/postgres/configuration.py`, and `app/infrastructure/persistence/factory.py`
-- [ ] T012 Create the initial schema migration and indexes for department ownership, document project assignment, and UserProject membership in `app/infrastructure/persistence/migrations/`
-- [ ] T013 [P] Implement in-memory repository fakes for authorization and use-case unit tests in `tests/fixtures/organization_repositories.py`
-- [ ] T014 Implement trusted authenticated-principal dependency wiring for FastAPI in `app/api/dependencies.py`
-- [ ] T015 Register the organization and document routers with the existing FastAPI application in `app/main.py`
-- [ ] T016 [P] Add repository contract tests that can run against the configured adapter in `tests/contract/test_repository_contract.py`
+- [X] T005 Define framework-independent User, Department, Project, Document, and UserProject domain models in `app/domain/entities/organization_models.py`
+- [X] T006 [P] Define `UserRepository`, `DepartmentRepository`, `ProjectRepository`, `DocumentRepository`, and `MembershipRepository` protocols in `app/domain/ports/`
+- [X] T007 Define the Unit of Work protocol and transaction error types in `app/domain/ports/unit_of_work.py` and `app/domain/services/organization_errors.py`
+- [X] T008 [P] Define authenticated principal and authorization service protocols in `app/domain/ports/authorization_service.py` and `app/domain/services/authorization_service.py`
+- [X] T009 Implement database-agnostic SQLAlchemy mappings for User, Department, Project, Document, and UserProject in `app/infrastructure/persistence/sqlalchemy/models.py`
+- [X] T010 Implement the SQLAlchemy session lifecycle, foreign-key setup, and transaction boundary in `app/infrastructure/persistence/sqlalchemy/session.py` and `app/infrastructure/persistence/sqlalchemy/unit_of_work.py`
+- [X] T011 Implement the repository adapter and database configuration factory for SQLite now and PostgreSQL-compatible configuration later in `app/infrastructure/persistence/sqlalchemy/repositories.py`, `app/infrastructure/persistence/sqlite/configuration.py`, `app/infrastructure/persistence/postgres/configuration.py`, and `app/infrastructure/persistence/factory.py`
+- [X] T012 Create the initial schema migration and indexes for department ownership, document project assignment, and UserProject membership in `app/infrastructure/persistence/migrations/`
+- [X] T013 [P] Implement in-memory repository fakes for authorization and use-case unit tests in `tests/fixtures/organization_repositories.py`
+- [X] T014 Implement trusted authenticated-principal dependency wiring for FastAPI in `app/api/dependencies.py`
+- [X] T015 Register the organization and document routers with the existing FastAPI application in `app/main.py`
+- [X] T016 [P] Add repository contract tests that can run against the configured adapter in `tests/contract/test_repository_contract.py`
 
 **Checkpoint**: Persistence ports, adapter factory, Unit of Work, authentication boundary, and FastAPI registration are ready for story implementation.
 
