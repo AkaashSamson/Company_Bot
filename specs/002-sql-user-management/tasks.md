@@ -10,10 +10,10 @@
 
 **Purpose**: Establish dependencies, configuration, and directories for the database-agnostic organization feature.
 
-- [ ] T001 Add SQLAlchemy and migration dependencies to `requirements.txt` and document the initial SQLite database URL in `.env.example`
-- [ ] T002 [P] Create the planned persistence, organization use-case, API, Streamlit page, and test directories under `app/`, `streamlit_app/`, and `tests/`
-- [ ] T003 [P] Add organization and database settings to `app/core/settings.py`, including the configurable relational database URL and Streamlit API base URL
-- [ ] T004 [P] Add the organization feature configuration and local SQLite instance path to `README.md`
+- [X] T001 Add SQLAlchemy and migration dependencies to `requirements.txt` and document the initial SQLite database URL in `.env.example`
+- [X] T002 [P] Create the planned persistence, organization use-case, API, Streamlit page, and test directories under `app/`, `streamlit_app/`, and `tests/`
+- [X] T003 [P] Add organization and database settings to `app/core/settings.py`, including the configurable relational database URL and Streamlit API base URL
+- [X] T004 [P] Add the organization feature configuration and local SQLite instance path to `README.md`
 
 ---
 
@@ -192,6 +192,7 @@
 - [ ] T075 Run the complete unit-test suite with `pytest tests/unit` and fix all failures before marking the feature complete
 - [ ] T076 Run the full regression suite with `pytest`, then record the command, result, and any known environment limitations in `Documentation/Team_logs/Roshan.md`
 - [ ] T077 Validate every workflow document link, every required task checkbox, and the scenarios in `specs/002-sql-user-management/quickstart.md` before completion
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

@@ -10,3 +10,7 @@ __pycache__/
 
 # Chroma local database
 .chroma/
+# SQLite runtime data
+instance/
+*.sqlite
+*.sqlite3

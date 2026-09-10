@@ -10,6 +10,7 @@ KnowLayer is a modular-monolith RAG chatbot. It retrieves relevant chunks from a
 - Local persistent Chroma database in `.chroma/`
 - Sentence-transformer embeddings
 - FastAPI chat endpoint at `/api/chat`
+- Organization management foundation with a configurable SQLite database URL
 - Streamlit chat UI
 - Citation rendering with source, section, and evidence text
 - Bounded conversational query resolution for follow-up questions
@@ -83,6 +84,7 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 Copy-Item .env.example .env
+# DATABASE_URL defaults to SQLite at ./instance/knowlayer.db
 ```
 
 Edit `.env` and provide valid `OPENROUTER_API_KEY` and `GROQ_API_KEY` values. Do not commit `.env` or expose either key. `.env.example` contains placeholders only.
@@ -104,6 +106,8 @@ After setup and ingestion, run:
 ```
 
 `setup.ps1` starts the already-created virtual-environment processes in two PowerShell windows. It does not create the environment, install dependencies, or ingest documents.
+
+The organization database is selected through `DATABASE_URL`; SQLite is the initial lightweight configuration and the persistence boundary is designed for a future PostgreSQL adapter.
 
 The services are available at:
 
