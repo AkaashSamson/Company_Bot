@@ -10,8 +10,8 @@ def test_chat_endpoint_returns_chat_response():
         "question": "What is the annual leave policy?",
         "session_id": "session-123",
         "conversation_history": [
-            {"role": "user", "content": "What is the annual leave policy?"},
-            {"role": "assistant", "content": "It is described in the HR policy."},
+            {"role": "user", "content": "What are the standard working hours?"},
+            {"role": "assistant", "content": "Standard hours are 9am to 5pm Monday to Friday."},
         ],
     }
     response = client.post("/api/chat", json=payload)

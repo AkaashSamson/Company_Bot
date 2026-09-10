@@ -52,6 +52,24 @@ A user interacts with a Streamlit chatbot that asks questions in plain language 
 
 ---
 
+### User Story 4 - Record completed employee conversations for operations (Priority: P2)
+
+An authenticated employee's completed chatbot conversation is recorded as one JSON log associated with that employee and the existing session identifier. The logs support developer and operations troubleshooting without changing the chatbot answer or retrieval behavior.
+
+**Why this priority**: Conversation records provide operational traceability while keeping the initial implementation simple, file-based, and independent from the future identity database.
+
+**Independent Test**: A completed conversation produces one employee-scoped JSON file with the required metadata and ordered messages, while expired files are cleaned up without deleting non-expired files.
+
+**Acceptance Scenarios**:
+
+1. **Given** a conversation is completed for an authenticated user, **When** the conversation is recorded, **Then** exactly one JSON file is created using the format `<employee_id>_<timestamp>.json` and the existing `session_id` is used as the conversation identifier.
+2. **Given** database and user-identity integration are not yet implemented, **When** a conversation is recorded, **Then** a temporary employee-ID provider returns a test employee ID such as `MSS001`, `MSS002`, or `MSS003` through an abstraction that does not hard-code those IDs inside the logging service.
+3. **Given** a completed conversation contains multiple messages, **When** its log is written, **Then** the JSON contains the employee ID, session ID, ordered messages, message timestamps, and recording status.
+4. **Given** a conversation contains secrets or tokens, **When** its log is written, **Then** those secrets and tokens are redacted before persistence.
+5. **Given** logs older than the configured retention period exist, **When** automatic cleanup runs, **Then** expired logs are removed, non-expired logs are preserved, and cleanup continues after an individual deletion failure.
+6. **Given** log persistence or cleanup fails, **When** the user completes a chat request, **Then** the chatbot answer and retrieval behavior are not interrupted.
+7. **Given** a log exists, **When** it is accessed, **Then** access is limited to developer and operations personnel and no user-facing log search or analytics experience is provided.
+
 ### Edge Cases
 
 - What happens when the question requires real-time enterprise data but the source system is unavailable or stale?
@@ -59,6 +77,12 @@ A user interacts with a Streamlit chatbot that asks questions in plain language 
 - What happens when a user asks for a record they are authorized to see but it is missing or incomplete?
 - How does the system behave when the user asks for restricted internal content outside their role or team scope?
 - What happens when the system cannot determine which source is authoritative for an answer?
+- What happens when the temporary employee-ID provider cannot return an employee ID?
+- What happens when two conversations for the same employee complete in the same timestamp interval?
+- What happens when a log contains a secret or token in a user or assistant message?
+- What happens when an individual expired-log deletion fails during cleanup?
+- What happens when the log directory is unavailable or a JSON file cannot be written?
+- How are non-expired logs preserved when cleanup runs?
 
 ## Goals
 
@@ -67,6 +91,7 @@ A user interacts with a Streamlit chatbot that asks questions in plain language 
 - Keep the first version lightweight and easy to validate as a Streamlit chatbot experience.
 - Establish a modular, testable architecture that remains decoupled from any specific UI, LLM, storage, or enterprise connector.
 - Enable future expansion to Jira, HR, Zoho, and other enterprise sources without redesigning the intelligence core.
+- Provide operational conversation records without changing chatbot answers or retrieval behavior.
 
 ## Non-Goals
 
@@ -89,6 +114,18 @@ A user interacts with a Streamlit chatbot that asks questions in plain language 
 - **FR-013**: The system MUST allow the organization to add enterprise data sources in later phases through adapter interfaces without reworking the core domain model.
 - **FR-014**: The system MUST provide a clear answer when the source document is unavailable or the requested information is not contained in the current document.
 - **FR-015**: The system MUST distinguish between document knowledge and synthesized conclusions so each answer can be traced to the appropriate source of truth.
+- **FR-016**: The system MUST record each completed conversation in one JSON file associated with the employee ID for the authenticated user.
+- **FR-017**: The system MUST use the existing `session_id` as the conversation identifier and MUST NOT introduce a separate conversation identifier.
+- **FR-018**: Each conversation log filename MUST follow the format `<employee_id>_<timestamp>.json`, with a timestamp that supports unique completed-conversation files.
+- **FR-019**: Each conversation log MUST contain `employee_id`, `session_id`, ordered messages, message timestamps, and recording status.
+- **FR-020**: Employee-ID lookup MUST be provided through a replaceable provider abstraction. The initial implementation MUST use a temporary mock provider that returns test IDs such as `MSS001`, `MSS002`, and `MSS003`; those IDs MUST NOT be hard-coded inside the logging service.
+- **FR-021**: The system MUST redact secrets and tokens before writing conversation logs.
+- **FR-022**: The system MUST apply configurable log retention with a default retention period of 30 days.
+- **FR-023**: The system MUST automatically remove expired logs while preserving non-expired logs.
+- **FR-024**: Log cleanup MUST continue processing other files after an individual deletion failure.
+- **FR-025**: Logging and cleanup failures MUST NOT interrupt chatbot responses or change retrieval behavior.
+- **FR-026**: Conversation logs MUST be accessible only to developer and operations personnel and MUST NOT provide user-facing log search or analytics.
+- **FR-027**: Conversation log files MUST be excluded from version control.
 
 ### Non-Functional Requirements
 
@@ -96,10 +133,11 @@ A user interacts with a Streamlit chatbot that asks questions in plain language 
 - **NFR-004**: The system MUST be designed for maintainability and incremental expansion without broad architectural rewrites.
 - **NFR-005**: The system MUST support future provider and storage substitutions without modifying the domain logic.
 - **NFR-006**: The system MUST be testable at the unit, adapter-contract, and regression levels.
+- **NFR-007**: The conversation logging mechanism MUST store one JSON file per completed conversation and remain replaceable without requiring changes to chatbot answer or retrieval behavior.
 
 ### Security Requirements
 
-Security controls are intentionally not the primary focus of v1. The platform assumes every user is a trusted internal user during MVP 1, and authentication/authorization are explicitly deferred to future phases as the platform expands beyond a single internal policy document.
+Security controls are intentionally not the primary focus of v1. The platform assumes every user is a trusted internal user during MVP 1, and authentication/authorization are explicitly deferred to future phases as the platform expands beyond a single internal policy document. Conversation logs are restricted to developer and operations access, and secrets or tokens MUST be redacted before persistence. Database and user-identity integration is not implemented for the initial logging implementation; employee identity is supplied by a temporary mock provider abstraction.
 
 ### Architecture Boundaries
 
@@ -119,6 +157,7 @@ Security controls are intentionally not the primary focus of v1. The platform as
 - Streamlit UI
 - LLM provider abstraction with support for at least one remote provider and local fallback
 - Basic observability, logging, and tests
+- Employee-scoped conversation logging with one JSON file per completed conversation, configurable 30-day retention, cleanup, redaction, and operational-only access
 - Clean interfaces for future enterprise connectors such as HR, Jira, and ERP systems
 
 ### Future Extensibility
@@ -138,6 +177,8 @@ Security controls are intentionally not the primary focus of v1. The platform as
 - **EnterpriseRecord**: A factual record from a trusted enterprise system such as leave balance, appraisal data, or project status information.
 - **QuerySession**: A user interaction that includes request context, authorization context, retrieved evidence, and audit metadata.
 - **SourceReference**: A citation object with document identifier, chunk identifier, page/section reference, and retrieval timestamp.
+- **ConversationLog**: An employee-scoped JSON record containing the employee ID, existing session ID, ordered messages, message timestamps, and recording status for one completed conversation.
+- **EmployeeIdProvider**: An abstraction that returns the employee ID associated with the authenticated user; the initial implementation is a temporary mock provider and will later be replaced by database-backed employee identity lookup.
 
 ## Success Criteria *(mandatory)*
 
@@ -149,6 +190,10 @@ Security controls are intentionally not the primary focus of v1. The platform as
 - **SC-004**: Hybrid questions that combine policy and personal data produce a single answer with evidence from both sources without exposing unauthorized details.
 - **SC-005**: Core domain logic remains independent from external UI, LLM, storage, and enterprise connector implementations as verified by contract tests.
 - **SC-006**: The team can add a new enterprise data source adapter without rewriting the core intelligence layer or the user-facing behavior.
+- **SC-007**: Every completed conversation produces exactly one JSON log named `<employee_id>_<timestamp>.json` containing the required identity, session, message, timestamp, and recording-status fields.
+- **SC-008**: Logs older than 30 days are automatically removed while non-expired logs remain available, and cleanup continues after individual deletion failures.
+- **SC-009**: Logging failures do not prevent users from receiving the same chatbot answer and retrieval result they would receive when logging succeeds.
+- **SC-010**: No persisted conversation log exposes a secret or token in cleartext, and logs are unavailable through user-facing search or analytics.
 
 ## Acceptance Criteria
 
@@ -156,6 +201,8 @@ Security controls are intentionally not the primary focus of v1. The platform as
 - Users can interact with a Streamlit chatbot that answers policy questions from the single source document without requiring a broader enterprise data layer.
 - The architecture remains decoupled from concrete UI, LLM, storage, and future enterprise connector choices.
 - The MVP is limited to a single approved HR policy document and does not require employee-specific or cross-document authorization logic in v1.
+- Completed conversations are logged per employee in one JSON file using the existing session ID, with a temporary mock employee-ID provider until database-backed identity lookup is implemented.
+- Conversation logging is operational-only and does not alter chatbot answers or retrieval behavior.
 
 ## Risks
 
@@ -163,6 +210,9 @@ Security controls are intentionally not the primary focus of v1. The platform as
 - Incorrect source selection may lead to stale or untrusted answers if authoritative data routing is not carefully designed.
 - The system may drift toward premature complexity if the team adds connectors or additional agents before the MVP is proven.
 - Citation quality may be inconsistent without strong document metadata and chunk-level provenance requirements.
+- Conversation logs may contain sensitive content if redaction misses a secret or token pattern.
+- File-system failures or concurrent cleanup may affect log availability even though they must not interrupt chat responses.
+- The temporary mock employee-ID provider may not represent production identity behavior until database-backed lookup is implemented.
 
 ## Open Questions
 
@@ -170,6 +220,8 @@ Security controls are intentionally not the primary focus of v1. The platform as
 - Document storage system and vector database: Local folder for document storage; Chroma DB for vector storage.
 - LLM provider: Primary provider is OpenRouter; supporting provider is Groq.
 - HR or enterprise system integration: Not part of MVP 1; HR systems and other enterprise data integrations are deferred to future phases.
+- Employee identity integration: Database-backed user identity lookup is not implemented for initial conversation logging; a temporary mock employee-ID provider is used and will later be replaced.
+- Conversation log retention: 30 days by default, configurable for operations.
 
 ## Assumptions
 
@@ -178,3 +230,6 @@ Security controls are intentionally not the primary focus of v1. The platform as
 - The initial deployment targets a modular monolith with clean interface boundaries rather than a distributed service topology.
 - The product will require citation and provenance for every answer to support trust and traceability.
 - The system is intentionally designed to be extensible for future authentication, authorization, HR, and enterprise integrations.
+- The authenticated user can be associated with an employee ID through the employee-ID provider abstraction, even though the initial provider is a temporary mock.
+- Conversation logging is performed only for completed conversations, with one JSON file per conversation and the existing session ID as its identifier.
+- Log files are stored outside version control and are accessed only by developer and operations personnel.

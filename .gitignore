@@ -10,3 +10,5 @@ __pycache__/
 
 # Chroma local database
 .chroma/
+# Conversation logs
+conversation_logs/

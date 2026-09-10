@@ -210,10 +210,25 @@ RAG_MAX_CONTEXT_CHARS=12000
 OPENROUTER_API_KEY=
 GROQ_API_KEY=
 LLM_MODEL=openrouter/anthropic/claude-3.5-sonnet
-GROQ_MODEL=llama-3.1-8b-instant
+GROQ_MODEL=openai/gpt-oss-20b
+CONVERSATION_LOG_DIR=conversation_logs
+CONVERSATION_LOG_RETENTION_DAYS=30
 ```
 
 The `.env.example` template currently uses placeholders for the API keys and sets `GROQ_MODEL=openai/gpt-oss-20b`. Environment values override the code defaults. The application’s local `.env` should use the confirmed available Groq model.
+
+## Developer Conversation Logging and Retention
+
+For application diagnostic and quality improvement purposes, completed conversations are logged locally for developer and operations analysis:
+
+- **Local File Storage**: Each completed conversation turn is stored as exactly one JSON file under the directory configured by `CONVERSATION_LOG_DIR` (default: `conversation_logs/`).
+- **File Naming & Schema**: Files follow the format `<employee_id>_<timestamp>.json` with UTC timestamps. Files contain `employee_id`, the existing `session_id`, ordered `messages` with timestamps, and `recording_status="completed"`. Same-second collisions are safely resolved with numerical suffixes (`_1`, `_2`).
+- **Temporary Mock Employee Identity**: Uses `MockEmployeeIdProvider` (encapsulating test identities `MSS001`, `MSS002`, `MSS003`) as a replaceable provider abstraction. This abstraction serves as the boundary for future database and authentication integration.
+- **Redaction & Privacy**: Sensitive credentials, API keys, bearer tokens, and configured secrets are redacted before serialization.
+- **Best-Effort & Non-Blocking**: Conversation logging is best-effort. Write or filesystem errors are observable in developer logs but never block or alter user chat responses.
+- **Version Control Exclusion**: The conversation log directory is excluded from Git via `.gitignore`.
+- **Automatic Retention Cleanup**: On application startup via FastAPI lifespan, `ConversationLogCleanup` removes expired logs older than `CONVERSATION_LOG_RETENTION_DAYS` (default: 30 days) using file modification time (`mtime`). Cleanup continues safely across per-file deletion errors and never prevents application startup.
+- **Developer Access Only**: Logs are restricted to developer/operations analysis and are not exposed via any end-user chat, search, or UI dashboard.
 
 ## Testing
 
