@@ -81,3 +81,26 @@ Code files added or changed:
 
 Summary: Added Manager department scoping, project CRUD, many-to-many membership assignment/revocation, idempotent membership behavior, Projects Streamlit page, and SQLite integration coverage.
 Validation: Combined US1-US3 focused suite passed: 16 tests.
+
+## Feature: SQL Organization Access - Phases 6 and 7
+
+Code files added or changed:
+- app/domain/ports/retrieval.py
+- app/api/schemas/chat.py
+- app/api/dependencies.py
+- app/api/routes/chat.py
+- app/use_cases/chat/retrieval_service.py
+- app/use_cases/chat/query_orchestrator.py
+- app/infrastructure/vector/chroma_client.py
+- app/use_cases/ingestion/document_processing.py
+- scripts/ingest_documents.py
+- streamlit_app/services/chat_service.py
+- streamlit_app/app.py
+- tests/unit/test_project_authorization.py
+- tests/integration/test_unauthorized_retrieval_e2e.py
+- tests/contract/test_chat_authorization_api.py
+- tests/contract/test_admin_access_api.py
+- tests/integration/test_admin_access_e2e.py
+
+Summary: Added optional project selection, authorized-project intersection before retrieval, Chroma project filtering, Document/Project chunk metadata, Streamlit project scope selection, and Admin-wide project access tests.
+Validation: US4/US5 and retrieval compatibility suite passed: 24 tests. Existing chat contract remains environment-sensitive because the current local Chroma data returned zero citations.

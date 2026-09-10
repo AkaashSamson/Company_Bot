@@ -120,19 +120,19 @@
 
 ### Tests for User Story 4
 
-- [ ] T043 [P] [US4] Add chat contract tests for omitted project scope, authorized project scope, unauthorized project scope, and no authorized projects in `tests/contract/test_chat_authorization_api.py`
-- [ ] T044 [P] [US4] Add authorization unit tests for authorized-project-set resolution and optional project intersection in `tests/unit/test_project_authorization.py`
-- [ ] T045 [US4] Add security regression tests proving the retrieval adapter receives zero unauthorized project IDs and is not called for denied explicit scopes in `tests/integration/test_unauthorized_retrieval_e2e.py`
+- [X] T043 [P] [US4] Add chat contract tests for omitted project scope, authorized project scope, unauthorized project scope, and no authorized projects in `tests/contract/test_chat_authorization_api.py`
+- [X] T044 [P] [US4] Add authorization unit tests for authorized-project-set resolution and optional project intersection in `tests/unit/test_project_authorization.py`
+- [X] T045 [US4] Add security regression tests proving the retrieval adapter receives zero unauthorized project IDs and is not called for denied explicit scopes in `tests/integration/test_unauthorized_retrieval_e2e.py`
 
 ### Implementation for User Story 4
 
-- [ ] T046 [P] [US4] Add optional `project_id` and authenticated-context fields to `app/api/schemas/chat.py` without accepting caller-controlled identity
-- [ ] T047 [US4] Extend the retrieval port and Chroma adapter to accept authorized project filters and require project metadata in `app/domain/ports/retrieval.py` and `app/infrastructure/vector/chroma_client.py`
-- [ ] T048 [US4] Update `app/use_cases/chat/retrieval_service.py` and `app/use_cases/chat/query_orchestrator.py` to intersect optional project scope with authorized project IDs before retrieval
-- [ ] T049 [US4] Update `app/api/routes/chat.py` to resolve authorization before constructing or invoking the query orchestrator
-- [ ] T050 [US4] Update document ingestion metadata to associate each indexed chunk with its Document and Project in `scripts/ingest_documents.py` and `app/use_cases/ingestion/document_processing.py`
-- [ ] T051 [US4] Add optional project selection to the Streamlit chat UI and pass it through `streamlit_app/services/chat_service.py` without direct persistence access
-- [ ] T052 [US4] Add authorized-project loading, empty-project messaging, unauthorized-selection handling, and citation rendering to `streamlit_app/app.py`
+- [X] T046 [P] [US4] Add optional `project_id` and authenticated-context fields to `app/api/schemas/chat.py` without accepting caller-controlled identity
+- [X] T047 [US4] Extend the retrieval port and Chroma adapter to accept authorized project filters and require project metadata in `app/domain/ports/retrieval.py` and `app/infrastructure/vector/chroma_client.py`
+- [X] T048 [US4] Update `app/use_cases/chat/retrieval_service.py` and `app/use_cases/chat/query_orchestrator.py` to intersect optional project scope with authorized project IDs before retrieval
+- [X] T049 [US4] Update `app/api/routes/chat.py` to resolve authorization before constructing or invoking the query orchestrator
+- [X] T050 [US4] Update document ingestion metadata to associate each indexed chunk with its Document and Project in `scripts/ingest_documents.py` and `app/use_cases/ingestion/document_processing.py`
+- [X] T051 [US4] Add optional project selection to the Streamlit chat UI and pass it through `streamlit_app/services/chat_service.py` without direct persistence access
+- [X] T052 [US4] Add authorized-project loading, empty-project messaging, unauthorized-selection handling, and citation rendering to `streamlit_app/app.py`
 
 **Checkpoint**: User Stories 1 through 4 enforce access control before retrieval and answer generation.
 
@@ -146,14 +146,14 @@
 
 ### Tests for User Story 5
 
-- [ ] T053 [P] [US5] Add admin-wide API access tests for users, projects, memberships, documents, and chat in `tests/contract/test_admin_access_api.py`
-- [ ] T054 [US5] Add end-to-end tests proving Admin bypasses project membership while inactive and unknown principals remain denied in `tests/integration/test_admin_access_e2e.py`
+- [X] T053 [P] [US5] Add admin-wide API access tests for users, projects, memberships, documents, and chat in `tests/contract/test_admin_access_api.py`
+- [X] T054 [US5] Add end-to-end tests proving Admin bypasses project membership while inactive and unknown principals remain denied in `tests/integration/test_admin_access_e2e.py`
 
 ### Implementation for User Story 5
 
-- [ ] T055 [US5] Implement Admin organization-wide authorization for active projects and management records in `app/domain/services/authorization_service.py`
-- [ ] T056 [US5] Apply Admin access to organization and document routes without duplicating route logic in `app/api/routes/organization.py` and `app/api/routes/documents.py`
-- [ ] T057 [US5] Add Admin-only controls and all-project selection behavior to `streamlit_app/pages/users.py`, `streamlit_app/pages/projects.py`, and `streamlit_app/pages/documents.py`
+- [X] T055 [US5] Implement Admin organization-wide authorization for active projects and management records in `app/domain/services/authorization_service.py`
+- [X] T056 [US5] Apply Admin access to organization and document routes without duplicating route logic in `app/api/routes/organization.py` and `app/api/routes/documents.py`
+- [X] T057 [US5] Add Admin-only controls and all-project selection behavior to `streamlit_app/pages/users.py`, `streamlit_app/pages/projects.py`, and `streamlit_app/pages/documents.py`
 
 **Checkpoint**: Admin troubleshooting access works across all active organization records and projects.
 

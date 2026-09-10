@@ -59,6 +59,28 @@ def chunk_text(text: str, chunk_size: int = 500) -> List[str]:
     return final_chunks
 
 
+def build_chunk_records(
+    text: str,
+    document_id: str,
+    project_id: str | None = None,
+    source: str | None = None,
+) -> list[dict]:
+    return [
+        {
+            "id": f"{document_id}-{index}",
+            "text": chunk,
+            "metadata": {
+                "document_id": document_id,
+                "project_id": project_id or "unassigned",
+                "source": source or document_id,
+                "chunk_index": index,
+                "section": "Policy",
+            },
+        }
+        for index, chunk in enumerate(chunk_text(text))
+    ]
+
+
 def extract_text_from_document(file_path: str) -> str:
     path = Path(file_path)
     if not path.exists():

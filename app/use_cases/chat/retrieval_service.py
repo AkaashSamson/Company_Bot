@@ -26,10 +26,16 @@ class RetrievalService:
         query_text: str,
         top_k: int = RAG_CANDIDATE_COUNT,
         max_evidence: int = RAG_MAX_EVIDENCE,
+        authorized_project_ids: list[str] | None = None,
     ):
+        if authorized_project_ids == []:
+            return []
         candidates = []
         for part_index, retrieval_query in enumerate(self._query_parts(query_text)):
-            for candidate in self.store.query(retrieval_query, top_k=top_k):
+            query_kwargs = {"top_k": top_k}
+            if authorized_project_ids is not None:
+                query_kwargs["project_ids"] = authorized_project_ids
+            for candidate in self.store.query(retrieval_query, **query_kwargs):
                 candidates.append({**candidate, "_query_part_index": part_index})
         return self.select_relevant(
             query_text,

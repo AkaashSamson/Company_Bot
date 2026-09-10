@@ -29,12 +29,12 @@ class QueryOrchestrator:
             memory=memory or SessionMemoryService(),
         )
 
-    def answer(self, question: str, conversation_history=None):
+    def answer(self, question: str, conversation_history=None, authorized_project_ids=None):
         retrieval_query = self.query_resolver.resolve(question, conversation_history)
-        selected_evidence = self.retrieval.retrieve(
-            retrieval_query,
-            top_k=RAG_CANDIDATE_COUNT,
-        )
+        retrieval_kwargs = {"top_k": RAG_CANDIDATE_COUNT}
+        if authorized_project_ids is not None:
+            retrieval_kwargs["authorized_project_ids"] = authorized_project_ids
+        selected_evidence = self.retrieval.retrieve(retrieval_query, **retrieval_kwargs)
 
         if not selected_evidence:
             return {

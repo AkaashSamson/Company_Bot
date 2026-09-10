@@ -15,6 +15,10 @@ def get_current_principal(request: Request) -> AuthenticatedPrincipal:
     return principal
 
 
+def get_chat_principal(request: Request) -> AuthenticatedPrincipal | None:
+    return getattr(request.state, "principal", None)
+
+
 def get_unit_of_work():
     return create_unit_of_work()
 

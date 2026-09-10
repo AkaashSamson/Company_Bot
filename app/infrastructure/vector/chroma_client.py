@@ -38,15 +38,22 @@ class ChromaVectorStore:
             embeddings=embeddings,
         )
 
-    def query(self, query_text: str, top_k: int = 3) -> List[dict]:
+    def query(self, query_text: str, top_k: int = 3, project_ids=None) -> List[dict]:
         if not query_text.strip():
+            return []
+        if project_ids == []:
             return []
 
         query_embedding = self.embedding_model.encode([query_text], convert_to_numpy=True).tolist()[0]
+        query_kwargs = {
+            "query_embeddings": [query_embedding],
+            "n_results": top_k,
+            "include": ["documents", "metadatas", "distances"],
+        }
+        if project_ids is not None:
+            query_kwargs["where"] = {"project_id": {"$in": list(project_ids)}}
         result = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
-            include=["documents", "metadatas", "distances"],
+            **query_kwargs,
         )
 
         documents = result.get("documents", [[]])[0]

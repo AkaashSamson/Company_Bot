@@ -2,9 +2,22 @@ import streamlit as st
 import requests
 
 from streamlit_app.services.chat_service import ChatService
+from streamlit_app.services.organization_service import OrganizationService
 
 st.set_page_config(page_title="KnowLayer HR Chatbot", page_icon="📘")
 st.title("KnowLayer HR Policy Assistant")
+
+try:
+    project_options = {"All authorized projects": None}
+    project_options.update({
+        project["project_name"]: project["project_id"]
+        for project in OrganizationService().list_projects()
+    })
+except requests.exceptions.RequestException:
+    project_options = {"All authorized projects": None}
+
+selected_project_name = st.selectbox("Project scope", list(project_options))
+selected_project_id = project_options[selected_project_name]
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -27,6 +40,7 @@ if user_input:
             user_input,
             session_id="streamlit-session",
             history=conversation_history,
+            project_id=selected_project_id,
         )
         answer = response.get("answer", "I could not find a relevant answer in the policy source.")
     except requests.exceptions.ConnectionError:
