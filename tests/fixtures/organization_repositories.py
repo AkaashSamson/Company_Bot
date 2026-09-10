@@ -11,6 +11,9 @@ class InMemoryUserRepository:
     def get_by_email(self, email):
         return next((user for user in self.users.values() if user.email == email), None)
 
+    def list(self):
+        return list(self.users.values())
+
     def save(self, user):
         self.users[user.uid] = user
         return user
