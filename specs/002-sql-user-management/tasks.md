@@ -171,7 +171,7 @@
 - [X] T063 [P] Add Streamlit navigation for chat, Users, Projects, and Documents in `streamlit_app/app.py`
 - [X] T064 [P] Add UI smoke tests proving all management pages call the same FastAPI base URL in `tests/contract/test_streamlit_management_pages.py`
 - [X] T065 [P] Update `README.md` and `ARCHITECTURE.md` with the adapter factory, FastAPI endpoint flow, project filtering, Document lifecycle, and Streamlit page responsibilities
-- [ ] T066 Run the complete validation scenarios from `specs/002-sql-user-management/quickstart.md` and record any implementation blockers
+- [X] T066 Run the complete validation scenarios from `specs/002-sql-user-management/quickstart.md` and record any implementation blockers
 
 ---
 
@@ -189,9 +189,9 @@
 - [X] T072 Create the workflow index with links to every major workflow and ownership notes in `Documentation/Workflows/README.md`
 - [X] T073 Record every implementation code-file change for this feature in `Documentation/Team_logs/Roshan.md`, including date, file path, change summary, related task ID, and validation result
 - [X] T074 Add or complete focused unit tests for domain entities, authorization, repository ports, Unit of Work behavior, membership rules, document assignment, and optional project selection in `tests/unit/`
-- [ ] T075 Run the complete unit-test suite with `pytest tests/unit` and fix all failures before marking the feature complete
-- [ ] T076 Run the full regression suite with `pytest`, then record the command, result, and any known environment limitations in `Documentation/Team_logs/Roshan.md`
-- [ ] T077 Validate every workflow document link, every required task checkbox, and the scenarios in `specs/002-sql-user-management/quickstart.md` before completion
+- [X] T075 Run the complete unit-test suite with `pytest tests/unit` and fix all failures before marking the feature complete
+- [X] T076 Run the full regression suite with `pytest`, then record the command, result, and any known environment limitations in `Documentation/Team_logs/Roshan.md`
+- [X] T077 Validate every workflow document link, every required task checkbox, and the scenarios in `specs/002-sql-user-management/quickstart.md` before completion
 
 ## Dependencies & Execution Order
 
