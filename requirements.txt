@@ -3,6 +3,7 @@ fastapi>=0.111.0
 pydantic>=2.7.0
 uvicorn>=0.30.0
 python-dotenv>=1.0.1
+PyYAML>=6.0
 langchain>=0.3.0
 langsmith>=0.2.0
 chromadb
