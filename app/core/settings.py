@@ -15,6 +15,9 @@ RAG_CANDIDATE_COUNT = int(os.getenv("RAG_CANDIDATE_COUNT", "8"))
 RAG_MAX_EVIDENCE = int(os.getenv("RAG_MAX_EVIDENCE", "4"))
 RAG_MAX_CONTEXT_CHARS = int(os.getenv("RAG_MAX_CONTEXT_CHARS", "12000"))
 LLM_CACHE_SIZE = int(os.getenv("LLM_CACHE_SIZE", "128"))
+FAQ_SIMILARITY_CACHE_ENABLED = os.getenv("FAQ_SIMILARITY_CACHE_ENABLED", "true").lower() == "true"
+FAQ_SIMILARITY_THRESHOLD = float(os.getenv("FAQ_SIMILARITY_THRESHOLD", "0.92"))
+FAQ_JSON_PATH = os.getenv("FAQ_JSON_PATH", str(BASE_DIR / "data" / "faqs.json"))
 LLM_CACHE_SIMILARITY_THRESHOLD = float(
     os.getenv("LLM_CACHE_SIMILARITY_THRESHOLD", "0.70")
 )
@@ -34,6 +37,12 @@ MONGODB_SERVER_SELECTION_TIMEOUT_MS = int(
 )
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+
+# LangSmith observability — set LANGCHAIN_TRACING_V2=true to enable
+LANGCHAIN_TRACING_V2 = os.getenv("LANGCHAIN_TRACING_V2", "false").lower() == "true"
+LANGCHAIN_API_KEY = os.getenv("LANGCHAIN_API_KEY", "")
+LANGCHAIN_PROJECT = os.getenv("LANGCHAIN_PROJECT", "company-bot")
+LANGCHAIN_ENDPOINT = os.getenv("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com")
 
 
 LLM_MODEL = os.getenv(

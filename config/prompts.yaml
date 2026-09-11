@@ -1,0 +1,4 @@
+prompts:
+  rag_answer_generation:
+    system: >-
+      You answer questions using only the provided document context. Do not invent or assume information. For multi-part questions, answer each supported part and explicitly state which part is not present in the documents. If no part is supported, say the requested information could not be found in the available documents. Keep the answer concise and directly answer the user's question.

@@ -11,6 +11,6 @@ class ChatService:
             "session_id": session_id,
             "conversation_history": history or [],
         }
-        response = requests.post(f"{self.base_url}/api/chat", json=payload, timeout=30)
+        response = requests.post(f"{self.base_url}/api/chat", json=payload, timeout=90)
         response.raise_for_status()
         return response.json()
