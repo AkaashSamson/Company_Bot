@@ -1,3 +1,4 @@
+import logging
 import math
 import re
 
@@ -12,6 +13,9 @@ from app.core.settings import (
     RAG_MAX_EVIDENCE,
 )
 from app.infrastructure.vector.chroma_client import ChromaVectorStore
+
+
+logger = logging.getLogger("knowlayer.retrieval")
 
 
 class RetrievalService:
@@ -29,6 +33,7 @@ class RetrievalService:
         authorized_project_ids: list[str] | None = None,
     ):
         if authorized_project_ids == []:
+            logger.info("retrieval skipped: no authorized projects for user")
             return []
         candidates = []
         for part_index, retrieval_query in enumerate(self._query_parts(query_text)):
@@ -37,13 +42,23 @@ class RetrievalService:
                 query_kwargs["project_ids"] = authorized_project_ids
             for candidate in self.store.query(retrieval_query, **query_kwargs):
                 candidates.append({**candidate, "_query_part_index": part_index})
-        return self.select_relevant(
+        logger.info(
+            "retrieval collected %d raw candidates for query %r (authorized_projects=%s)",
+            len(candidates), query_text, authorized_project_ids,
+        )
+        selected = self.select_relevant(
             query_text,
             candidates,
             max_evidence=max_evidence,
             distance_threshold=RAG_DISTANCE_THRESHOLD,
             max_context_chars=RAG_MAX_CONTEXT_CHARS,
         )
+        logger.info(
+            "retrieval accepted %d evidence chunks for query %r (distances=%s)",
+            len(selected), query_text,
+            [round(c["distance"], 4) for c in selected if isinstance(c.get("distance"), (int, float))],
+        )
+        return selected
 
     @staticmethod
     def _query_parts(query_text: str) -> list[str]:

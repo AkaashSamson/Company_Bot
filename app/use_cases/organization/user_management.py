@@ -3,6 +3,7 @@ from typing import Callable
 
 from app.domain.entities.organization_models import Department, User
 from app.domain.services.organization_errors import ConflictError, ForbiddenError, NotFoundError
+from app.core.settings import DEFAULT_USER_PASSWORD
 from app.infrastructure.authentication.password_hasher import PasswordHasher
 
 
@@ -47,8 +48,8 @@ class UserManagementService:
             user = User(
                 uid, name, email, role, department_id, created_at=now, updated_at=now,
                 username=username,
-                password_representation=self.password_hasher.hash(initial_password) if initial_password else "",
-                must_change_password=bool(initial_password),
+                password_representation=self.password_hasher.hash(initial_password or DEFAULT_USER_PASSWORD),
+                must_change_password=True,
             )
             uow.users.save(user)
             uow.commit()

@@ -7,13 +7,27 @@ st.set_page_config(page_title="Projects | KnowLayer")
 st.title("Projects")
 service = OrganizationService()
 
+departments = []
+users = []
 try:
     departments = service.list_departments()
+except Exception:
+    st.warning("Departments are currently unavailable. Creating a project is disabled.")
+
+try:
     users = service.list_users()
+except Exception:
+    st.warning("Users are currently unavailable. Membership management is disabled.")
+
+try:
     projects = service.list_projects()
 except Exception as error:
-    st.error(f"The organization service is unavailable: {error}")
-    st.stop()
+    st.error(
+        "The project service is unavailable. "
+        "Check that the FastAPI backend is running and that you are logged in."
+    )
+    st.caption(f"Technical detail: {error}")
+    projects = []
 
 with st.expander("Add project"):
     with st.form("create-project"):
@@ -58,4 +72,4 @@ with st.expander("Manage membership"):
 if projects:
     st.dataframe(projects, use_container_width=True)
 else:
-    st.info("No projects found.")
+    st.info("No projects found. Use the form above to create a project.")

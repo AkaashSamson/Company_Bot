@@ -11,6 +11,9 @@ class StubAuthorization:
             return []
         return ["p1", "p2"] if selected_project_id is None else [selected_project_id]
 
+    def is_admin(self, principal):
+        return False
+
 
 def test_chat_rejects_explicit_unauthorized_project():
     app.dependency_overrides[get_chat_principal] = lambda: AuthenticatedPrincipal("u1")

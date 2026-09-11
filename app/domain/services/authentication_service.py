@@ -8,6 +8,11 @@ from app.domain.ports.authorization_service import AuthenticatedPrincipal
 from app.domain.services.organization_errors import AuthenticationError, ForbiddenError
 
 
+def _authenticate_logger():
+    import logging
+    return logging.getLogger("knowlayer.authentication")
+
+
 class AuthenticationServiceImpl:
     def __init__(self, unit_of_work_factory: Callable, password_hasher, secret_key: str):
         self.unit_of_work_factory = unit_of_work_factory
@@ -15,12 +20,25 @@ class AuthenticationServiceImpl:
         self.secret_key = secret_key
 
     def authenticate(self, username: str, password: str) -> AuthenticatedPrincipal:
+        logger = _authenticate_logger()
         with self.unit_of_work_factory() as uow:
             user = uow.users.get_by_username(username)
-            if user is None or user.status != "active" or not self.password_hasher.verify(password, user.password_representation):
+            identifier = username
+            if user is None:
+                user = uow.users.get_by_email(username)
+                identifier = user.email if user else username
+            if user is None:
+                logger.warning("authentication failed: user not found for identifier %r", identifier)
                 raise AuthenticationError("Invalid credentials")
+            if user.status != "active":
+                logger.warning("authentication failed: user %r is not active (status=%r)", user.uid, user.status)
+                raise AuthenticationError("Invalid credentials")
+            if not self.password_hasher.verify(password, user.password_representation):
+                logger.warning("authentication failed: incorrect password for user %r", user.uid)
+                raise AuthenticationError("Invalid credentials")
+            logger.info("authentication succeeded for user %r", user.uid)
             token = jwt.encode({"sub": user.uid}, self.secret_key, algorithm="HS256")
-            return AuthenticatedPrincipal(user.uid, token)
+            return AuthenticatedPrincipal(user.uid, token, user.must_change_password)
 
     def resolve_token(self, token: str) -> AuthenticatedPrincipal:
         try:

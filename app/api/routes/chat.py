@@ -15,12 +15,19 @@ async def chat(
 ):
     authorized_project_ids = None
     if principal is not None:
-        authorized_project_ids = authorization.authorized_project_ids(
-            principal,
-            request.project_id,
-        )
-        if request.project_id and not authorized_project_ids:
-            raise HTTPException(status_code=403, detail="Access denied")
+        if authorization.is_admin(principal):
+            authorized_project_ids = (
+                [request.project_id]
+                if request.project_id
+                else None
+            )
+        else:
+            authorized_project_ids = authorization.authorized_project_ids(
+                principal,
+                request.project_id,
+            )
+            if request.project_id and not authorized_project_ids:
+                raise HTTPException(status_code=403, detail="Access denied")
     orchestrator = QueryOrchestrator()
     result = orchestrator.answer(
         request.question,

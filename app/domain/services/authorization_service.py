@@ -26,6 +26,15 @@ class OrganizationAuthorizationService:
                 return [selected_project_id] if selected_project_id in project_ids else []
             return project_ids
 
+    def is_admin(self, principal: AuthenticatedPrincipal) -> bool:
+        with self.unit_of_work as unit_of_work:
+            user = unit_of_work.users.get_by_uid(principal.uid)
+            return bool(
+                user
+                and user.status == "active"
+                and user.role.casefold() == "admin"
+            )
+
     def can_manage_department(self, principal, department_id):
         with self.unit_of_work as unit_of_work:
             user = unit_of_work.users.get_by_uid(principal.uid)

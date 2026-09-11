@@ -271,4 +271,4 @@ Documents have a nullable `project_id`, so registration may precede project assi
 
 ## Authentication Bootstrap
 
-Set `ADMIN_USERNAME`, `ADMIN_INITIAL_PASSWORD`, and a private `AUTH_SECRET_KEY` in `.env` before first startup. The database provisions the Admin account idempotently. Log in through `/api/auth/login`, change the default password, create Managers with initial passwords, and let Managers onboard employees within their departments. Passwords are stored only as secure representations; never commit `.env`.
+Set `ADMIN_USERNAME`, `ADMIN_INITIAL_PASSWORD`, and a private `AUTH_SECRET_KEY` in `.env` before first startup. The database provisions the Admin account idempotently. Log in through `/api/auth/login`, change the default password, create Managers with initial passwords, and let Managers onboard employees within their departments. When a new user is created without an initial password, `DEFAULT_USER_PASSWORD` is assigned, and the user must change it on first login. Passwords are stored only as secure representations; never commit `.env`.

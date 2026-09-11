@@ -20,8 +20,17 @@ if st.session_state.auth is None:
         try:
             st.session_state.auth = AuthenticationService().login(login_username, login_password)
             st.rerun()
+        except requests.exceptions.HTTPError as error:
+            status_code = error.response.status_code if error.response is not None else None
+            if status_code == 401:
+                st.error("Invalid username or password.")
+            else:
+                st.error(f"Login failed (HTTP {status_code}). Please try again.")
         except requests.exceptions.RequestException:
-            st.error("Invalid credentials or unavailable authentication service.")
+            st.error(
+                "The authentication service is not reachable. "
+                "Start the FastAPI backend on http://127.0.0.1:8000 and try again."
+            )
     st.stop()
 
 st.sidebar.button("Log out", on_click=lambda: st.session_state.update(auth=None))

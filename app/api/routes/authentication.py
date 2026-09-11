@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.api.dependencies import get_authentication_service, get_current_principal
@@ -9,6 +11,7 @@ from app.infrastructure.audit.authentication_events import record_authentication
 
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
+logger = logging.getLogger("knowlayer.authentication")
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -17,9 +20,15 @@ def login(payload: LoginRequest, service: AuthenticationServiceImpl = Depends(ge
         principal = service.authenticate(payload.username, payload.password)
     except AuthenticationError as error:
         record_authentication_event("login", success=False)
+        logger.warning("login failed for identifier %r: %s", payload.username, error)
         raise HTTPException(status_code=401, detail="Invalid credentials") from error
     record_authentication_event("login", uid=principal.uid, success=True)
-    return LoginResponse(access_token=principal.token or "", uid=principal.uid)
+    logger.info("login succeeded for user %r", principal.uid)
+    return LoginResponse(
+        access_token=principal.token or "",
+        uid=principal.uid,
+        must_change_password=principal.must_change_password,
+    )
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)

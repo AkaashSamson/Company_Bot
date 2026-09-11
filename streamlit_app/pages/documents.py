@@ -9,12 +9,21 @@ st.title("Documents")
 document_service = DocumentService()
 organization_service = OrganizationService()
 
+projects = []
+try:
+    projects = organization_service.list_projects()
+except Exception:
+    st.warning("Projects are currently unavailable. Documents can still be registered without a project.")
+
 try:
     documents = document_service.list_documents()
-    projects = organization_service.list_projects()
 except Exception as error:
-    st.error(f"The document service is unavailable: {error}")
-    st.stop()
+    st.error(
+        "The document service is unavailable. "
+        "Check that the FastAPI backend is running and that you are logged in."
+    )
+    st.caption(f"Technical detail: {error}")
+    documents = []
 
 with st.expander("Register document"):
     with st.form("create-document"):
@@ -47,4 +56,4 @@ if documents:
             except Exception as error:
                 st.error(str(error))
 else:
-    st.info("No documents found.")
+    st.info("No documents found. Use the form above to register a document.")
