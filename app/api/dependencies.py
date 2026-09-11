@@ -7,6 +7,7 @@ from app.use_cases.organization.user_management import UserManagementService
 from app.use_cases.organization.membership_management import MembershipManagementService
 from app.use_cases.organization.project_management import ProjectManagementService
 from app.use_cases.organization.document_management import DocumentManagementService
+from app.infrastructure.ingestion.provisioner import provision_document, remove_document
 from app.domain.services.authentication_service import AuthenticationServiceImpl
 from app.infrastructure.authentication.password_hasher import PasswordHasher
 from app.core.settings import AUTH_SECRET_KEY
@@ -65,4 +66,8 @@ def get_membership_management_service():
 
 
 def get_document_management_service():
-    return DocumentManagementService(create_unit_of_work)
+    return DocumentManagementService(
+        create_unit_of_work,
+        ingestion_handler=provision_document,
+        deletion_handler=remove_document,
+    )

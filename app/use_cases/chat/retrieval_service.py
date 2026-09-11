@@ -32,14 +32,15 @@ class RetrievalService:
         max_evidence: int = RAG_MAX_EVIDENCE,
         authorized_project_ids: list[str] | None = None,
     ):
-        if authorized_project_ids == []:
-            logger.info("retrieval skipped: no authorized projects for user")
-            return []
+        retrieval_scope = None
+        if authorized_project_ids is not None:
+            retrieval_scope = sorted(set(authorized_project_ids) | {"unassigned"})
+            logger.info("retrieval scope for user: %s", retrieval_scope)
         candidates = []
         for part_index, retrieval_query in enumerate(self._query_parts(query_text)):
             query_kwargs = {"top_k": top_k}
-            if authorized_project_ids is not None:
-                query_kwargs["project_ids"] = authorized_project_ids
+            if retrieval_scope is not None:
+                query_kwargs["project_ids"] = retrieval_scope
             for candidate in self.store.query(retrieval_query, **query_kwargs):
                 candidates.append({**candidate, "_query_part_index": part_index})
         logger.info(

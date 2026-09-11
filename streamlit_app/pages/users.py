@@ -1,6 +1,21 @@
 import streamlit as st
+import requests
 
 from streamlit_app.services.organization_service import OrganizationService
+
+
+def _format_error(error):
+    if isinstance(error, requests.HTTPError):
+        body = error.response.json() if error.response is not None else None
+        if body is None:
+            return str(error)
+        detail = body.get("detail")
+        if isinstance(detail, str):
+            return detail
+        if isinstance(detail, list):
+            return "; ".join(item.get("msg", str(item)) for item in detail)
+        return str(body)
+    return str(error)
 
 
 st.set_page_config(page_title="Users | KnowLayer")
@@ -44,24 +59,33 @@ with st.expander("Add user"):
         name = st.text_input("Name")
         email = st.text_input("Email")
         role = st.text_input("Role")
-        initial_password = st.text_input("Initial password", type="password", help="Leave blank to assign the configured default password; the new user must change it on first login.")
+        initial_password = st.text_input(
+            "Initial password",
+            type="password",
+            help="Leave blank to assign the configured default password; the new user must change it on first login. Minimum 8 characters.",
+        )
         department_options = {item["department_name"]: item["department_id"] for item in departments}
         department_name = st.selectbox("Department", list(department_options) or ["No departments"])
         submitted = st.form_submit_button("Create user")
     if submitted:
-        try:
-            service.create_user({
-                "uid": uid,
-                "name": name,
-                "email": email,
-                "role": role,
-                "department_id": department_options[department_name],
-                "initial_password": initial_password or None,
-            })
-            st.success("User created.")
-            st.rerun()
-        except Exception as error:
-            st.error(str(error))
+        if initial_password and len(initial_password) < 8:
+            st.error("Initial password must be at least 8 characters. Leave it blank to use the configured default password.")
+        elif department_name not in department_options:
+            st.error("No valid department selected. Create a department first.")
+        else:
+            try:
+                service.create_user({
+                    "uid": uid,
+                    "name": name,
+                    "email": email,
+                    "role": role,
+                    "department_id": department_options[department_name],
+                    "initial_password": initial_password or None,
+                })
+                st.success("User created.")
+                st.rerun()
+            except Exception as error:
+                st.error(_format_error(error))
 
 if users:
     st.dataframe(users, use_container_width=True)

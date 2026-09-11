@@ -1,9 +1,13 @@
 from datetime import datetime, timezone
 from typing import Callable
+import logging
 
 from app.domain.entities.organization_models import Document
 from app.domain.ports.authorization_service import AuthenticatedPrincipal
 from app.domain.services.organization_errors import ConflictError, ForbiddenError, NotFoundError
+
+
+logger = logging.getLogger("knowlayer.documents")
 
 
 def utc_now():
@@ -11,9 +15,15 @@ def utc_now():
 
 
 class DocumentManagementService:
-    def __init__(self, unit_of_work_factory: Callable, ingestion_handler: Callable | None = None):
+    def __init__(
+        self,
+        unit_of_work_factory: Callable,
+        ingestion_handler: Callable | None = None,
+        deletion_handler: Callable | None = None,
+    ):
         self.unit_of_work_factory = unit_of_work_factory
         self.ingestion_handler = ingestion_handler
+        self.deletion_handler = deletion_handler
 
     def _actor(self, uow, principal):
         actor = uow.users.get_by_uid(principal.uid)
@@ -41,6 +51,7 @@ class DocumentManagementService:
         document_name: str,
         project_id: str | None = None,
         source_path: str | None = None,
+        content: str | None = None,
     ):
         with self.unit_of_work_factory() as uow:
             actor = self._actor(uow, principal)
@@ -54,9 +65,9 @@ class DocumentManagementService:
             now = utc_now()
             document = Document(document_id, document_name, project_id, created_at=now, updated_at=now)
             uow.documents.save(document)
+            if (source_path or content) and self.ingestion_handler:
+                self.ingestion_handler(source_path, document, content)
             uow.commit()
-            if source_path and self.ingestion_handler:
-                self.ingestion_handler(source_path, document)
             return document
 
     def delete_document(self, principal: AuthenticatedPrincipal, document_id: str):
@@ -71,3 +82,8 @@ class DocumentManagementService:
             document.updated_at = utc_now()
             uow.documents.save(document)
             uow.commit()
+        if self.deletion_handler:
+            try:
+                self.deletion_handler(document_id)
+            except Exception as error:
+                logger.warning("vector removal failed for document %r: %s", document_id, error)

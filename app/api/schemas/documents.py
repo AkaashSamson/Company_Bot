@@ -6,6 +6,7 @@ class DocumentCreate(BaseModel):
     document_name: str = Field(min_length=1)
     project_id: str | None = None
     source_path: str | None = None
+    content: str | None = None
 
 
 class DocumentResponse(BaseModel):

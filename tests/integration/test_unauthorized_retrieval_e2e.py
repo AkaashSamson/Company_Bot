@@ -10,19 +10,19 @@ class RecordingStore:
         return []
 
 
-def test_retrieval_receives_only_authorized_project_ids():
+def test_retrieval_receives_authorized_project_ids_with_org_wide_scope():
     store = RecordingStore()
     retrieval = RetrievalService.__new__(RetrievalService)
     retrieval.store = store
 
     assert retrieval.retrieve("question", authorized_project_ids=["p1"]) == []
-    assert store.project_filters == [["p1"]]
+    assert store.project_filters == [["p1", "unassigned"]]
 
 
-def test_empty_authorized_set_does_not_call_vector_store():
+def test_empty_authorized_set_still_retrieves_organization_wide_documents():
     store = RecordingStore()
     retrieval = RetrievalService.__new__(RetrievalService)
     retrieval.store = store
 
     assert retrieval.retrieve("question", authorized_project_ids=[]) == []
-    assert store.project_filters == []
+    assert store.project_filters == [["unassigned"]]
