@@ -47,7 +47,14 @@ class RetrievalService:
         ]
         parts = [re.sub(r"^(and|or)\s+", "", part, flags=re.IGNORECASE) for part in parts]
         parts = [part for part in parts if part]
-        return [query_text] + [part for part in parts if part.lower() != query_text.lower()]
+        queries = [query_text] + [part for part in parts if part.lower() != query_text.lower()]
+        if re.search(r"\bleaves?\b", query_text, flags=re.IGNORECASE) and not re.search(
+            r"\b(annual|sick|parental|maternity|paternity|bereavement)\b",
+            query_text,
+            flags=re.IGNORECASE,
+        ):
+            queries.append("annual leave entitlement")
+        return queries
 
     @staticmethod
     def select_relevant(

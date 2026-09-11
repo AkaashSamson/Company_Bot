@@ -1,208 +1,393 @@
-# KnowLayer Architecture
+# Company Bot LLM + ChromaDB Architecture
 
-## Overview
+## High-Level Data Flow
 
-KnowLayer is a modular monolith with clear boundaries between the API, use cases, domain services, infrastructure adapters, and Streamlit presentation layer. The current chat path is a document-grounded RAG flow with provider-independent LLM interfaces.
-
-The core request path is:
-
-```text
-User
-  -> Streamlit chat or FastAPI POST /api/chat
-  -> QueryOrchestrator
-  -> ConversationQueryResolver when the question depends on history
-  -> RetrievalService
-  -> ChromaVectorStore candidate retrieval
-  -> distance-aware relevance and redundancy selection
-  -> compact context assembly
-  -> OpenRouter primary provider
-  -> Groq fallback provider if the primary fails
-  -> answer and citations from the same selected evidence
+```
+┌─────────────────┐
+│   User Input    │
+│  "How to apply  │
+│   for leave?"   │
+└────────┬────────┘
+         │
+         ▼
+    ┌────────────────────────────────┐
+    │   QueryOrchestrator.answer()   │
+    │    Orchestrates full pipeline  │
+    └────────┬───────────────────────┘
+             │
+             ├──────────────────────────────────────┐
+             │                                      │
+             ▼                                      ▼
+    ┌─────────────────────────┐       ┌──────────────────────────┐
+    │  FAQ Similarity Cache   │       │   (If FAQ miss)          │
+    │  (In-memory embedding   │       │  ChromaDB Retrieval      │
+    │   search over FAQs)     │       │  (Query expansion +      │
+    │                         │       │   relevance filtering)   │
+    │  FAST: <10ms            │       │                          │
+    │  Hit Rate: ~10-15%      │       │  MEDIUM: 500ms-1s        │
+    └────────┬────────────────┘       └──────────┬───────────────┘
+             │                                   │
+         [HIT]                               [MISS or NOT FAQ]
+             │                                   │
+             │                                   ▼
+             │                        ┌──────────────────────────┐
+             │                        │  RAGContextBuilder       │
+             │                        │  Formats retrieved       │
+             │                        │  chunks into LLM prompt  │
+             │                        └──────────┬───────────────┘
+             │                                   │
+             │                                   ▼
+             │                        ┌──────────────────────────┐
+             │                        │  System Prompt           │
+             │                        │  "Answer ONLY from       │
+             │                        │   provided context..."   │
+             │                        │                          │
+             │                        │  User Prompt             │
+             │                        │  "[Section Title]"       │
+             │                        │  "{formatted chunks}"    │
+             │                        │  "Question: ..."         │
+             │                        └──────────┬───────────────┘
+             │                                   │
+             │                                   ▼
+             │                        ┌──────────────────────────┐
+             │                        │  LLM Generation          │
+             │                        │  (OpenRouter/Claude)     │
+             │                        │  (with Groq fallback)    │
+             │                        │                          │
+             │                        │  SLOW: 1-3 seconds       │
+             │                        │  (Cached: <1ms)          │
+             │                        └──────────┬───────────────┘
+             │                                   │
+             └───────────────────────┬───────────┘
+                                     │
+                                     ▼
+                        ┌────────────────────────┐
+                        │  Format Response       │
+                        │  + Extract Citations   │
+                        │  + Save to MongoDB     │
+                        └────────┬───────────────┘
+                                 │
+                                 ▼
+                        ┌────────────────────────┐
+                        │  Return to User        │
+                        │  Answer + Citations    │
+                        │  + Cache Metadata      │
+                        └────────────────────────┘
 ```
 
-When no relevant evidence is selected, the orchestrator returns an information-not-found response and an empty citation list. It does not call an answer-generation provider for that path.
+## Component Architecture
 
-## Module Organization
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     APPLICATION LAYER                           │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │              QueryOrchestrator (Orchestrator)           │   │
+│  │  • Manages entire pipeline                              │   │
+│  │  • Dispatches to cache layers & LLM                     │   │
+│  │  • Builds return object with citations                  │   │
+│  └─────┬──────────────────────────────────────────────────┬┘   │
+└────────┼──────────────────────────────────────────────────┼──────┘
+         │                                                   │
+    ┌────┴───────────────────────┐                    ┌─────┴────────┐
+    │                            │                    │              │
+┌───▼────────────────┐   ┌──────▼─────────────┐   ┌──▼──────────────┐
+│  FAQ Layer         │   │ RAG Layer          │   │ LLM Layer       │
+├────────────────────┤   ├────────────────────┤   ├─────────────────┤
+│ FAQSimilarityCache │   │ RetrievalService   │   │OpenRouterClient │
+│ • Load FAQs at     │   │ • ChromaDB query   │   │ • Primary LLM   │
+│   startup          │   │ • Query expansion  │   │                 │
+│ • Embed questions  │   │ • Distance filter  │   │ GroqClient      │
+│ • Cosine similarity│   │ • Deduplication    │   │ • Fallback LLM  │
+│   search           │   │ • Character limit  │   │                 │
+│ • Return match or  │   │                    │   │ PromptLRUCache  │
+│   None             │   │                    │   │ • In-mem cache  │
+│ SPEED: <10ms       │   │ SPEED: 500ms-1s    │   │ • Thread-safe   │
+└────────────────────┘   └────────────────────┘   │ SPEED: <1ms     │
+                                                  └─────────────────┘
 
-```text
-app/
-├── main.py
-├── api/
-│   ├── routes/chat.py                    # POST /api/chat
-│   └── schemas/chat.py                   # Request/response models
-├── core/settings.py                      # Environment configuration
-├── domain/
-│   ├── entities/document_models.py       # Document and chat data classes
-│   └── services/session_memory_service.py# Bounded recent-message window
-├── infrastructure/
-│   ├── document/local_document_loader.py # Local input document enumeration
-│   ├── vector/chroma_client.py           # Persistent Chroma adapter
-│   └── llm/
-│       ├── openrouter_client.py          # Primary LLM adapter
-│       ├── groq_client.py                # Fallback LLM adapter
-│       └── fallback_llm_provider.py      # Provider failover
-└── use_cases/
-    ├── chat/
-    │   ├── query_orchestrator.py         # Chat workflow coordinator
-    │   ├── conversation_query_resolver.py# Follow-up query resolution
-    │   ├── retrieval_service.py          # Candidate/evidence selection
-    │   └── provenance_service.py         # Citation assembly
-    └── ingestion/document_processing.py  # Extraction and chunking
+           ┌────────────────────────────────────────────────────┐
+           │         RAGContextBuilder (Formatters)            │
+           ├────────────────────────────────────────────────────┤
+           │ • build_system_prompt()                            │
+           │   → System message guiding LLM behavior            │
+           │ • build_user_prompt()                              │
+           │   → Formats ChromaDB chunks with metadata          │
+           │ • build_messages()                                 │
+           │   → Complete message list for LLM                  │
+           │ • format_evidence_for_citations()                  │
+           │   → Citation objects for user                      │
+           └────────────────────────────────────────────────────┘
+
+           ┌────────────────────────────────────────────────────┐
+           │       Infrastructure Layer (Observability)         │
+           ├────────────────────────────────────────────────────┤
+           │ • LangSmith Tracing                                │
+           │   - Trace each LLM call                            │
+           │   - Track retrieval performance                    │
+           │   - Debug slow responses                           │
+           │ • Structured Logging                               │
+           │   - Pipeline steps                                 │
+           │   - Cache hits/misses                              │
+           │   - Error tracking                                 │
+           └────────────────────────────────────────────────────┘
 ```
 
-`streamlit_app/` is a separate presentation client. `scripts/ingest_documents.py` builds the local Chroma index, and `scripts/smoke_test.py` exercises the ingestion/retrieval/chat path.
+## Request Processing Sequence Diagram
 
-## Request Flow
-
-1. `ChatRequest` validates the question, session ID, and optional conversation history.
-2. The route converts history messages to dictionaries and passes them to `QueryOrchestrator`.
-3. `ConversationQueryResolver` asks `SessionMemoryService` for only the most recent six messages by default.
-4. A standalone question bypasses rewriting. A likely dependent question is sent to the configured LLM with a small rewrite prompt and bounded history. The rewrite is used only as a retrieval query.
-5. `RetrievalService` retrieves candidates for the full query and explicit query parts, then filters and selects evidence.
-6. `QueryOrchestrator` joins only the selected evidence text into the document context.
-7. The original user question, rather than the rewritten retrieval query, is included in the final answer-generation prompt.
-8. `FallbackLLMProvider` tries OpenRouter first and Groq second if OpenRouter raises `LLMProviderError`.
-9. `ProvenanceService` builds citations from the selected results. The API serializes those citations, and Streamlit renders exactly what the API returns.
-
-## Retrieval and Evidence Selection
-
-### Vector store
-
-`ChromaVectorStore` uses `chromadb.PersistentClient` and stores its collection in `.chroma/`. It creates or opens the configured collection and uses the configured Sentence Transformers model to embed both documents and queries.
-
-The default embedding setting is:
-
-```text
-EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+```
+User              Browser          FastAPI           QueryOrchestrator
+ │                  │                  │                  │
+ ├─ Ask Question ──→│                  │                  │
+ │                  ├─ POST /api/chat ─→│                  │
+ │                  │                  ├─ answer() ───────→│
+ │                  │                  │                  ├─ Check FAQ Cache
+ │                  │                  │                  │  (FAQSimilarityCache)
+ │                  │                  │                  │
+ │                  │                  │                  ├─ FAQ MISS
+ │                  │                  │                  │
+ │                  │                  │                  ├─ Resolve Query
+ │                  │                  │                  │  (ConversationQueryResolver)
+ │                  │                  │                  │
+ │                  │                  │                  ├─ Retrieve Docs
+ │                  │                  │                  │  (RetrievalService)
+ │                  │                  │                  │
+ │                  │                  │                  ├─ Build Context
+ │                  │                  │                  │  (RAGContextBuilder)
+ │                  │                  │                  │
+ │                  │                  │                  ├─ Generate LLM Response
+ │                  │                  │                  │  (OpenRouterClient)
+ │                  │                  │                  │
+ │                  │                  │                  ├─ Extract Citations
+ │                  │                  │                  │  (ProvenanceService)
+ │                  │                  │                  │
+ │                  │                  │  return result ←─┤
+ │                  │ JSON Response ←──┤
+ │ Display Answer ←─│
+ │
 ```
 
-The collection is configured for cosine distance. Raw Chroma distances are preserved in each result as `distance`; they are not mislabeled as similarity scores. Lower distance means a closer vector match.
+## Cache Layer Architecture
 
-### Candidate retrieval
-
-`RAG_CANDIDATE_COUNT` controls the candidate count passed to each Chroma query and defaults to `5`. Retrieval is distinct from final evidence selection: candidate count is not the number of chunks that must be shown or sent to the LLM.
-
-For explicit multi-part questions, `RetrievalService._query_parts()` keeps the full query and splits explicit comma-, semicolon-, and newline-delimited parts. It does not split every occurrence of `and` or `or`, so meaningful phrases such as `health and safety requirements` remain intact. Retrieved candidates retain their query-part association.
-
-### Relevance decision
-
-`RetrievalService.select_relevant()` applies these deterministic rules:
-
-1. Discard empty text, duplicate text, invalid distances, and non-finite distances.
-2. Sort remaining candidates by ascending cosine distance.
-3. Accept candidates within `RAG_DISTANCE_THRESHOLD`.
-4. For the top-ranked candidate only, allow a bounded relaxation up to `RAG_DISTANCE_THRESHOLD + RAG_DISTANCE_RELAXATION` when all of the following hold:
-   - the candidate is clearly separated from the next candidate by at least `RAG_MIN_DISTANCE_GAP`; and
-   - the candidate has generic lexical grounding with meaningful terms from the query.
-5. Do not treat a relative gap by itself as proof of relevance. This prevents the least-bad result from an entirely unrelated candidate set from becoming evidence.
-6. Prefer evidence covering distinct query parts, then fill remaining capacity by rank.
-7. Remove highly redundant chunks and enforce the maximum evidence and context-size limits.
-
-The current defaults are:
-
-```text
-RAG_DISTANCE_THRESHOLD=0.50
-RAG_DISTANCE_RELAXATION=0.05
-RAG_MIN_DISTANCE_GAP=0.10
-RAG_MAX_EVIDENCE=3
-RAG_MAX_CONTEXT_CHARS=12000
+```
+                    ┌──────────────────────┐
+                    │  User Question       │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────────────────┐
+                    │  Layer 1: FAQ Cache              │
+                    │  FAQSimilarityCache (Semantic)   │
+                    │  • Questions embedded at startup │
+                    │  • Cosine similarity search      │
+                    │  • Hits: ~10-15%                 │
+                    │  • Speed: <10ms                  │
+                    └──────────┬───────────────────────┘
+                               │
+                          [MISS]│
+                               │
+                               ▼
+                    ┌──────────────────────────────────┐
+                    │  ChromaDB Retrieval              │
+                    │  RetrievalService                │
+                    │  • Query ChromaDB for chunks     │
+                    │  • Relevance filtering           │
+                    │  • Deduplication                 │
+                    └──────────┬───────────────────────┘
+                               │
+                               ▼
+                    ┌──────────────────────────────────┐
+                    │  Layer 2: LLM Response Cache     │
+                    │  PromptLRUCache (Exact Match)    │
+                    │  • Exact hash of full prompt     │
+                    │  • Hits: ~20-30%                 │
+                    │  • Speed: <1ms                   │
+                    └──────────┬───────────────────────┘
+                               │
+                          [MISS]│
+                               │
+                               ▼
+                    ┌──────────────────────────────────┐
+                    │  LLM API Call                    │
+                    │  OpenRouterClient / GroqClient   │
+                    │  • Primary: Claude 3.5 Sonnet    │
+                    │  • Fallback: Llama 3.1           │
+                    │  • Speed: 1-3 seconds            │
+                    └──────────────────────────────────┘
 ```
 
-There is no BM25, hybrid search, cross-encoder, semantic reranker, or additional relevance-classification LLM call in the current implementation.
+## Data Flow: ChromaDB to LLM
 
-## Conversation Context
-
-`SessionMemoryService` is a bounded window service. Its default `max_messages` value is `6`, and it returns only the last six messages supplied by the caller. It is not long-term memory and does not maintain a user profile.
-
-`ConversationQueryResolver` identifies likely dependent questions using generic references such as pronouns and continuation phrasing. For a dependent question with history, it sends a compact conversation-plus-question prompt to the configured LLM and requests only a standalone search query. It does not include retrieved document context and does not ask the model to answer the question.
-
-The rewritten query is used only for vector retrieval. The original user question remains the question in the final answer-generation prompt. If rewriting fails or returns an empty string, the original question is used for retrieval.
-
-## LLM Provider Boundary
-
-`LLMProvider` is the provider-independent interface with a `generate(messages)` method. `OpenRouterClient` and `GroqClient` implement that interface using OpenAI-compatible chat-completion APIs.
-
-- OpenRouter is the primary provider.
-- Groq is the fallback provider.
-- `FallbackLLMProvider` tries the primary provider first and invokes the fallback only for `LLMProviderError` failures.
-- If both providers fail, it raises an `LLMProviderError` describing that both providers failed.
-- Provider model names come from `LLM_MODEL` and `GROQ_MODEL`.
-- The currently confirmed Groq model is `openai/gpt-oss-20b`.
-- API keys come from `.env`; they must never be committed. `.env.example` contains placeholders only.
-
-Groq non-2xx responses include the HTTP status and a bounded sanitized response body in the provider error. API keys are not included in that diagnostic text.
-
-## Grounding and Provenance
-
-The final generation prompt instructs the LLM to use only the selected document context, avoid assumptions, answer supported parts of multi-part questions, and identify unsupported parts. If the selector returns no evidence, the orchestrator returns an information-not-found response with no citations.
-
-`ProvenanceService` maps each selected result to a citation using its metadata:
-
-```text
-source  <- metadata["source"] or a default source label
-section <- metadata["section"] or "Policy"
-text    <- selected result text
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ChromaDB Collection                                        │
+│  (hr_policy_docs)                                           │
+│                                                             │
+│  Document 1:        Document 2:        Document 3:         │
+│  {                  {                  {                   │
+│    id: "doc1",      id: "doc2",        id: "doc3",         │
+│    text: "...",     text: "...",       text: "...",        │
+│    embedding: [...] embedding: [...]   embedding: [...]    │
+│  }                  }                  }                   │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       │ retrieval_service.retrieve(query)
+                       ▼
+        ┌──────────────────────────────────────┐
+        │  RetrievalService                    │
+        │                                      │
+        │  1. Query expansion                  │
+        │     "leave?" → ["leave?",            │
+        │                 "annual leave",      │
+        │                 "entitlement"]       │
+        │                                      │
+        │  2. ChromaDB search per part         │
+        │     Returns: top_k candidates        │
+        │                                      │
+        │  3. Deduplication + filtering        │
+        │     - Remove duplicates              │
+        │     - Distance threshold check       │
+        │     - Character limit               │
+        │                                      │
+        │  Output: List[dict] with:            │
+        │    - text: chunk content             │
+        │    - distance: relevance score       │
+        │    - metadata: section, source, etc  │
+        └────────────────────┬─────────────────┘
+                             │
+                             ▼
+        ┌──────────────────────────────────────┐
+        │  RAGContextBuilder                   │
+        │                                      │
+        │  1. Format chunks with metadata      │
+        │     "[Leave Policy]"                 │
+        │     "Employees receive 18 days..."   │
+        │     "(relevance: 95%)"               │
+        │                                      │
+        │  2. Build system prompt              │
+        │     "Answer ONLY from context..."    │
+        │                                      │
+        │  3. Build user prompt                │
+        │     "Question: {query}"              │
+        │                                      │
+        │  Output: List[dict] messages:        │
+        │    - role: "system" / "user"         │
+        │    - content: formatted text         │
+        └────────────────────┬─────────────────┘
+                             │
+                             ▼
+        ┌──────────────────────────────────────┐
+        │  OpenRouterClient.generate()         │
+        │                                      │
+        │  POST https://openrouter.ai/api/... │
+        │  {                                   │
+        │    "model": "claude-3.5-sonnet",     │
+        │    "messages": [...],                │
+        │    "max_tokens": 400                 │
+        │  }                                   │
+        │                                      │
+        │  Response:                           │
+        │  "Employees receive 18 days of       │
+        │   Annual Leave per year. They can    │
+        │   carry forward up to 10 unused...   │
+        │                                      │
+        │   Would you like references?"        │
+        └────────────────────┬─────────────────┘
+                             │
+                             ▼
+        ┌──────────────────────────────────────┐
+        │  ProvenanceService                   │
+        │  (Citation Extraction)               │
+        │                                      │
+        │  From selected_evidence, extract:    │
+        │  [                                   │
+        │    {                                 │
+        │      "source": "HR Policy",          │
+        │      "section": "Leave Policy",      │
+        │      "text": "Full chunk text..."    │
+        │    }                                 │
+        │  ]                                   │
+        └────────────────────┬─────────────────┘
+                             │
+                             ▼
+        ┌──────────────────────────────────────┐
+        │  Return to User                      │
+        │  {                                   │
+        │    "answer": "...",                  │
+        │    "citations": [],                  │
+        │    "cache_hit": false,               │
+        │    "matched_faq": null               │
+        │  }                                   │
+        └──────────────────────────────────────┘
 ```
 
-The API returns these as `Citation` objects. The Streamlit client does not independently choose or hide chunks; it displays the citations returned by the backend. This keeps LLM context, citations, and UI evidence consistent.
+## Configuration Tuning Impact
 
-## Ingestion Flow
-
-Ingestion remains separate from application startup:
-
-```text
-scripts/ingest_documents.py
-  -> LocalDocumentLoader enumerates input/
-  -> document_processing extracts text and chunks documents
-  -> ChromaVectorStore embeds and persists chunks with metadata
+```
+┌──────────────────────────────────────────────────────────┐
+│  Configuration                   Impact                  │
+├──────────────────────────────────────────────────────────┤
+│  RAG_DISTANCE_THRESHOLD ↓         More docs retrieved    │
+│                        ↑         Fewer docs retrieved    │
+├──────────────────────────────────────────────────────────┤
+│  RAG_MAX_EVIDENCE ↓               Faster LLM, less info  │
+│                ↑                 Slower LLM, more info   │
+├──────────────────────────────────────────────────────────┤
+│  RAG_CANDIDATE_COUNT ↓            Faster retrieval       │
+│                   ↑             Slower retrieval         │
+├──────────────────────────────────────────────────────────┤
+│  FAQ_SIMILARITY_THRESHOLD ↓       More FAQ hits          │
+│                         ↑        Fewer FAQ hits          │
+├──────────────────────────────────────────────────────────┤
+│  LLM_MODEL → claude-3.5           Better accuracy        │
+│         → llama-3.1              Faster response         │
+└──────────────────────────────────────────────────────────┘
 ```
 
-The current chunking and document-processing implementation is unchanged by the chat retrieval and provider work.
+## Error Handling Flow
 
-## Configuration
-
-`app/core/settings.py` loads `.env` with `python-dotenv`. The code defaults are:
-
-```text
-DOCUMENTS_DIR=<project>/input
-COLLECTION_NAME=hr_policy_docs
-EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
-RAG_DISTANCE_THRESHOLD=0.50
-RAG_DISTANCE_RELAXATION=0.05
-RAG_MIN_DISTANCE_GAP=0.10
-RAG_CANDIDATE_COUNT=5
-RAG_MAX_EVIDENCE=3
-RAG_MAX_CONTEXT_CHARS=12000
-OPENROUTER_API_KEY=""
-GROQ_API_KEY=""
-LLM_MODEL=openrouter/anthropic/claude-3.5-sonnet
-GROQ_MODEL=llama-3.1-8b-instant
+```
+                    ┌──────────────┐
+                    │  User Query  │
+                    └──────┬───────┘
+                           │
+                           ▼
+                    ┌──────────────────┐
+                    │  FAQ Cache Hit?  │
+                    └──────┬───────┬───┘
+                           │       │
+                        YES│       │NO
+                           │       └─→ ┌──────────────────┐
+                           │           │ ChromaDB Search  │
+                           │           └────┬─────────┬───┘
+                           │                │         │
+                           │             HIT│         │MISS
+                           │                │         │
+                           │                │         ▼
+                           │                │    No Results?
+                           │                │    │
+                           │                │    ├→ Return:
+                           │                │    │  "I could not find..."
+                           │                │    │
+                           │                │    └→ Cache miss
+                           │                │
+                           │                ▼
+                           │           ┌──────────────────┐
+                           │           │ Build Prompt     │
+                           │           │ + Generate LLM   │
+                           │           └────┬─────────┬───┘
+                           │                │         │
+                           │            SUCCESS│  │FAILURE
+                           │                │   │
+                           ▼                │   │
+                    ┌───────────────────────┘   │
+                    │                           │
+                    ▼                           ▼
+            Return Answer            Retry with Fallback
+            + Citations               (Groq LLM)
+            + Cache Hit?                  │
+                                          ▼
+                                  Return Fallback Answer
+                                  or Error
 ```
 
-The values above are the Python defaults from `app/core/settings.py`. In the checked-in `.env.example` and the local working configuration, `GROQ_MODEL` is overridden to `openai/gpt-oss-20b`, the confirmed available fallback model. The Python fallback default remains `llama-3.1-8b-instant`; it was not changed. Environment variables override the Python defaults.
-
-## Testing
-
-The current test layout is:
-
-- `tests/unit/test_retrieval_selection.py`: Chroma distance preservation, absolute and relative relevance selection, lexical grounding rejection, duplicate removal, multi-part retrieval, evidence limits, and shared context/citation evidence.
-- `tests/unit/test_conversation_query_resolver.py`: standalone questions, dependent follow-ups, bounded history, unrelated follow-ups, and multi-part follow-up rewriting.
-- `tests/unit/test_llm_provider.py`: primary/fallback behavior and sanitized Groq provider errors.
-- `tests/unit/test_session_memory.py`: bounded recent-message behavior.
-- `tests/unit/test_document_ingestion.py`: document extraction and chunking.
-- `tests/contract/test_chat_api_contract.py`: `/api/chat` response shape.
-- `tests/integration/test_chat_e2e.py`: end-to-end chat requests and conversation-history requests.
-- `scripts/smoke_test.py`: manual ingestion, retrieval, and chat checks.
-
-Tests use mocks for provider-specific unit behavior. The integration tests exercise the application boundary and may require a populated local Chroma collection and configured providers.
-
-## Extension Boundaries
-
-The current architecture leaves these replaceable boundaries:
-
-- Replace `ChromaVectorStore` without moving vector-store details into the use cases.
-- Add document loaders without changing chat orchestration.
-- Replace OpenRouter or Groq adapters while preserving `LLMProvider`.
-- Replace Streamlit while preserving the FastAPI chat contract.
-
-Authentication, authorization, enterprise HR integrations, hosted storage, and production operational controls are outside the current MVP.
+This architecture ensures reliable, auditable, and performant RAG-powered question answering using your company's HR documents.
