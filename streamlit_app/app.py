@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 
 from streamlit_app.services.chat_service import ChatService
-
+#
 st.set_page_config(page_title="KnowLayer HR Chatbot", page_icon="📘")
 st.title("KnowLayer HR Policy Assistant")
 
@@ -55,6 +55,8 @@ with st.sidebar:
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "last_response" not in st.session_state:
+    st.session_state.last_response = None
 
 
 def _format_citations(citations: list) -> str:
@@ -98,11 +100,11 @@ for message in st.session_state.messages:
 user_input = st.chat_input("Ask about the HR policy...")
 
 if user_input:
-    conversation_history = list(st.session_state.messages)
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
 
+    conversation_history = list(st.session_state.messages[:-1])
     service = ChatService(base_url="http://localhost:8000")
     try:
         response = service.ask(

@@ -1,4 +1,5 @@
 import math
+import logging
 import re
 
 from app.core.settings import (
@@ -12,6 +13,8 @@ from app.core.settings import (
     RAG_MAX_EVIDENCE,
 )
 from app.infrastructure.vector.chroma_client import ChromaVectorStore
+
+logger = logging.getLogger(__name__)
 
 
 class RetrievalService:
@@ -31,13 +34,20 @@ class RetrievalService:
         for part_index, retrieval_query in enumerate(self._query_parts(query_text)):
             for candidate in self.store.query(retrieval_query, top_k=top_k):
                 candidates.append({**candidate, "_query_part_index": part_index})
-        return self.select_relevant(
+        selected = self.select_relevant(
             query_text,
             candidates,
             max_evidence=max_evidence,
             distance_threshold=RAG_DISTANCE_THRESHOLD,
             max_context_chars=RAG_MAX_CONTEXT_CHARS,
         )
+        logger.info(
+            "retrieval_complete query_parts=%d candidates=%d selected=%d",
+            len(self._query_parts(query_text)),
+            len(candidates),
+            len(selected),
+        )
+        return selected
 
     @staticmethod
     def _query_parts(query_text: str) -> list[str]:
@@ -54,6 +64,36 @@ class RetrievalService:
             flags=re.IGNORECASE,
         ):
             queries.append("annual leave entitlement")
+        if re.search(r"\b(faqs?|frequently asked|main questions)\b", query_text, flags=re.IGNORECASE):
+            queries.extend([
+                "How many Annual Leave days do I receive",
+                "Can I carry forward unused Annual Leave",
+                "What happens to unused Casual Leave",
+                "Do I need approval before taking leave",
+            ])
+        if re.search(r"\b(other policies|policy sections|company policies)\b", query_text, flags=re.IGNORECASE):
+            queries.append("handbook policies")
+        # Expand payment/pay/salary/compensation synonyms to match document vocabulary
+        if re.search(r"\b(payment|pay|paid|paycheck|wages?)\b", query_text, flags=re.IGNORECASE):
+            queries.extend([
+                "salary payroll cycle payment method",
+                "Compensation and Payroll policy",
+                "salary structure gross net deductions",
+            ])
+        # Expand benefit/bonus/reimbursement queries
+        if re.search(r"\b(benefits?|bonus|bonuses|reimbursement|perks?)\b", query_text, flags=re.IGNORECASE):
+            queries.extend([
+                "Employee Benefits health insurance provident fund",
+                "performance bonus variable pay",
+                "expense reimbursement certification",
+            ])
+        # Expand conduct/harassment/discipline queries
+        if re.search(r"\b(conduct|harassment|disciplin|misconduct|grievance)\b", query_text, flags=re.IGNORECASE):
+            queries.extend([
+                "Code of Conduct workplace behaviour",
+                "harassment reporting investigation",
+                "disciplinary policy misconduct",
+            ])
         return queries
 
     @staticmethod

@@ -35,3 +35,8 @@ class ChatResponse(BaseModel):
     matched_faq: Optional[str] = None
     similarity: Optional[float] = None
     tokens: Optional[TokenUsageInfo] = None
+
+
+class FAQResponse(BaseModel):
+    faqs: str
+    citations: List[Citation] = []

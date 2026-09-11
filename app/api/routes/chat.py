@@ -3,7 +3,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from app.api.schemas.chat import ChatRequest, ChatResponse, Citation, TokenUsageInfo
+from app.api.schemas.chat import ChatRequest, ChatResponse, Citation, TokenUsageInfo, FAQResponse
 from app.domain.services.llm_provider import LLMProviderError
 from app.use_cases.chat.query_orchestrator import QueryOrchestrator
 
@@ -23,6 +23,13 @@ def init_orchestrator() -> None:
 async def chat(request: ChatRequest):
     if _orchestrator is None:
         raise HTTPException(status_code=503, detail="Service not ready yet.")
+
+    logger.info(
+        "chat_call session_id=%s history_messages=%d question=%s",
+        request.session_id,
+        len(request.conversation_history or []),
+        request.question[:50],  # Log first 50 chars of question
+    )
 
     history = [m.model_dump() for m in (request.conversation_history or [])]
 
@@ -68,6 +75,12 @@ async def chat(request: ChatRequest):
             token_usage.cache_hit,
         )
 
+    logger.info(
+        "chat_complete session_id=%s citations=%d",
+        request.session_id,
+        len(citations),
+    )
+
     return ChatResponse(
         session_id=request.session_id,
         answer=result["answer"],
@@ -77,3 +90,22 @@ async def chat(request: ChatRequest):
         similarity=result.get("similarity"),
         tokens=token_usage,
     )
+
+
+@router.get("/faqs", response_model=FAQResponse)
+async def faqs():
+    if _orchestrator is None:
+        raise HTTPException(status_code=503, detail="Service not ready yet.")
+    
+    logger.info("faq_generation_call")
+    result = _orchestrator.generate_faqs()
+    citations = [
+        Citation(
+            source=item["source"],
+            section=item["section"],
+            text=item["text"],
+        )
+        for item in result.get("citations", [])
+    ]
+    logger.info("faq_generation_complete citations=%d", len(citations))
+    return FAQResponse(faqs=result["faqs"], citations=citations)
