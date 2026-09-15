@@ -5,7 +5,7 @@ class RecordingStore:
     def __init__(self):
         self.project_filters = []
 
-    def query(self, query_text, top_k=3, project_ids=None):
+    def query(self, query_text, top_k=3, project_ids=None, where=None):
         self.project_filters.append(project_ids)
         return []
 

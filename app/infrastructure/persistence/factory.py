@@ -8,6 +8,7 @@ from app.infrastructure.persistence.sqlalchemy.session import (
     initialize_database,
 )
 from app.infrastructure.persistence.sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork
+from app.infrastructure.persistence.rbac_seed import seed_rbac
 from app.infrastructure.authentication.bootstrap import bootstrap_admin
 from app.infrastructure.authentication.password_hasher import PasswordHasher
 
@@ -23,6 +24,7 @@ def get_session_factory():
     engine, session_factory = create_engine_and_session_factory(database_url)
     initialize_database(engine)
     bootstrap_admin(lambda: SqlAlchemyUnitOfWork(session_factory), PasswordHasher())
+    seed_rbac(lambda: SqlAlchemyUnitOfWork(session_factory))
     return session_factory
 
 

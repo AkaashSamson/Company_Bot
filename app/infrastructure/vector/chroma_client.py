@@ -43,7 +43,7 @@ class ChromaVectorStore:
         )
         logger.info("stored %d vectors in collection %r (total=%d)", len(ids), self.collection_name, self.collection.count())
 
-    def query(self, query_text: str, top_k: int = 3, project_ids=None) -> List[dict]:
+    def query(self, query_text: str, top_k: int = 3, project_ids=None, where=None) -> List[dict]:
         if not query_text.strip():
             return []
         if project_ids == []:
@@ -55,9 +55,16 @@ class ChromaVectorStore:
             "n_results": top_k,
             "include": ["documents", "metadatas", "distances"],
         }
+        filters = []
         if project_ids is not None:
-            query_kwargs["where"] = {"project_id": {"$in": list(project_ids)}}
+            filters.append({"project_id": {"$in": list(project_ids)}})
             logger.info("vector query with project filter: %s", project_ids)
+        if where is not None:
+            filters.append(where)
+        if len(filters) == 1:
+            query_kwargs["where"] = filters[0]
+        elif len(filters) > 1:
+            query_kwargs["where"] = {"$and": filters}
         result = self.collection.query(
             **query_kwargs,
         )

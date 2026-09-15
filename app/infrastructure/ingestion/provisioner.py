@@ -68,14 +68,22 @@ def provision_document(source_path, document, content=None, store=None) -> int:
         destination = Path(DOCUMENTS_DIR) / f"{_safe_document_id(document.document_id)}{extension}"
         destination.write_bytes(raw)
         logger.info("saved uploaded document to %s", destination)
+        document.original_filename = document.original_filename or document.document_name
+        document.file_type = extension.lstrip(".")
+        document.storage_location = str(destination)
     else:
         text = extract_text_from_document(source_path)
+        document.original_filename = document.original_filename or Path(source_path).name
+        document.file_type = document.file_type or Path(source_path).suffix.lower().lstrip(".")
+        document.storage_location = document.storage_location or str(source_path)
 
     records = build_chunk_records(
         text,
         document_id=document.document_id,
         project_id=getattr(document, "project_id", None),
         source=document.document_name,
+        file_type=getattr(document, "file_type", None),
+        version=getattr(document, "version", None),
     )
     if not records:
         logger.warning("no chunks produced for document %r", document.document_id)

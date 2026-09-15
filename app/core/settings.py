@@ -34,3 +34,8 @@ GROQ_MODEL = os.getenv(
     "GROQ_MODEL",
     "llama-3.1-8b-instant",
 )
+
+EMPLOYEE_ID_PREFIX = os.getenv("EMPLOYEE_ID_PREFIX", "MSS")
+DEPARTMENT_ID_PREFIX = os.getenv("DEPARTMENT_ID_PREFIX", "DEPT")
+PROJECT_ID_PREFIX = os.getenv("PROJECT_ID_PREFIX", "PROJ")
+DOCUMENT_ID_PREFIX = os.getenv("DOCUMENT_ID_PREFIX", "DOC")

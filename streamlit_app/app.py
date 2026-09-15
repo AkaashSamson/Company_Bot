@@ -37,9 +37,14 @@ st.sidebar.button("Log out", on_click=lambda: st.session_state.update(auth=None)
 st.title("KnowLayer HR Policy Assistant")
 
 st.sidebar.page_link("app.py", label="Chat")
+st.sidebar.page_link("pages/profile.py", label="My Profile")
 st.sidebar.page_link("pages/users.py", label="Users")
+st.sidebar.page_link("pages/departments.py", label="Departments")
 st.sidebar.page_link("pages/projects.py", label="Projects")
 st.sidebar.page_link("pages/documents.py", label="Documents")
+st.sidebar.page_link("pages/explorer.py", label="Organization Explorer")
+st.sidebar.page_link("pages/roles.py", label="Roles")
+st.sidebar.page_link("pages/organization.py", label="Organization")
 
 try:
     project_options = {"All authorized projects": None}

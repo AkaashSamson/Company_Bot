@@ -1,56 +1,46 @@
-from app.domain.entities.organization_models import Project
+from app.domain.entities.organization_models import Role
 from app.domain.ports.authorization_service import AuthenticatedPrincipal
 from app.domain.ports.unit_of_work import UnitOfWork
+from app.domain.services.authorization_engine import AuthorizationEngine, AuthorizationScope
 
 
 class OrganizationAuthorizationService:
+    """Thin facade over the AuthorizationEngine.
+
+    Kept so that all existing call sites and dependency wiring stay the same;
+    every decision is delegated to the single AuthorizationEngine.
+    """
+
     def __init__(self, unit_of_work: UnitOfWork):
         self.unit_of_work = unit_of_work
+        self.engine = AuthorizationEngine(lambda: self.unit_of_work)
 
     def authorized_project_ids(self, principal: AuthenticatedPrincipal, selected_project_id=None):
-        with self.unit_of_work as unit_of_work:
-            user = unit_of_work.users.get_by_uid(principal.uid)
-            if user is None or user.status != "active":
-                return []
-
-            if user.role.casefold() == "admin":
-                project_ids = [project.project_id for project in unit_of_work.projects.list_active()]
-            else:
-                project_ids = [
-                    membership.project_id
-                    for membership in unit_of_work.memberships.list_for_user(user.uid)
-                    if membership.status == "active"
-                ]
-
-            if selected_project_id is not None:
-                return [selected_project_id] if selected_project_id in project_ids else []
-            return project_ids
+        return self.engine.authorized_project_ids(principal, selected_project_id)
 
     def is_admin(self, principal: AuthenticatedPrincipal) -> bool:
-        with self.unit_of_work as unit_of_work:
-            user = unit_of_work.users.get_by_uid(principal.uid)
-            return bool(
-                user
-                and user.status == "active"
-                and user.role.casefold() == "admin"
-            )
+        return self.engine.is_admin(principal)
 
     def can_manage_department(self, principal, department_id):
-        with self.unit_of_work as unit_of_work:
-            user = unit_of_work.users.get_by_uid(principal.uid)
-            return bool(
-                user
-                and user.status == "active"
-                and (user.role.casefold() == "admin" or user.department_id == department_id)
-            )
+        return self.engine.can_manage_department(principal, department_id)
 
     def can_manage_project(self, principal, project_id):
-        with self.unit_of_work as unit_of_work:
-            user = unit_of_work.users.get_by_uid(principal.uid)
-            project = unit_of_work.projects.get(project_id)
-            return bool(
-                user
-                and project
-                and user.status == "active"
-                and (user.role.casefold() == "admin" or user.department_id == project.department_id)
-            )
+        return self.engine.can_manage_project(principal, project_id)
+
+    def can_manage_role(self, principal, role: Role) -> bool:
+        return self.engine.can_manage_role(principal, role)
+
+    def roles_for_user(self, uid):
+        return self.engine.roles_for_user(uid)
+
+    def permissions_for_user(self, uid):
+        return self.engine.permissions_for_user(uid)
+
+    def has_permission(self, principal: AuthenticatedPrincipal, permission: str) -> bool:
+        return self.engine.has_permission(principal, permission)
+
+    def authorization_scope(self, principal: AuthenticatedPrincipal, selected_project_id=None) -> AuthorizationScope:
+        return self.engine.authorization_scope(principal, selected_project_id)
+
+    def project_access_contact(self, project_id):
+        return self.engine.project_access_contact(project_id)

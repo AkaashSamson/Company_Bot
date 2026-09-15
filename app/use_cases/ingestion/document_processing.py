@@ -68,6 +68,8 @@ def build_chunk_records(
     document_id: str,
     project_id: str | None = None,
     source: str | None = None,
+    file_type: str | None = None,
+    version: str | None = None,
 ) -> list[dict]:
     return [
         {
@@ -79,6 +81,8 @@ def build_chunk_records(
                 "source": source or document_id,
                 "chunk_index": index,
                 "section": "Policy",
+                "file_type": (file_type or "text").lstrip("."),
+                "version": version or "1.0",
             },
         }
         for index, chunk in enumerate(chunk_text(text))

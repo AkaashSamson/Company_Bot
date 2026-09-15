@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Protocol, Sequence
 
+from app.domain.entities.organization_models import Role
+
 
 @dataclass(frozen=True, slots=True)
 class AuthenticatedPrincipal:
@@ -26,4 +28,20 @@ class AuthorizationService(Protocol):
         self,
         principal: AuthenticatedPrincipal,
         project_id: str,
+    ) -> bool: ...
+
+    def can_manage_role(
+        self,
+        principal: AuthenticatedPrincipal,
+        role: Role,
+    ) -> bool: ...
+
+    def roles_for_user(self, uid: str) -> Sequence[Role]: ...
+
+    def permissions_for_user(self, uid: str) -> set[str]: ...
+
+    def has_permission(
+        self,
+        principal: AuthenticatedPrincipal,
+        permission: str,
     ) -> bool: ...

@@ -1,8 +1,7 @@
 from pathlib import Path
 from typing import List
 
-
-SUPPORTED_EXTENSIONS = {".docx", ".txt", ".md", ".rst"}
+from app.use_cases.ingestion.document_processing import SUPPORTED_EXTENSIONS
 
 
 class LocalDocumentLoader:

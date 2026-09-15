@@ -109,4 +109,15 @@ Code files added or changed:
 Summary: Added optional project selection, authorized-project intersection before retrieval, Chroma project filtering, Document/Project chunk metadata, Streamlit project scope selection, and Admin-wide project access tests.  
 Validation: US4/US5 and retrieval compatibility suite passed: 24 tests. Existing chat contract remains environment-sensitive because the current local Chroma data returned zero citations.
 
-##
+## Security and Authorization Review
+
+-   Full 15-scenario authorization bypass review of the entire KnowLayer system.
+-   Fixed privilege escalation: non-admin could change user roles via `update_user` (guard added to `user_management.py:166`).
+-   Fixed privilege escalation: manager could create admin users via `create_user` (guard added to `user_management.py:105`).
+-   Hardened user enumeration: `update_user` now returns 403 (not 404) for missing targets when the actor is non-admin (`user_management.py:147-150`).
+-   Fixed document-grant escalation: single document grant no longer grants whole-project retrieval in selected-project chat (`authorization_engine.py` doc-grant branch, `chat.py:19` gate).
+-   Rewrote `tests/integration/test_user_management_e2e.py` to correctly assert deactivation behavior; made it idempotent against persistent SQLite DB.
+-   Added `tests/unit/test_authz_bypass_regression.py` (29 tests) pinning all 15 bypass scenarios.
+-   Full suite: 394 unit/contract + 41 integration = 435 passed, 0 failed.
+-   Documentation: README.md, ARCHITECTURE.md, .env.example, requirements.txt, and workflow index all updated to reflect current state.
+-   Security review report: Documentation/Workflows/security-authorization-review.md.

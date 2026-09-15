@@ -8,6 +8,7 @@ Workflow guides for the SQL organization-access feature:
 - [Document management](document-management.md): optional project assignment, lifecycle, ingestion metadata, and unassigned documents.
 - [Question answering](question-answering.md): project selection, authorized intersection, filtered retrieval, LLM generation, and citations.
 - [Streamlit to FastAPI integration](streamlit-fastapi-integration.md): shared API base URL and page responsibilities.
+- [Security and authorization review](security-authorization-review.md): 15-scenario authorization bypass review, defect findings, fixes, and hardening recommendations.
 
 ## Ownership
 

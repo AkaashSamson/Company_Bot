@@ -1,8 +1,14 @@
 from app.infrastructure.persistence.sqlalchemy.repositories import (
+    SqlAlchemyDepartmentMemberRepository,
     SqlAlchemyDepartmentRepository,
+    SqlAlchemyDocumentGrantRepository,
     SqlAlchemyDocumentRepository,
     SqlAlchemyMembershipRepository,
+    SqlAlchemyPermissionRepository,
+    SqlAlchemyProjectGrantRepository,
     SqlAlchemyProjectRepository,
+    SqlAlchemyRoleRepository,
+    SqlAlchemySequenceRepository,
     SqlAlchemyUserRepository,
 )
 
@@ -19,6 +25,12 @@ class SqlAlchemyUnitOfWork:
         self.projects = SqlAlchemyProjectRepository(self.session)
         self.documents = SqlAlchemyDocumentRepository(self.session)
         self.memberships = SqlAlchemyMembershipRepository(self.session)
+        self.department_members = SqlAlchemyDepartmentMemberRepository(self.session)
+        self.roles = SqlAlchemyRoleRepository(self.session)
+        self.permissions = SqlAlchemyPermissionRepository(self.session)
+        self.project_grants = SqlAlchemyProjectGrantRepository(self.session)
+        self.document_grants = SqlAlchemyDocumentGrantRepository(self.session)
+        self.sequences = SqlAlchemySequenceRepository(self.session)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):

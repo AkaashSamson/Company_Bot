@@ -5,8 +5,10 @@ from fastapi import FastAPI
 
 from app.api.routes.chat import router as chat_router
 from app.api.routes.documents import router as documents_router
+from app.api.routes.explorer import router as explorer_router
 from app.api.routes.organization import router as organization_router
 from app.api.routes.authentication import router as authentication_router
+from app.api.routes.roles import router as roles_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,8 +29,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="KnowLayer API", lifespan=lifespan)
 app.include_router(chat_router)
 app.include_router(organization_router)
+app.include_router(explorer_router)
 app.include_router(documents_router)
 app.include_router(authentication_router)
+app.include_router(roles_router)
 
 
 @app.get("/health")
