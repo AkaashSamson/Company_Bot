@@ -79,6 +79,8 @@ async def chat(
         kwargs["session_id"] = request.session_id
     if "defer_citations" in answer_sig.parameters:
         kwargs["defer_citations"] = request.defer_citations if request.defer_citations is not None else False
+    if "user_context" in answer_sig.parameters:
+        kwargs["user_context"] = principal
 
     try:
         result = await asyncio.to_thread(

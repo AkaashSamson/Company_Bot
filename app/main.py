@@ -21,6 +21,19 @@ logger = logging.getLogger("knowlayer")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from app.infrastructure.persistence.factory import get_session_factory, initialize_persistence
+    from app.infrastructure.logging.conversation_log_cleanup import ConversationLogCleanup
+
+    try:
+        cleanup_service = ConversationLogCleanup()
+        result = cleanup_service.cleanup_expired_logs()
+        logger.info(
+            "Startup conversation log cleanup completed: %d deleted, %d preserved, %d failed",
+            result.deleted,
+            result.preserved,
+            result.failed,
+        )
+    except Exception as exc:
+        logger.error("Startup conversation log cleanup failed: %s", exc)
 
     initialize_persistence(get_session_factory)
     logger.info("Lifespan: warming up orchestrator…")

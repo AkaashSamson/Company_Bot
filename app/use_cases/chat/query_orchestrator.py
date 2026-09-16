@@ -1,5 +1,7 @@
+from datetime import datetime, timezone
 import logging
 import re
+from typing import Any, Optional
 
 from app.core.settings import RAG_CANDIDATE_COUNT
 from app.infrastructure.faq.faq_similarity_cache import FAQSimilarityCache
@@ -7,6 +9,8 @@ from app.infrastructure.faq.mongo_faq_store import MongoFAQStore
 from app.infrastructure.llm.fallback_llm_provider import FallbackLLMProvider
 from app.infrastructure.llm.groq_client import GroqClient
 from app.infrastructure.llm.openrouter_client import OpenRouterClient
+from app.infrastructure.logging.conversation_logger import ConversationLogger
+from app.infrastructure.logging.database_employee_id_provider import DatabaseEmployeeIdProvider
 from app.infrastructure.observability.tracer import traceable
 from app.use_cases.chat.conversation_query_resolver import ConversationQueryResolver
 from app.use_cases.chat.provenance_service import ProvenanceService
@@ -55,6 +59,8 @@ class QueryOrchestrator:
         context_builder=None,
         project_contact_lookup=None,
         response_cache=None,
+        conversation_logger=None,
+        employee_id_provider=None,
     ):
         self.retrieval = retrieval or RetrievalService()
         self.provenance = provenance or ProvenanceService()
@@ -63,6 +69,17 @@ class QueryOrchestrator:
         self.context_builder = context_builder or RAGContextBuilder()
         self.project_contact_lookup = project_contact_lookup
         self.response_cache = response_cache
+        self.employee_id_provider = employee_id_provider
+
+        if conversation_logger is not None:
+            self.conversation_logger = conversation_logger
+        else:
+            try:
+                from app.infrastructure.persistence.sqlalchemy.session import create_unit_of_work
+                prov = employee_id_provider or DatabaseEmployeeIdProvider(unit_of_work_factory=create_unit_of_work)
+            except Exception:
+                prov = employee_id_provider or DatabaseEmployeeIdProvider()
+            self.conversation_logger = ConversationLogger(employee_id_provider=prov)
 
         self.llm = llm or FallbackLLMProvider(
             primary=OpenRouterClient(),
@@ -73,6 +90,72 @@ class QueryOrchestrator:
             memory=memory or SessionMemoryService(),
         )
 
+    def _safe_log_conversation(
+        self,
+        session_id: str,
+        question: str,
+        answer: str,
+        conversation_history=None,
+        user_context: Optional[Any] = None,
+    ) -> None:
+        if not self.conversation_logger:
+            return
+
+        try:
+            full_messages = []
+            if conversation_history:
+                for msg in conversation_history:
+                    if isinstance(msg, dict):
+                        full_messages.append(
+                            {
+                                "role": msg.get("role", "user"),
+                                "content": msg.get("content", ""),
+                                "timestamp": msg.get(
+                                    "timestamp",
+                                    datetime.now(timezone.utc).isoformat(),
+                                ),
+                            }
+                        )
+                    elif hasattr(msg, "role") and hasattr(msg, "content"):
+                        full_messages.append(
+                            {
+                                "role": getattr(msg, "role"),
+                                "content": getattr(msg, "content"),
+                                "timestamp": getattr(
+                                    msg,
+                                    "timestamp",
+                                    datetime.now(timezone.utc).isoformat(),
+                                ),
+                            }
+                        )
+
+            now_iso = datetime.now(timezone.utc).isoformat()
+            trailing_is_current_question = (
+                full_messages
+                and full_messages[-1].get("role") == "user"
+                and full_messages[-1].get("content", "").strip() == question.strip()
+            )
+            if not trailing_is_current_question:
+                full_messages.append(
+                    {"role": "user", "content": question, "timestamp": now_iso}
+                )
+
+            full_messages.append(
+                {"role": "assistant", "content": answer, "timestamp": now_iso}
+            )
+
+            self.conversation_logger.log_conversation(
+                session_id=session_id,
+                messages=full_messages,
+                user_context=user_context,
+            )
+        except Exception as exc:
+            logger.error(
+                "Unexpected failure during conversation logging for session %s: %s",
+                session_id,
+                exc,
+            )
+
     @traceable(name="QueryOrchestrator.answer", run_type="chain")
     def answer(
         self,
@@ -82,7 +165,19 @@ class QueryOrchestrator:
         authorized_project_ids=None,
         authorization_scope=None,
         defer_citations: bool = False,
+        user_context: Optional[Any] = None,
     ):
+        def _finish(res):
+            ans_text = res.get("answer", "") if isinstance(res, dict) else str(res)
+            self._safe_log_conversation(
+                session_id=session_id,
+                question=question,
+                answer=ans_text,
+                conversation_history=conversation_history,
+                user_context=user_context,
+            )
+            return res
+
         # ── 0. References follow-up — user said yes to "show references?" ──
         if (
             _is_positive(question)
@@ -91,19 +186,19 @@ class QueryOrchestrator:
         ):
             citations = _pending_citations.pop(session_id)
             if citations:
-                return {
+                return _finish({
                     "answer": "Here are the references for my previous answer:",
                     "citations": citations,
                     "cache_hit": False,
                     "show_citations": True,
                     "tokens": None,
-                }
-            return {
+                })
+            return _finish({
                 "answer": "No specific document references are available for that answer.",
                 "citations": [],
                 "cache_hit": False,
                 "tokens": None,
-            }
+            })
 
         # ── 1. LRU Response cache check (if configured) ─────────────────
         if self.response_cache is not None:
@@ -117,7 +212,7 @@ class QueryOrchestrator:
                     cached_citations = []
                 if defer_citations:
                     _pending_citations[session_id] = cached_citations
-                    return {
+                    return _finish({
                         "answer": ans,
                         "citations": [],
                         "cache_hit": True,
@@ -127,8 +222,8 @@ class QueryOrchestrator:
                             "total_tokens": 0,
                             "cache_hit": True,
                         },
-                    }
-                return {
+                    })
+                return _finish({
                     "answer": ans,
                     "citations": cached_citations,
                     "cache_hit": True,
@@ -138,7 +233,7 @@ class QueryOrchestrator:
                         "total_tokens": 0,
                         "cache_hit": True,
                     },
-                }
+                })
 
         # ── 2. FAQ similarity cache — always checked first (if response_cache not active) ──
         cached = self._faq_search(question) if self.response_cache is None else None
@@ -156,7 +251,7 @@ class QueryOrchestrator:
             }
             if defer_citations:
                 _pending_citations[session_id] = [faq_citation]
-                return {
+                return _finish({
                     "answer": cached["answer"] + "\n\nWould you like to see the references for this?",
                     "citations": [],
                     "cache_hit": True,
@@ -168,9 +263,9 @@ class QueryOrchestrator:
                         "total_tokens": 0,
                         "cache_hit": True,
                     },
-                }
+                })
             else:
-                return {
+                return _finish({
                     "answer": cached["answer"],
                     "citations": [faq_citation],
                     "cache_hit": True,
@@ -182,7 +277,7 @@ class QueryOrchestrator:
                         "total_tokens": 0,
                         "cache_hit": True,
                     },
-                }
+                })
 
         # ── 3. Full RAG + LLM pipeline with Authorization Scoping ───────
         retrieval_query = self.query_resolver.resolve(question, conversation_history)
@@ -214,13 +309,13 @@ class QueryOrchestrator:
                 scope_flags,
             )
             if denied is not None:
-                return denied
-            return {
+                return _finish(denied)
+            return _finish({
                 "answer": "I could not find that information in the available documents.",
                 "citations": [],
                 "cache_hit": False,
                 "tokens": None,
-            }
+            })
 
         context = "\n\n".join(
             result.get("text", "")
@@ -297,21 +392,21 @@ class QueryOrchestrator:
 
         if defer_citations:
             _pending_citations[session_id] = citations
-            return {
+            return _finish({
                 "answer": answer,
                 "citations": [],
                 "context": context,
                 "cache_hit": False,
                 "tokens": tokens,
-            }
+            })
 
-        return {
+        return _finish({
             "answer": answer,
             "citations": citations,
             "context": context,
             "cache_hit": False,
             "tokens": tokens,
-        }
+        })
 
     def generate_faqs(self):
         if hasattr(self.faq_cache, "load"):

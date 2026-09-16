@@ -12,15 +12,16 @@
 
 ### User Story 1 - Capture conversations for development analysis (Priority: P1)
 
-Developers can review a file-based record of conversations to understand usage patterns, diagnose behavior, and improve the application.
+Developers can review an employee-scoped file-based record of completed conversations to understand usage patterns, diagnose behavior, and improve the application. Each completed conversation is stored as one JSON file associated with the employee represented by the authenticated user.
 
 **Independent Test**: Submit a conversation and verify that a readable log file is created with the conversation events, timestamps, and enough context to support debugging without exposing secrets.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user completes a conversation, **When** the conversation is recorded, **Then** a file is written under the designated conversation logs directory.
-2. **Given** a conversation contains multiple messages, **When** it is recorded, **Then** the log preserves message order and associates each entry with a timestamp and conversation identifier.
+1. **Given** an authenticated user completes a conversation, **When** the conversation is recorded, **Then** exactly one JSON file is written under the designated conversation logs directory using the filename format `<employee_id>_<timestamp>.json`.
+2. **Given** a conversation contains multiple messages, **When** it is recorded, **Then** the log preserves message order, uses the existing `session_id` as the conversation identifier, and associates each message with a timestamp.
 3. **Given** a log would contain credentials, tokens, or other configured sensitive values, **When** it is written, **Then** those values are excluded or redacted.
+4. **Given** database and user-identity integration are not implemented, **When** a conversation is recorded, **Then** a temporary mock employee-ID provider returns test IDs such as `MSS001`, `MSS002`, and `MSS003` through a replaceable abstraction.
 
 ### User Story 2 - Remove expired conversation logs automatically (Priority: P1)
 
@@ -52,15 +53,19 @@ Developers can change the conversation-log retention period through one configur
 - A conversation contains empty messages or unusually large content.
 - Cleanup runs while a log file is being written.
 - A malformed or unrelated file exists in the logs directory.
-- Developers need to distinguish conversations without exposing a user's identity unnecessarily.
+- Developers need to distinguish employee conversations without exposing more identity information than the employee ID required for operations.
+- The temporary employee-ID provider cannot return an employee ID for the authenticated user.
+- Two conversations for the same employee complete within the same timestamp interval.
+- A log directory or JSON file cannot be written.
 
 ## Goals
 
 - Preserve conversation history in a dedicated local logs directory for developer analysis only.
-- Keep message order, timestamps, and conversation identity sufficient for troubleshooting.
+- Store one employee-scoped JSON file per completed conversation.
+- Keep the employee ID, existing session ID, message order, timestamps, and recording status sufficient for troubleshooting.
 - Remove expired files automatically using a single configurable retention value.
 - Prevent secrets and sensitive configuration values from being stored in cleartext.
-- Keep logging failures from interrupting the user's chat experience.
+- Keep logging and cleanup failures from interrupting the user's chat experience or changing chatbot retrieval and answer behavior.
 
 ## Non-Goals
 
@@ -74,14 +79,17 @@ Developers can change the conversation-log retention period through one configur
 
 ### Functional Requirements
 
-1. The system MUST write each completed conversation to a file in the designated conversation-log directory.
-2. Each log MUST include a conversation identifier, ordered messages, timestamps, and recording status.
-3. The system MUST redact or omit secrets and configured sensitive values before writing a log.
-4. The system MUST provide an automatic cleanup operation that deletes logs older than the configured retention period.
-5. The retention period MUST be controlled by one documented configuration value and MUST NOT require a code change.
-6. Cleanup MUST leave non-expired logs untouched and continue processing when an individual file cannot be deleted.
-7. Logging and cleanup failures MUST be observable to developers without causing a user conversation to fail.
-8. Conversation logs MUST be restricted to developer/operations access and MUST NOT be exposed through the end-user chat experience.
+1. The system MUST write each completed conversation to exactly one JSON file in the designated conversation-log directory.
+2. Each log filename MUST follow the format `<employee_id>_<timestamp>.json`.
+3. Each log MUST include `employee_id`, the existing `session_id`, ordered messages, message timestamps, and recording status.
+4. The `employee_id` MUST represent the employee associated with the authenticated user.
+5. Employee-ID lookup MUST be provided through a small replaceable provider abstraction. The initial implementation MUST use a temporary mock provider returning test IDs such as `MSS001`, `MSS002`, and `MSS003`; those IDs MUST NOT be hard-coded inside the logging service. The temporary provider will later be replaced by database-backed employee identity lookup.
+6. The system MUST redact or omit secrets and configured sensitive values before writing a log.
+7. The system MUST provide an automatic cleanup operation that deletes logs older than the configured retention period.
+8. The retention period MUST be controlled by one documented configuration value, MUST default to 30 days, and MUST NOT require a code change.
+9. Cleanup MUST leave non-expired logs untouched and continue processing when an individual file cannot be deleted.
+10. Logging and cleanup failures MUST be observable to developers without causing a user conversation to fail or changing chatbot retrieval and answer behavior.
+11. Conversation logs MUST be restricted to developer/operations access, excluded from version control, and MUST NOT be exposed through end-user chat, search, or analytics.
 
 ### Non-Functional Requirements
 
@@ -95,11 +103,16 @@ Developers can change the conversation-log retention period through one configur
 - Cleanup runs at application startup and may also be invoked by a scheduled maintenance process.
 - The designated log directory is excluded from version control and is treated as local operational data.
 - Developer access to the host filesystem is the access boundary for these files.
+- The authenticated user can be associated with an employee ID through the provider abstraction even though database/user-identity integration is not implemented initially.
+- The existing `session_id` is the only conversation identifier; no separate `conversation_id` is introduced.
 
 ## Success Criteria
 
 - Developers can locate and inspect a complete conversation log after a test conversation.
+- Every completed conversation produces exactly one employee-scoped JSON file named `<employee_id>_<timestamp>.json`.
+- Each log contains the employee ID, existing session ID, ordered messages, message timestamps, and recording status.
 - 100% of tested logs exclude configured secrets and tokens.
 - Cleanup removes all expired test logs and preserves all non-expired test logs.
 - Changing one configuration value changes the retention boundary without source-code edits.
 - A logging or cleanup failure does not prevent a user from receiving a chat response.
+- No user-facing log search or analytics capability is provided.

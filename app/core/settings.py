@@ -1,7 +1,11 @@
+import logging
 import os
+import warnings
 from pathlib import Path
+from typing import Optional
 from dotenv import load_dotenv
 
+logger = logging.getLogger(__name__)
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -66,3 +70,44 @@ EMPLOYEE_ID_PREFIX = os.getenv("EMPLOYEE_ID_PREFIX", "MSS")
 DEPARTMENT_ID_PREFIX = os.getenv("DEPARTMENT_ID_PREFIX", "DEPT")
 PROJECT_ID_PREFIX = os.getenv("PROJECT_ID_PREFIX", "PROJ")
 DOCUMENT_ID_PREFIX = os.getenv("DOCUMENT_ID_PREFIX", "DOC")
+
+# Conversation Logging & Retention Settings
+DEFAULT_CONVERSATION_LOG_DIR = "conversation_logs"
+DEFAULT_CONVERSATION_LOG_RETENTION_DAYS = 30
+
+raw_log_dir = os.getenv("CONVERSATION_LOG_DIR", DEFAULT_CONVERSATION_LOG_DIR)
+_log_dir_path = Path(raw_log_dir)
+CONVERSATION_LOG_DIR = _log_dir_path if _log_dir_path.is_absolute() else BASE_DIR / _log_dir_path
+
+
+def parse_retention_days(raw_value: Optional[str]) -> int:
+    """
+    Parse retention days with safe fallback to 30 days and developer-visible warnings.
+    """
+    if raw_value is None or raw_value.strip() == "":
+        return DEFAULT_CONVERSATION_LOG_RETENTION_DAYS
+
+    try:
+        val = int(raw_value.strip())
+        if val <= 0:
+            msg = (
+                f"Invalid CONVERSATION_LOG_RETENTION_DAYS='{raw_value}': must be a positive integer. "
+                f"Falling back to default of {DEFAULT_CONVERSATION_LOG_RETENTION_DAYS} days."
+            )
+            logger.warning(msg)
+            warnings.warn(msg, UserWarning, stacklevel=2)
+            return DEFAULT_CONVERSATION_LOG_RETENTION_DAYS
+        return val
+    except ValueError:
+        msg = (
+            f"Invalid CONVERSATION_LOG_RETENTION_DAYS='{raw_value}': not a valid integer. "
+            f"Falling back to default of {DEFAULT_CONVERSATION_LOG_RETENTION_DAYS} days."
+        )
+        logger.warning(msg)
+        warnings.warn(msg, UserWarning, stacklevel=2)
+        return DEFAULT_CONVERSATION_LOG_RETENTION_DAYS
+
+
+CONVERSATION_LOG_RETENTION_DAYS = parse_retention_days(
+    os.getenv("CONVERSATION_LOG_RETENTION_DAYS")
+)
