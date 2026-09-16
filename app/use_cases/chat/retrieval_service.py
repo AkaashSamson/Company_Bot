@@ -1,3 +1,4 @@
+import logging
 import math
 import logging
 import re
@@ -17,6 +18,9 @@ from app.infrastructure.vector.chroma_client import ChromaVectorStore
 logger = logging.getLogger(__name__)
 
 
+logger = logging.getLogger("knowlayer.retrieval")
+
+
 class RetrievalService:
     def __init__(self, collection_name: str = COLLECTION_NAME, persist_directory: str | None = None):
         self.store = ChromaVectorStore(
@@ -29,11 +33,43 @@ class RetrievalService:
         query_text: str,
         top_k: int = RAG_CANDIDATE_COUNT,
         max_evidence: int = RAG_MAX_EVIDENCE,
+        authorized_project_ids: list[str] | None = None,
+        authorized_document_ids: list[str] | None = None,
+        include_unassigned: bool = True,
     ):
+        project_ids_for_filter = None
+        if authorized_project_ids is not None:
+            scoped = sorted(set(authorized_project_ids) | ({"unassigned"} if include_unassigned else set()))
+            project_ids_for_filter = scoped
+            logger.info("retrieval project scope for user: %s", scoped)
+
+        where_filter = None
+        if authorized_document_ids:
+            document_filter = {"document_id": {"$in": list(authorized_document_ids)}}
+            if project_ids_for_filter:
+                where_filter = {
+                    "$or": [
+                        {"project_id": {"$in": project_ids_for_filter}},
+                        document_filter,
+                    ]
+                }
+            else:
+                where_filter = document_filter
+            logger.info("retrieval document scope for user: %s", list(authorized_document_ids))
+
         candidates = []
         for part_index, retrieval_query in enumerate(self._query_parts(query_text)):
-            for candidate in self.store.query(retrieval_query, top_k=top_k):
+            query_kwargs = {"top_k": top_k}
+            if where_filter is not None:
+                query_kwargs["where"] = where_filter
+            elif project_ids_for_filter is not None:
+                query_kwargs["project_ids"] = project_ids_for_filter
+            for candidate in self.store.query(retrieval_query, **query_kwargs):
                 candidates.append({**candidate, "_query_part_index": part_index})
+        logger.info(
+            "retrieval collected %d raw candidates for query %r (authorized_projects=%s documents=%s)",
+            len(candidates), query_text, authorized_project_ids, authorized_document_ids,
+        )
         selected = self.select_relevant(
             query_text,
             candidates,
@@ -42,12 +78,80 @@ class RetrievalService:
             max_context_chars=RAG_MAX_CONTEXT_CHARS,
         )
         logger.info(
-            "retrieval_complete query_parts=%d candidates=%d selected=%d",
-            len(self._query_parts(query_text)),
-            len(candidates),
-            len(selected),
+            "retrieval accepted %d evidence chunks for query %r (distances=%s)",
+            len(selected), query_text,
+            [round(c["distance"], 4) for c in selected if isinstance(c.get("distance"), (int, float))],
         )
         return selected
+
+    def detect_unauthorized_relevance(
+        self,
+        query_text: str,
+        authorized_project_ids: list[str] | None = None,
+        authorized_document_ids: list[str] | None = None,
+        include_unassigned: bool = True,
+        top_k: int = RAG_CANDIDATE_COUNT,
+    ) -> list[dict]:
+        """Probe the full corpus for content relevant to the query that lies
+        outside the principal's authorized scope.
+
+        The probe runs an unrestricted Chroma query and keeps only candidates
+        that are unauthorized AND would have passed the same relevance criteria
+        used for authorized evidence (distance threshold + lexical grounding).
+
+        Returns *redacted* hits only — no document text and no full metadata —
+        enough to build an access-request response without ever exposing
+        document content to the caller or the LLM::
+
+            {"project_id", "document_id", "source", "section", "distance"}
+
+        ``authorized_project_ids=None`` means unrestricted (admin). Such a
+        scope can never produce unauthorized hits because nothing is out of
+        scope.
+        """
+        if authorized_project_ids is None:
+            return []
+        candidates = self.store.query(query_text, top_k=top_k)
+
+        authorized_projects = set(authorized_project_ids)
+        authorized_docs = set(authorized_document_ids or [])
+
+        hits = []
+        for candidate in candidates:
+            distance = candidate.get("distance")
+            if not isinstance(distance, (int, float)):
+                continue
+            if distance > RAG_DISTANCE_THRESHOLD:
+                continue
+            if not self._has_lexical_grounding(candidate, query_text):
+                continue
+
+            metadata = candidate.get("metadata") or {}
+            document_id = metadata.get("document_id")
+            if document_id in authorized_docs:
+                continue
+            project_id = metadata.get("project_id")
+            is_unassigned = not project_id or str(project_id) == "unassigned"
+            if is_unassigned:
+                if include_unassigned:
+                    continue
+            elif str(project_id) in authorized_projects:
+                continue
+
+            hits.append({
+                "project_id": str(project_id) if project_id else None,
+                "document_id": document_id,
+                "source": metadata.get("source"),
+                "section": metadata.get("section"),
+                "distance": distance,
+            })
+
+        hits.sort(key=lambda hit: hit["distance"])
+        logger.info(
+            "authorization probe found %d relevant unauthorized candidates for query %r",
+            len(hits), query_text,
+        )
+        return hits
 
     @staticmethod
     def _query_parts(query_text: str) -> list[str]:

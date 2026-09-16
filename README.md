@@ -6,6 +6,17 @@ An enterprise organizational intelligence platform that gives authenticated empl
 
 **Company Bot** is a secure, policy-aware organizational knowledge assistant that draws on internal documents and enterprise systems. It delivers grounded answers with provenance, citations, and clear source attribution while maintaining strict authorization boundaries and preventing unauthorized data access.
 
+### Platform Highlights
+- Local document storage in `input/` with DOCX, TXT, Markdown, and RST ingestion
+- Text extraction and chunking with `python-docx`
+- Local persistent Chroma database in `.chroma/` with Sentence-Transformer embeddings
+- FastAPI backend with chat, token observability, and SQL RBAC routes
+- Organization management foundation with a configurable SQLite database
+- Streamlit multi-page UI with RBAC management and interactive chat
+- Two-step citation flow (initial concise response with on-demand citations)
+- Distance-aware evidence selection and unauthorized relevance probing
+- OpenRouter primary LLM with Groq fallback and LangSmith tracing
+
 ### Vision
 
 Build a system that transforms fragmented organizational knowledge into decision-ready answers by combining:
@@ -102,6 +113,7 @@ KnowLayer follows a **modular monolith** design with clear separation of concern
 
 ```
 Company_Bot/
+<<<<<<< HEAD
 ├── README.md                          # This file
 ├── specs/
 │   └── 001-knowlayer-platform/
@@ -135,11 +147,144 @@ streamlit_app/                         # (To be created)
 ├── pages/                             # Multi-page UI
 ├── components/                        # Reusable UI components
 └── services/                          # Client-side service layer
+=======
+├── app/
+│   ├── main.py
+│   ├── api/
+│   │   ├── routes/
+│   │   │   ├── chat.py                # POST /api/chat
+│   │   │   ├── organization.py        # Users, departments, projects, memberships
+│   │   │   ├── documents.py           # Document management, upload, access
+│   │   │   ├── explorer.py            # Organization Explorer data
+│   │   │   ├── roles.py               # RBAC role management
+│   │   │   └── authentication.py      # Login, token refresh, password change
+│   │   ├── schemas/
+│   │   │   ├── chat.py
+│   │   │   ├── organization.py
+│   │   │   ├── documents.py
+│   │   │   ├── explorer.py
+│   │   │   ├── profile.py
+│   │   │   ├── roles.py
+│   │   │   └── authentication.py
+│   │   └── dependencies.py            # FastAPI DI: UoW, auth, authorization
+│   ├── core/settings.py               # Environment-backed configuration
+│   ├── domain/
+│   │   ├── entities/
+│   │   │   ├── document_models.py
+│   │   │   └── organization_models.py
+│   │   ├── ports/
+│   │   │   ├── authorization_service.py
+│   │   │   ├── authentication_service.py
+│   │   │   ├── organization_repositories.py
+│   │   │   ├── document_repository.py
+│   │   │   ├── retrieval.py
+│   │   │   ├── sequence_repository.py
+│   │   │   └── unit_of_work.py
+│   │   └── services/
+│   │       ├── authorization_engine.py   # Central RBAC authorization engine
+│   │       ├── authorization_service.py  # Legacy compatibility shim
+│   │       ├── authentication_service.py
+│   │       ├── session_memory_service.py
+│   │       ├── llm_provider.py
+│   │       ├── organization_errors.py
+│   │       ├── permission_catalog.py
+│   │       ├── business_id_generator.py  # Atomic business ID generation (MSS/DEPT/PROJ/DOC)
+│   │       └── session_memory_service.py
+│   ├── infrastructure/
+│   │   ├── vector/chroma_client.py
+│   │   ├── document/local_document_loader.py
+│   │   ├── ingestion/provisioner.py
+│   │   ├── llm/
+│   │   │   ├── openrouter_client.py
+│   │   │   ├── groq_client.py
+│   │   │   └── fallback_llm_provider.py
+│   │   ├── authentication/
+│   │   │   ├── bootstrap.py             # Admin account provisioner
+│   │   │   └── password_hasher.py       # PBKDF2-SHA256
+│   │   ├── persistence/
+│   │   │   ├── factory.py               # SQLAlchemy SessionFactory + lifespan init
+│   │   │   ├── rbac_seed.py             # Seeds RBAC roles and permissions on startup
+│   │   │   ├── sqlite/configuration.py
+│   │   │   ├── postgres/configuration.py
+│   │   │   └── sqlalchemy/
+│   │   │       ├── models.py            # SQLAlchemy ORM mappings
+│   │   │       ├── foundation_models.py # Role, Permission, RBAC join tables
+│   │   │       ├── repositories.py      # All repository implementations
+│   │   │       ├── session.py
+│   │   │       └── unit_of_work.py
+│   │   └── audit/authentication_events.py
+│   └── use_cases/
+│       ├── chat/
+│       │   ├── query_orchestrator.py
+│       │   ├── conversation_query_resolver.py
+│       │   ├── retrieval_service.py
+│       │   ├── provenance_service.py
+│       │   └── session_memory.py
+│       ├── organization/
+│       │   ├── user_management.py
+│       │   ├── project_management.py
+│       │   ├── membership_management.py
+│       │   ├── department_membership.py
+│       │   ├── document_management.py
+│       │   ├── document_access.py
+│       │   ├── project_access.py
+│       │   ├── role_management.py
+│       │   ├── organization_explorer.py
+│       │   └── profile.py
+│       └── ingestion/document_processing.py
+├── streamlit_app/
+│   ├── app.py                          # Chat UI
+│   ├── pages/
+│   │   ├── users.py
+│   │   ├── projects.py
+│   │   ├── departments.py
+│   │   ├── documents.py
+│   │   ├── organization.py             # Organization Explorer
+│   │   ├── explorer.py
+│   │   ├── profile.py
+│   │   └── roles.py
+│   └── services/
+│       ├── chat_service.py
+│       ├── organization_service.py
+│       ├── admin_api.py
+│       ├── authentication_service.py
+│       ├── explorer_api.py
+│       ├── profile_api.py
+│       ├── document_service.py
+│       └── ui_helpers.py
+├── tests/
+│   ├── unit/                           # 46 test files
+│   ├── contract/                       # 15 test files
+│   └── integration/                    # 20 test files
+├── Documentation/
+│   ├── Workflows/                      # Workflow and security review docs
+│   └── Team_logs/                      # Team daily logs
+├── input/                              # Local source documents
+├── scripts/
+│   ├── ingest_documents.py
+│   └── smoke_test.py
+├── instance/knowlayer.db              # SQLite database (not committed)
+├── .chroma/                           # Generated local vector store
+├── .env                               # Local configuration and secrets, not committed
+├── .env.example                       # Configuration template with placeholders
+├── requirements.txt
+├── setup.ps1                          # Launches the two services
+├── ARCHITECTURE.md
+└── README.md
+>>>>>>> feature/sql-user-management
 ```
 
 ---
 
+<<<<<<< HEAD
 ## Technology Stack
+=======
+- Windows PowerShell
+- Python 3.12 or newer (tested with 3.14.7)
+- At least one supported source document in `input/`
+- Internet access on the first run so Python packages and the embedding model can be downloaded
+- API keys in a local `.env` file for OpenRouter and Groq generation
+>>>>>>> feature/sql-user-management
 
 ### Backend
 - **Framework**: FastAPI (async web framework)
@@ -160,6 +305,7 @@ streamlit_app/                         # (To be created)
 - **Embeddings**: Vector embeddings for document semantic search
 - **RAG Pattern**: Retrieval-Augmented Generation with citation tracking
 
+<<<<<<< HEAD
 ### Frontend
 - **UI Framework**: Streamlit (rapid interactive web apps)
 - **HTTP Client**: Requests or httpx (backend communication)
@@ -251,6 +397,23 @@ streamlit_app/                         # (To be created)
 ```
 "How many annual leave days do I have remaining?"
 → System fetches current balance from HR system (authoritative source)
+=======
+```powershell
+cd "C:\path\to\Company_Bot"
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
+Edit `.env` and provide valid `OPENROUTER_API_KEY` and `GROQ_API_KEY` values. The database defaults to `sqlite:///./instance/knowlayer.db` via `DATABASE_URL`. Set `ADMIN_USERNAME`, `ADMIN_INITIAL_PASSWORD`, and a private `AUTH_SECRET_KEY` before first startup.
+
+Index the documents before the first chat run:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\ingest_documents.py
+>>>>>>> feature/sql-user-management
 ```
 
 #### Hybrid Query
@@ -371,6 +534,7 @@ pytest tests/contract/     # Run adapter contract tests
 
 ### Code Quality
 
+<<<<<<< HEAD
 ```bash
 # Linting
 pylint app/
@@ -380,6 +544,21 @@ mypy app/
 
 # Formatting
 black app/
+=======
+```text
+User
+  -> Streamlit chat or POST /api/chat
+  -> Authentication token resolved to principal
+  -> AuthorizationEngine resolves scoped projects and documents
+  -> QueryOrchestrator
+  -> bounded conversation query resolution when needed
+  -> Chroma candidate retrieval with authorized project/document filter
+  -> cosine-distance relevance filtering and evidence selection
+  -> compact context assembly
+  -> OpenRouter primary LLM
+  -> Groq fallback when the primary provider fails
+  -> grounded answer and citations from the same selected evidence
+>>>>>>> feature/sql-user-management
 ```
 
 ### Development Workflow
@@ -454,12 +633,100 @@ Refer to the full specification for:
 
 ---
 
+<<<<<<< HEAD
 ## License
 
 [Add license information as needed]
+=======
+```text
+DOCUMENTS_DIR=<project>/input
+COLLECTION_NAME=hr_policy_docs
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+RAG_DISTANCE_THRESHOLD=0.60
+RAG_DISTANCE_RELAXATION=0.05
+RAG_MIN_DISTANCE_GAP=0.10
+RAG_CANDIDATE_COUNT=5
+RAG_MAX_EVIDENCE=3
+RAG_MAX_CONTEXT_CHARS=12000
+OPENROUTER_API_KEY=
+GROQ_API_KEY=
+LLM_MODEL=openrouter/anthropic/claude-3.5-sonnet
+GROQ_MODEL=llama-3.1-8b-instant
+DATABASE_URL=sqlite:///./instance/knowlayer.db
+STREAMLIT_API_BASE_URL=http://127.0.0.1:8000
+ADMIN_USERNAME=admin
+ADMIN_INITIAL_PASSWORD=
+DEFAULT_USER_PASSWORD=ChangeMe123!
+AUTH_SECRET_KEY=change-this-development-secret
+AUTH_TOKEN_EXPIRE_MINUTES=480
+EMPLOYEE_ID_PREFIX=MSS
+DEPARTMENT_ID_PREFIX=DEPT
+PROJECT_ID_PREFIX=PROJ
+DOCUMENT_ID_PREFIX=DOC
+```
+
+The `.env.example` template sets `GROQ_MODEL=openai/gpt-oss-20b` and provides placeholders for the API keys and `AUTH_SECRET_KEY`. Environment values override the code defaults. The application's local `.env` should use the confirmed available Groq model.
+
+## Authentication and Bootstrap
+
+Set `ADMIN_USERNAME`, `ADMIN_INITIAL_PASSWORD`, and a private `AUTH_SECRET_KEY` in `.env` before first startup. The database provisions the Admin account idempotently on application startup via `rbac_seed` and `bootstrap`. Log in through `/api/auth/login`, change the default password, create Managers with initial passwords, and let Managers onboard employees within their departments. When a new user is created without an initial password, `DEFAULT_USER_PASSWORD` is assigned, and the user must change it on first login. Passwords are stored as PBKDF2-SHA256 representations; never commit `.env`.
+
+## Authorization
+
+All authorization is centralized in `AuthorizationEngine`. The engine resolves identity, active status, RBAC roles and permissions, and then answers questions about document, project, and scope access. Streamlit pages contain no permission logic; every access decision originates from the backend.
+
+Key invariants:
+- Non-admin users may only manage users and memberships within their own department.
+- Only administrators can change user roles or create users with the `admin` role.
+- Document grants give document-level access but do not grant broad project-wide access.
+- Deactivated users are rejected at every layer (authentication, engine, profile, explorer).
+>>>>>>> feature/sql-user-management
 
 ---
 
+<<<<<<< HEAD
 **Project Status**: MVP in development  
 **Last Updated**: 2026-09-01  
 **Lead**: Akaash Samson
+=======
+Run all automated tests:
+
+```powershell
+# Compile check
+.\.venv\Scripts\python.exe -m compileall -q app streamlit_app tests
+
+# Unit and contract tests
+.\.venv\Scripts\python.exe -m pytest tests\unit tests\contract -q -p no:cacheprovider
+
+# Integration tests (requires seeded database)
+.\.venv\Scripts\python.exe -m pytest tests\integration -q -p no:cacheprovider
+```
+
+The full suite currently passes **435 tests** across unit, contract, and integration layers, including 29 targeted authorization-bypass regression tests covering 15 security scenarios. See [Documentation/Workflows/security-authorization-review.md](Documentation/Workflows/security-authorization-review.md) for the complete security review report.
+
+## Validation Commands
+
+```powershell
+.\.venv\Scripts\python.exe -m compileall -q app streamlit_app tests
+.\.venv\Scripts\python.exe -m pytest tests\unit tests\contract -q -p no:cacheprovider
+.\.venv\Scripts\python.exe -m pytest tests\integration -q -p no:cacheprovider
+.\.venv\Scripts\python.exe scripts\smoke_test.py
+```
+
+## Troubleshooting
+
+**PowerShell blocks the script:** run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned`.
+
+**The UI says connection refused:** start FastAPI first and confirm `http://127.0.0.1:8000/health` returns `{"status":"ok"}`.
+
+**The collection is empty:** confirm supported documents are in `input/`, then run the ingestion command again.
+
+**The first run is slow:** Sentence Transformers downloads its embedding model once and may take several minutes.
+
+**The primary provider fails:** the fallback provider is attempted automatically. Confirm `GROQ_API_KEY` is configured and `GROQ_MODEL` names an available Groq model.
+
+## Documentation
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) - module layout, retrieval and evidence selection, LLM provider boundary, and authorization model.
+- [Documentation/Workflows/](Documentation/Workflows/) - workflow guides for authentication, user/project/document management, RBAC, question answering, and the security review.
+>>>>>>> feature/sql-user-management

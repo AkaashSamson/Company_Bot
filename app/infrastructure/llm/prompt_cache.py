@@ -3,7 +3,7 @@ import logging
 import math
 from collections import OrderedDict
 from threading import RLock
-from typing import Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from sentence_transformers import SentenceTransformer
 
@@ -31,21 +31,28 @@ class PromptLRUCache:
         self._misses = 0
 
     @staticmethod
-    def make_key(messages: List[Dict[str, str]]) -> str:
+    def make_key(messages: Any) -> str:
+        if isinstance(messages, str):
+            return messages
         return json.dumps(messages, sort_keys=True, separators=(",", ":"))
 
     def _embed(self, key: str) -> list[float]:
+        if self._embedder is not None:
+            return list(self._embedder(key))
         try:
-            messages = json.loads(key)
-            embed_text = " ".join(
-                message.get("content", "")
-                for message in messages
-                if message.get("role") == "user"
-            ) or key
+            parsed = json.loads(key)
+            if isinstance(parsed, list):
+                embed_text = " ".join(
+                    message.get("content", "")
+                    for message in parsed
+                    if isinstance(message, dict) and message.get("role") == "user"
+                ) or key
+            elif isinstance(parsed, str):
+                embed_text = parsed
+            else:
+                embed_text = str(parsed)
         except (TypeError, ValueError):
             embed_text = key
-        if self._embedder is not None:
-            return list(self._embedder(embed_text))
         if self._embedding_model is None:
             self._embedding_model = SentenceTransformer(EMBEDDING_MODEL)
         return self._embedding_model.encode(embed_text, convert_to_numpy=True).tolist()

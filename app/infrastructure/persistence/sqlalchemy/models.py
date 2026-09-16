@@ -1,0 +1,99 @@
+from datetime import datetime
+from typing import Optional
+
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class UserRecord(Base):
+    __tablename__ = "users"
+
+    uid: Mapped[str] = mapped_column(String(128), primary_key=True)
+    username: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True, default="")
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True, index=True)
+    role: Mapped[str] = mapped_column(String(200), nullable=False)
+    department_id: Mapped[str] = mapped_column(ForeignKey("departments.department_id"), index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    password_representation: Mapped[str] = mapped_column(String(512), nullable=False, default="")
+    password_changed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    must_change_password: Mapped[bool] = mapped_column(nullable=False, default=False)
+    employee_id: Mapped[Optional[str]] = mapped_column(String(64), unique=True, index=True)
+    first_name: Mapped[Optional[str]] = mapped_column(String(200))
+    last_name: Mapped[Optional[str]] = mapped_column(String(200))
+
+
+class DepartmentRecord(Base):
+    __tablename__ = "departments"
+
+    department_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    department_name: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(String(500))
+    default_billable: Mapped[str] = mapped_column(String(32), nullable=False, default="billable")
+
+
+class ProjectRecord(Base):
+    __tablename__ = "projects"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    project_id: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    project_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    department_id: Mapped[str] = mapped_column(ForeignKey("departments.department_id"), index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(String(500))
+    manager_uid: Mapped[Optional[str]] = mapped_column(String(128))
+    start_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    end_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    created_by_uid: Mapped[Optional[str]] = mapped_column(String(128))
+
+
+class DocumentRecord(Base):
+    __tablename__ = "documents"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    document_id: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    document_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    project_id: Mapped[Optional[str]] = mapped_column(ForeignKey("projects.project_id"), index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    original_filename: Mapped[Optional[str]] = mapped_column(String(255))
+    file_type: Mapped[Optional[str]] = mapped_column(String(32))
+    description: Mapped[Optional[str]] = mapped_column(String(500))
+    version: Mapped[str] = mapped_column(String(32), nullable=False, default="1.0")
+    storage_location: Mapped[Optional[str]] = mapped_column(String(1024))
+    uploaded_by: Mapped[Optional[str]] = mapped_column(ForeignKey("users.uid"))
+    uploaded_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+
+class UserProjectRecord(Base):
+    __tablename__ = "user_projects"
+    __table_args__ = (UniqueConstraint("uid", "project_id", name="uq_user_project"),)
+
+    uid: Mapped[str] = mapped_column(ForeignKey("users.uid"), primary_key=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.project_id"), primary_key=True)
+    assigned_by_uid: Mapped[Optional[str]] = mapped_column(ForeignKey("users.uid"))
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    membership_role: Mapped[str] = mapped_column(String(64), nullable=False, default="Member")
+    left_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+
+class BusinessIdSequenceRecord(Base):
+    __tablename__ = "business_id_sequences"
+
+    sequence_key: Mapped[str] = mapped_column(String(32), primary_key=True)
+    prefix: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    last_value: Mapped[int] = mapped_column(nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

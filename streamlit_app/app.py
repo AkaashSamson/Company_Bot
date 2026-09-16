@@ -2,56 +2,75 @@ import streamlit as st
 import requests
 
 from streamlit_app.services.chat_service import ChatService
-#
+from streamlit_app.services.organization_service import OrganizationService
+from streamlit_app.services.authentication_service import AuthenticationService
+
 st.set_page_config(page_title="KnowLayer HR Chatbot", page_icon="📘")
+
+if "auth" not in st.session_state:
+    st.session_state.auth = None
+
+if st.session_state.auth is None:
+    st.title("KnowLayer Login")
+    with st.form("login"):
+        login_username = st.text_input("Username")
+        login_password = st.text_input("Password", type="password")
+        login_submitted = st.form_submit_button("Log in")
+    if login_submitted:
+        try:
+            st.session_state.auth = AuthenticationService().login(login_username, login_password)
+            st.rerun()
+        except requests.exceptions.HTTPError as error:
+            status_code = error.response.status_code if error.response is not None else None
+            if status_code == 401:
+                st.error("Invalid username or password.")
+            else:
+                st.error(f"Login failed (HTTP {status_code}). Please try again.")
+        except requests.exceptions.RequestException:
+            st.error(
+                "The authentication service is not reachable. "
+                "Start the FastAPI backend on http://127.0.0.1:8000 and try again."
+            )
+    st.stop()
+
+st.sidebar.button("Log out", on_click=lambda: st.session_state.update(auth=None))
 st.title("KnowLayer HR Policy Assistant")
 
-# Sidebar for token metrics
-with st.sidebar:
-    st.header("📊 Token Metrics")
+st.sidebar.page_link("app.py", label="Chat")
+st.sidebar.page_link("pages/profile.py", label="My Profile")
+st.sidebar.page_link("pages/users.py", label="Users")
+st.sidebar.page_link("pages/departments.py", label="Departments")
+st.sidebar.page_link("pages/projects.py", label="Projects")
+st.sidebar.page_link("pages/documents.py", label="Documents")
+st.sidebar.page_link("pages/explorer.py", label="Organization Explorer")
+st.sidebar.page_link("pages/roles.py", label="Roles")
+st.sidebar.page_link("pages/organization.py", label="Organization")
+
+with st.sidebar.expander("📊 Token Metrics"):
     if st.button("Refresh Stats"):
         st.rerun()
-    
     try:
-        # Fetch token statistics from backend
-        response = requests.get("http://localhost:8000/api/tokens/stats", timeout=5)
-        if response.status_code == 200:
-            stats = response.json()
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.metric(
-                    "Total Tokens",
-                    f"{stats['total_tokens']:,}",
-                    help="Total tokens consumed across all calls"
-                )
-                st.metric(
-                    "API Calls",
-                    stats['call_count'],
-                    help="Total number of LLM API calls"
-                )
-            
-            with col2:
-                st.metric(
-                    "Avg per Call",
-                    f"{stats['avg_tokens_per_call']:.0f}",
-                    help="Average tokens per API call"
-                )
-                st.metric(
-                    "Cache Hit Rate",
-                    f"{stats['cache_hit_rate_percent']:.1f}%",
-                    help="Percentage of cached responses"
-                )
-            
-            with st.expander("📈 Detailed Stats"):
-                st.write(f"**Prompt Tokens:** {stats['prompt_tokens']:,}")
-                st.write(f"**Completion Tokens:** {stats['completion_tokens']:,}")
-                st.write(f"**Cache Hits:** {stats['cache_hits']}")
-                st.write(f"**Cache Misses:** {stats['cache_misses']}")
-                
+        token_res = requests.get("http://127.0.0.1:8000/api/tokens/stats", timeout=3)
+        if token_res.status_code == 200:
+            stats = token_res.json()
+            st.write(f"**Total Tokens:** {stats.get('total_tokens', 0):,}")
+            st.write(f"**API Calls:** {stats.get('call_count', 0)}")
+            st.write(f"**Cache Hit Rate:** {stats.get('cache_hit_rate_percent', 0.0):.1f}%")
+            st.write(f"**Prompt:** {stats.get('prompt_tokens', 0):,} | **Completion:** {stats.get('completion_tokens', 0):,}")
     except requests.exceptions.RequestException:
-        st.warning("Could not fetch token metrics (backend not running)")
+        st.caption("Token stats unavailable")
 
+try:
+    project_options = {"All authorized projects": None}
+    project_options.update({
+        project["project_name"]: project["project_id"]
+        for project in OrganizationService().list_projects()
+    })
+except requests.exceptions.RequestException:
+    project_options = {"All authorized projects": None}
+
+selected_project_name = st.selectbox("Project scope", list(project_options))
+selected_project_id = project_options[selected_project_name]
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -105,12 +124,13 @@ if user_input:
         st.markdown(user_input)
 
     conversation_history = list(st.session_state.messages[:-1])
-    service = ChatService(base_url="http://localhost:8000")
+    service = ChatService()
     try:
         response = service.ask(
             user_input,
             session_id="streamlit-session",
             history=conversation_history,
+            project_id=selected_project_id,
         )
         answer = response.get("answer", "I could not find a relevant answer in the policy source.")
         citations = response.get("citations", [])

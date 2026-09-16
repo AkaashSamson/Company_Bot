@@ -15,7 +15,13 @@ def test_select_relevant_keeps_only_the_strong_result_after_distance_gap():
         result("Medical Documentation: a certificate may be required.", 0.54),
     ]
 
-    selected = RetrievalService.select_relevant("How many sick leaves do I have?", candidates)
+    selected = RetrievalService.select_relevant(
+        "How many sick leaves do I have?",
+        candidates,
+        distance_threshold=0.50,
+        distance_relaxation=0.05,
+        min_distance_gap=0.10,
+    )
 
     assert [item["text"] for item in selected] == [candidates[0]["text"]]
 
@@ -27,7 +33,13 @@ def test_select_relevant_retains_multiple_chunks_before_distance_gap():
         result("The office has a dress code policy.", 0.72),
     ]
 
-    selected = RetrievalService.select_relevant("How much annual leave and how do I request it?", candidates)
+    selected = RetrievalService.select_relevant(
+        "How much annual leave and how do I request it?",
+        candidates,
+        distance_threshold=0.60,
+        distance_relaxation=0.05,
+        min_distance_gap=0.10,
+    )
 
     assert [item["text"] for item in selected] == [item["text"] for item in candidates[:2]]
 
@@ -38,7 +50,11 @@ def test_select_relevant_removes_duplicate_text_and_preserves_distance():
         result("Sick leave is 10 days per year.", 0.21),
     ]
 
-    selected = RetrievalService.select_relevant("How many sick leaves?", candidates)
+    selected = RetrievalService.select_relevant(
+        "How many sick leaves?",
+        candidates,
+        distance_threshold=0.60,
+    )
 
     assert len(selected) == 1
     assert selected[0]["distance"] == 0.2
@@ -46,6 +62,21 @@ def test_select_relevant_removes_duplicate_text_and_preserves_distance():
 
 def test_select_relevant_returns_empty_for_empty_candidates():
     assert RetrievalService.select_relevant("Any policy?", []) == []
+
+
+def test_select_relevant_accepts_domain_relevant_result_above_legacy_threshold():
+    candidates = [
+        result("HR policy applies to all regular employees of the company.", 0.51),
+        result("Leave policies are described in the employee handbook.", 0.54),
+    ]
+
+    selected = RetrievalService.select_relevant(
+        "What is the HR policy?",
+        candidates,
+        distance_threshold=0.60,
+    )
+
+    assert len(selected) == 2
 
 
 def test_select_relevant_rejects_evidence_above_configured_distance_threshold():

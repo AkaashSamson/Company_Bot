@@ -1,8 +1,12 @@
 import re
+from io import BytesIO
 from pathlib import Path
 from typing import List
 
 from docx import Document
+
+
+SUPPORTED_EXTENSIONS = {".docx", ".txt", ".md", ".rst"}
 
 
 def _clean_text(text: str) -> str:
@@ -59,19 +63,49 @@ def chunk_text(text: str, chunk_size: int = 500) -> List[str]:
     return final_chunks
 
 
+def build_chunk_records(
+    text: str,
+    document_id: str,
+    project_id: str | None = None,
+    source: str | None = None,
+    file_type: str | None = None,
+    version: str | None = None,
+) -> list[dict]:
+    return [
+        {
+            "id": f"{document_id}-{index}",
+            "text": chunk,
+            "metadata": {
+                "document_id": document_id,
+                "project_id": project_id or "unassigned",
+                "source": source or document_id,
+                "chunk_index": index,
+                "section": "Policy",
+                "file_type": (file_type or "text").lstrip("."),
+                "version": version or "1.0",
+            },
+        }
+        for index, chunk in enumerate(chunk_text(text))
+    ]
+
+
+def extract_text_from_bytes(content: bytes, file_name: str) -> str:
+    suffix = Path(file_name).suffix.lower()
+
+    if suffix == ".docx":
+        document = Document(BytesIO(content))
+        paragraphs = [paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip()]
+        return "\n\n".join(paragraphs)
+
+    if suffix in {".txt", ".md", ".rst"}:
+        return content.decode("utf-8", errors="ignore")
+
+    raise ValueError(f"Unsupported document type: {suffix}")
+
+
 def extract_text_from_document(file_path: str) -> str:
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(file_path)
 
-    suffix = path.suffix.lower()
-
-    if suffix == ".docx":
-        document = Document(str(path))
-        paragraphs = [paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip()]
-        return "\n\n".join(paragraphs)
-
-    if suffix in {".txt", ".md", ".rst"}:
-        return path.read_text(encoding="utf-8", errors="ignore")
-
-    raise ValueError(f"Unsupported document type: {suffix}")
+    return extract_text_from_bytes(path.read_bytes(), path.name)

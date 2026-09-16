@@ -10,7 +10,9 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     question: str = Field(..., min_length=1)
     session_id: str = Field(default="default-session")
+    project_id: Optional[str] = None
     conversation_history: Optional[List[ChatMessage]] = None
+    defer_citations: Optional[bool] = None
 
 
 class Citation(BaseModel):

@@ -1,4 +1,4 @@
-# Feature Specification: SQL Database Integration with User CRUD and Role-Based Access Control
+# Feature Specification: Organization Access and User Management
 
 **Feature Branch**: `002-sql-user-management`
 
@@ -6,102 +6,135 @@
 
 **Status**: Draft
 
-**Input**: User description: "Integrate SQL database, provide support for user CRUD management so that in the organisation, admin and all managers can add and delete or update new users, also the users should get role based access to their questions. The access is maintained by managers and admin is a special user that we developers of this code can use to log in, in case of future troubleshooting. Based on the role, a user should not be able to access questions on projects he don't have access to."
+**Input**: User description: "Integrate the corrected ERD with the existing project. A department has multiple employees and multiple projects. A user can belong to multiple projects and a project can contain multiple users. Admin and Manager are special key roles, while other organizational roles are dynamic and without restricting future organizational roles."
+
+## Clarifications
+
+### Session 2026-09-10
+
+- Q: When a user does not select a project, should the system search across all projects the user is authorized to access, while allowing the UI to optionally restrict the search to one selected project? → A: Optional project selection; without one, search all projects the user is authorized to access.
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Admin adds new users to the system (Priority: P1)
+### User Story 1 - Administrators manage organizational users (Priority: P1)
 
-An administrator can create new user accounts in the system by providing a username, email, and assigned role. The system stores the user securely and makes them available for role-based access control.
+An administrator must authenticate with the admin login before creating, viewing, updating, deactivating, or deleting user accounts with a free-form organizational role value. During initial setup, the pre-seeded Admin uses the configured default credentials, changes the default password, and creates the organization's Managers. Managers then onboard other employees within their department scope, while the Admin remains available for organization-wide administration and troubleshooting when required. The system stores the user and department relationship so the account can participate in project access checks.
 
-**Why this priority**: This is the foundational capability - without user accounts, no other role-based features can function.
-
-**Independent Test**: An admin can navigate to the user management interface, fill out the add user form, and the new user appears in the system with the specified role.
+**Independent Test**: An admin creates a user with a new role value and department, then reads the account back from the system.
 
 **Acceptance Scenarios**:
 
-1. **Given** an authenticated admin is logged in, **When** they provide a valid username, email, and role, **Then** the user account is created and persists in the database.
-2. **Given** an admin provides a username that already exists, **When** they attempt to create the user, **Then** the system returns an error indicating the username is taken.
-3. **Given** an admin provides an invalid email format, **When** they attempt to create the user, **Then** the system returns a validation error.
+1. **Given** an authenticated admin, **When** they provide a valid UID, name, email, role, and department, **Then** the user account is created and available in the system.
+2. **Given** an admin provides a duplicate UID or email, **When** they create the user, **Then** the system returns a conflict without a partial record.
+3. **Given** an admin provides an invalid email or unknown department, **When** they create the user, **Then** the system returns a validation error.
+4. **Given** an authenticated admin creates a user, **When** they provide an initial password, **Then** the user account is created with that password representation and the user can log in.
+5. **Given** the system has been set up with the pre-seeded Admin account, **When** the Admin logs in with the configured default credentials, **Then** the Admin is prompted or permitted to change the default password before continuing normal administration.
+6. **Given** an authenticated Admin, **When** they create a user with the `Manager` role and department, **Then** the Manager can authenticate and manage users within that department's scope.
+7. **Given** an authenticated Manager, **When** they create or manage employees in their department, **Then** those employee accounts are available for the organization's normal onboarding and access-management process.
 
-### User Story 2 - Admin and managers can update existing users (Priority: P2)
+### User Story 2 - Managers manage users in their scope (Priority: P1)
 
-Administrators and managers can update user details such as role, email, or status. This allows keeping user information current as roles change or employees leave/join different teams.
+Managers can manage users within their authorized department scope. Administrators can manage users across the organization. The organization can add roles such as Developer, Tester, or Solution Architect without changing the role model.
 
-**Why this priority**: Organizations need to maintain accurate user records over time.
-
-**Independent Test**: An admin or manager can select an existing user, modify their role or email, and the changes are reflected in the system.
-
-**Acceptance Scenarios**:
-
-1. **Given** an authenticated admin or manager, **When** they update a user's role, **Then** the user's role is updated in the database and takes effect immediately.
-2. **Given** a manager attempts to update a user's role beyond their permission level, **When** they attempt the update, **Then** the system denies the action with an appropriate error.
-3. **Given** an admin updates a user's email, **When** the change is saved, **Then** the new email address is reflected across all system interfaces.
-
-### User Story 3 - Admin and managers can delete users (Priority: P3)
-
-Administrators and managers can soft-delete or permanently delete user accounts from the system. Deletion should be auditable and prevent accidental removal.
-
-**Why this priority**: Organizations need the ability to remove users who no longer need access (e.g., employees who departed).
-
-**Independent Test**: An admin or manager can select a user for deletion and the user is removed (or marked as inactive) from the system.
+**Independent Test**: A manager successfully updates a user in the same department and is denied when targeting a user in another department.
 
 **Acceptance Scenarios**:
 
-1. **Given** an authenticated admin, **When** they permanently delete a user, **Then** the user account and associated data are removed from the database.
-2. **Given** a manager attempts to delete a user, **When** they attempt the action, **Then** the system either requires admin confirmation or denies the action based on policy.
-3. **Given** a user with active sessions is deleted, **When** the deletion occurs, **Then** active sessions are invalidated and the user is logged out.
+1. **Given** an authenticated manager and a target user in the manager's department, **When** the manager updates permitted fields, **Then** the change is saved completely or not applied.
+2. **Given** a manager targets a user outside their department, **When** they update or delete the user, **Then** the system denies the action.
+3. **Given** an administrator changes a user's role, department, email, or status, **When** the change is saved, **Then** it is effective for subsequent authorization checks.
 
-### User Story 4 - Users can access only their assigned questions (Priority: P1)
+### User Story 3 - Administrators and managers manage project membership (Priority: P1)
 
-Based on their role, a user should not be able to access questions on projects they don't have access to. The system enforces role-based question access control.
+Administrators can assign users to projects across the organization. Managers can assign users only within their department scope. A user may belong to many projects, and each project may contain many users.
 
-**Why this priority**: This is the core security requirement - preventing unauthorized question access.
-
-**Independent Test**: A regular user can only see and interact with questions from projects they're assigned to; attempting to access another project's questions returns an "access denied" or empty result.
+**Independent Test**: An authorized actor adds and removes a project membership and the relationship is visible from both user and project queries.
 
 **Acceptance Scenarios**:
 
-1. **Given** a regular user is assigned to Project A, **When** they view their question list, **Then** only questions from Project A are displayed.
-2. **Given** a regular user attempts to access Project B's questions via URL manipulation, **When** they try, **Then** the system returns an "access denied" or "no access" response.
-3. **Given** a user with multiple project assignments, **When** they view their questions, **Then** questions from all assigned projects are shown.
+1. **Given** an authorized manager or admin, **When** they add a user to a project in scope, **Then** the membership persists.
+2. **Given** a user is already assigned to a project, **When** the same assignment is submitted, **Then** the operation is idempotent and creates no duplicate.
+3. **Given** an unauthorized actor targets a project outside their scope, **When** they change membership, **Then** the system denies the operation.
+
+### User Story 4 - Users can access only assigned project questions (Priority: P1)
+
+Before answering a question, the system evaluates the authenticated user's project memberships. Project selection in the user interface is optional. Without a selected project, the system searches across all projects the user is authorized to access; with a selected project, it searches only that authorized project. Dynamic roles do not grant project access by themselves; access is derived from project membership and the actor's special admin or manager scope.
+
+**Independent Test**: A user receives information only from authorized projects when no project is selected, and selecting one authorized project narrows the search while selecting an unauthorized project is denied before disclosing restricted information.
+
+**Acceptance Scenarios**:
+
+1. **Given** a user is assigned to Project A, **When** they ask a question scoped to Project A, **Then** only Project A evidence is eligible.
+2. **Given** a user is not assigned to Project B, **When** they request Project B directly or through chat, **Then** the system returns access denied and does not disclose Project B information.
+3. **Given** a user has multiple project assignments and does not select a project, **When** they ask a question, **Then** information from all assigned projects may be returned.
+4. **Given** a user selects an authorized project, **When** they ask a question, **Then** only information from that project is eligible.
 
 ### User Story 5 - Admin has special troubleshooting access (Priority: P2)
 
-Admin is a special user that developers can use to log in, in case of future troubleshooting. The admin has elevated privileges across all projects and users.
+The system provides one pre-seeded Admin account with a configured initial username and password. The Admin authenticates through the login flow and may change the Admin password after login. Admin is a special system-level role value used by authorized developers for troubleshooting. Admin can access all departments, users, projects, memberships, and project questions.
 
-**Why this priority**: Developers need a reliable way to troubleshoot access issues and system problems.
-
-**Independent Test**: A developer can use admin credentials to log in and access any user's questions or project data regardless of role assignments.
+**Independent Test**: An authenticated admin reads and modifies records across departments and accesses every project without being individually assigned to each project.
 
 **Acceptance Scenarios**:
 
-1. **Given** an developer has admin credentials, **When** they log in, **Then** they have access to all projects and users without role restrictions.
-2. **Given** the admin logs in, **When** they attempt to view or modify any user or project, **Then** the action succeeds without permission errors.
+1. **Given** a developer has authenticated admin credentials, **When** they log in, **Then** they have access to all projects and users without project restrictions.
+2. **Given** the admin attempts to view or modify any user or project, **When** the operation is valid, **Then** it succeeds without scope errors.
+3. **Given** the pre-seeded Admin account has its configured initial credentials, **When** the Admin submits them to the login endpoint, **Then** authentication succeeds and an authenticated session or token is issued.
 
 ## Edge Cases
 
-- What happens when a user's role is changed mid-session? Does the current session reflect the new role immediately or at session restart?
-- How should the system handle a user who is assigned to no projects? Should they see an empty question list or be denied access entirely?
-- What occurs when multiple managers assign conflicting project access to the same user?
-- How does the system behave if the database connection is lost during a user CRUD operation?
-- What happens to a user's questions when their account is deleted? Are they reassigned, deleted, or transferred to another user?
+- Authorization for a new request uses the current persisted user role, department, status, and memberships after a mid-session change.
+- A user assigned to no projects receives an empty authorized project set and no project evidence.
+- Moving a project to another department revalidates affected manager operations before access changes.
+- If a save operation fails, no partial user or membership change is applied and the user receives a clear error.
+- Deactivating or deleting a user removes or disables their project assignments while preserving the projects.
 
 ## Goals
 
-- Provide a complete user management system (create, read, update, delete users) with role-based access control.
+- Provide persistent management of users, departments, projects, and project assignments.
 - Ensure users can only access questions from projects they are explicitly assigned to.
-- Allow administrators elevated privileges for troubleshooting and system management.
-- Design the access control system to be extensible for future role types and permission levels.
-- Maintain audit logs of all user management actions for compliance and debugging.
-- Build the system to work with a SQL database backend using standard SQL operations.
+- Support flexible role values without requiring a predefined list of organizational roles.
+- Allow administrators organization-wide access and managers scoped organizational access.
 
+## Key Entities and Relationships
+
+### User
+
+Attributes: UID, username, name, email, role, department, status, password representation, and password-change metadata.
+
+A user belongs to one department and may belong to many projects.
+
+### Department
+
+Attributes: department ID and department name.
+
+A department may have many users and many projects.
+
+### Project
+
+Attributes: project ID, project name, department, and status.
+
+A project belongs to one department, may contain many users, and may contain many documents.
+
+### Document
+
+Attributes: document ID, document name, project, and status.
+
+A document may be created before it is assigned to a project. Once assigned, it belongs to one project. A project may contain zero, one, or many documents.
+
+### Participation Rules
+
+- User-to-Department: a user must belong to a department; a department may exist without users.
+- Department-to-Project: a project must belong to a department; a department may exist without projects.
+- User-to-Project: participation is many-to-many; a user or project may exist without a current membership.
+- Project-to-Document: participation is one-to-many and partial; a project may exist without documents, and a document may exist temporarily without a project assignment.
+- A document without a project assignment must not be used to answer a project-scoped question.
 ## Non-Goals
 
 - Implementing a specific frontend UI framework or design language.
-- Building a complete authentication system from scratch (assume existing auth infrastructure).
+- Supporting advanced authentication features beyond basic username/password login and password changes.
 - Supporting social login or third-party identity providers in MVP.
-- Creating a full-featured enterprise permission system beyond basic role-based access.
+- Creating a full-featured enterprise permission system or separate Role/Permission entities.
 - Implementing advanced search or filtering beyond project-based access control.
 - Adding multi-factor authentication or password complexity rules.
 
@@ -109,32 +142,51 @@ Admin is a special user that developers can use to log in, in case of future tro
 
 ### Functional Requirements
 
-1. **User Creation**: Admin and managers can create new user accounts with username, email, and role assignment.
-2. **User Update**: Admin and managers can update user details (role, email, status).
-3. **User Deletion**: Admin can permanently delete users; managers can soft-delete or mark users as inactive.
-4. **Role-Based Question Access**: Users can only access questions from projects they are assigned to based on their role.
-5. **Admin Elevated Privileges**: Admin user has access to all projects and users regardless of role assignments.
-6. **Audit Logging**: All user CRUD operations are logged with timestamp, actor, and action details.
+1. **User and Department Management**: Admins can create, read, update, deactivate, and delete users and departments while preserving valid relationships.
+2. **Flexible Roles**: User role is required and can contain any organization-defined value; adding a new role must not require redesigning the role model.
+3. **Project Management**: Admins can create, read, update, and archive projects associated with a department.
+4. **Project Membership**: Users and projects have a many-to-many relationship with unique assignments and complete, reliable updates.
+5. **Document Management**: Authorized administrators and managers can create, view, update, assign, and remove documents; a project can contain multiple documents, and unassigned documents cannot be used for project-scoped answers.
+6. **Scoped Management**: Managers can manage users and memberships only within their authorized department scope.
+7. **Project Question Access**: Authorization is evaluated before answering, and users receive information only for assigned projects.
+8. **Admin Elevated Privileges**: The admin role value grants organization-wide access for approved troubleshooting.
+9. **Admin Login**: The system provides a pre-seeded Admin account with a configured initial username and password; valid credentials authenticate the Admin and issue an authenticated session or token.
+10. **User Login**: Users created by an authenticated Admin receive an initial password and can authenticate with their username and password before accessing protected features.
+11. **Admin Creates Users**: An authenticated Admin can create users with a unique username and initial password while preserving the password only as a secure password representation.
+12. **Password Changes**: An authenticated user can change their own password, and an authenticated Admin can change a user's password; subsequent login attempts use the new password.
 
 ### Non-Functional Requirements
 
-1. **Performance**: User lookup by role and project assignment should complete in under 100ms for typical workloads.
-2. **Security**: Passwords must be hashed; no plaintext password storage.
-3. **Scalability**: System should support at least 1,000 concurrent users with role-based access checks.
-4. **Reliability**: Database operations should be atomic and maintain data integrity.
+1. **Performance**: User lookup and project authorization should complete in under 100ms for typical workloads.
+2. **Security**: Passwords are not stored or exposed in plain text; only secure password representations are persisted, and access tokens or sessions are not exposed by this feature.
+3. **Scalability**: The system supports the expected initial organization size and can grow without changing the organizational concepts.
+4. **Reliability**: Changes preserve valid relationships and do not leave partial updates.
 
 ### Assumptions
 
-- An existing authentication system provides user login; this feature integrates with it.
-- The SQL database uses standard SQL (PostgreSQL/MySQL syntax compatible).
-- Roles are defined as: `admin`, `manager`, `user` (regular user).
-- Project assignments are managed separately and linked to users via a many-to-many relationship.
+- Basic username/password authentication is included in this feature and supplies an authenticated user identifier for protected requests.
+- The initial Admin username and password are supplied through secure configuration or deployment setup and are not committed as source code.
+- Users receive an initial password when created by an authenticated Admin.
+- The system can identify the authenticated user for each request.
+- `Admin` and `Manager` are special role values; all other role values are organization-defined strings.
+- A department contains users and projects.
+- Project assignments are managed as a distinct relationship between users and projects; roles remain user attributes rather than a fixed catalog.
+- Project questions can be associated with their project so access can be evaluated.
+- Project selection is optional; an omitted selection means all currently authorized projects, while a selected project narrows the authorized scope.
+- Documents may be managed independently before being assigned to a project.
 
-### Success Criteria
+## Success Criteria
 
-- [ ] Admin can successfully create, update, and delete user accounts
-- [ ] Regular users can only access questions from assigned projects
-- [ ] Admin has unrestricted access for troubleshooting
-- [ ] All user CRUD operations are logged
-- [ ] Role-based access checks complete within performance targets
-- [ ] No [NEEDS CLARIFICATION] markers remain in the specification
+- [ ] Admin can manage users, departments, projects, memberships, and documents.
+- [ ] Managers are restricted to their authorized department scope.
+- [ ] Dynamic role values can be added without redesigning the role model.
+- [ ] Regular users can only access questions from assigned projects.
+- [ ] Projects can contain multiple documents, with partial participation on the Project-Document relationship.
+- [ ] Admin has unrestricted access for troubleshooting.
+- [ ] The pre-seeded Admin can log in with the configured initial credentials.
+- [ ] Admin-created users can log in with their initial passwords.
+- [ ] Users can change their own passwords, and Admin can change user passwords successfully.
+
+- [ ] Authorization checks complete within performance targets.
+- [ ] The specification contains no unresolved clarification items.
+

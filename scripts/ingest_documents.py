@@ -6,7 +6,10 @@ from dotenv import load_dotenv
 from app.core.settings import BASE_DIR, COLLECTION_NAME
 from app.infrastructure.document.local_document_loader import LocalDocumentLoader
 from app.infrastructure.vector.chroma_client import ChromaVectorStore
-from app.use_cases.ingestion.document_processing import chunk_text, extract_text_from_document
+from app.use_cases.ingestion.document_processing import (
+    build_chunk_records,
+    extract_text_from_document,
+)
 
 load_dotenv()
 
@@ -15,6 +18,7 @@ def main():
     documents_dir = os.getenv("DOCUMENTS_DIR", str(BASE_DIR / "input"))
     collection_name = os.getenv("COLLECTION_NAME", COLLECTION_NAME)
     persist_directory = str(BASE_DIR / ".chroma")
+    project_id = os.getenv("DEFAULT_PROJECT_ID")
 
     loader = LocalDocumentLoader(documents_dir)
     files = loader.list_documents()
@@ -26,24 +30,17 @@ def main():
 
     for file_path in files:
         text = extract_text_from_document(file_path)
-        chunks = chunk_text(text)
-        if not chunks:
+        records = build_chunk_records(
+            text,
+            document_id=Path(file_path).stem,
+            project_id=project_id,
+            source=Path(file_path).name,
+        )
+        if not records:
             continue
 
-        records = []
-        for index, chunk in enumerate(chunks):
-            records.append({
-                "id": f"{Path(file_path).stem}-{index}",
-                "text": chunk,
-                "metadata": {
-                    "source": Path(file_path).name,
-                    "chunk_index": index,
-                    "section": "Policy",
-                },
-            })
-
         store.add_documents(records)
-        print(f"Processed {Path(file_path).name}: {len(chunks)} chunks")
+        print(f"Processed {Path(file_path).name}: {len(records)} chunks")
 
     print(f"Stored documents in collection: {collection_name}")
 

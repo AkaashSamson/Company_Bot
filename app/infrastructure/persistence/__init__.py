@@ -1,0 +1,1 @@
+"""Database-agnostic persistence adapters."""
