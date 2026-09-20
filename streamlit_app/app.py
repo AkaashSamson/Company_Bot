@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import uuid
 
 from streamlit_app.services.chat_service import ChatService
 from streamlit_app.services.organization_service import OrganizationService
@@ -9,6 +10,8 @@ st.set_page_config(page_title="KnowLayer HR Chatbot", page_icon="📘")
 
 if "auth" not in st.session_state:
     st.session_state.auth = None
+if "session_id" not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())
 
 if st.session_state.auth is None:
     st.title("KnowLayer Login")
@@ -33,7 +36,12 @@ if st.session_state.auth is None:
             )
     st.stop()
 
-st.sidebar.button("Log out", on_click=lambda: st.session_state.update(auth=None))
+def handle_logout():
+    st.session_state.update(auth=None)
+    st.session_state.session_id = str(uuid.uuid4())
+    st.session_state.messages = []
+
+st.sidebar.button("Log out", on_click=handle_logout)
 st.title("KnowLayer HR Policy Assistant")
 
 st.sidebar.page_link("app.py", label="Chat")
@@ -128,7 +136,7 @@ if user_input:
     try:
         response = service.ask(
             user_input,
-            session_id="streamlit-session",
+            session_id=st.session_state.session_id,
             history=conversation_history,
             project_id=selected_project_id,
         )
