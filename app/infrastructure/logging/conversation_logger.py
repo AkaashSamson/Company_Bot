@@ -68,6 +68,8 @@ class ConversationLogger:
             for secret in (OPENROUTER_API_KEY, GROQ_API_KEY):
                 if secret and len(secret) >= 4:
                     self._sensitive_values.append(secret)
+        
+        self._active_sessions: dict[str, Path] = {}
 
     def redact(self, text: str) -> str:
         """
@@ -171,6 +173,19 @@ class ConversationLogger:
                     )
                 )
 
+            if session_id in self._active_sessions and self._active_sessions[session_id].exists():
+                target_path = self._active_sessions[session_id]
+                try:
+                    with open(target_path, "r", encoding="utf-8") as f:
+                        existing_data = json.load(f)
+                    existing_log = ConversationLog(**existing_data)
+                    existing_log.messages.extend(processed_messages)
+                    self._write_atomic(target_path, existing_log.model_dump())
+                    logger.info("Successfully appended to conversation log: %s", target_path.name)
+                    return target_path
+                except Exception as e:
+                    logger.warning("Failed to append to %s, falling back to new file: %s", target_path, e)
+
             conversation_log = ConversationLog(
                 employee_id=employee_id,
                 session_id=session_id,
@@ -180,7 +195,8 @@ class ConversationLogger:
 
             target_path = self._generate_log_path(employee_id, now_utc)
             self._write_atomic(target_path, conversation_log.model_dump())
-            logger.info("Successfully recorded conversation log: %s", target_path.name)
+            self._active_sessions[session_id] = target_path
+            logger.info("Successfully recorded new conversation log: %s", target_path.name)
             return target_path
 
         except Exception as exc:

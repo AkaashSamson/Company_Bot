@@ -37,3 +37,13 @@ This document tracks the issues that have been successfully resolved in the code
 - We updated the `st.session_state.messages.append()` calls so that the user's message is stamped with `datetime.now(timezone.utc).isoformat()` the exact millisecond they hit "Send".
 - We applied the same logic to the assistant's response so it is stamped the exact moment it arrives.
 - The backend logging engine (`conversation_logger.py`) was already programmed to read incoming timestamps, so this data simply passes through the entire stack unmodified, perfectly preserving the actual chat timeline in the JSON log file.
+
+## 2. Quadratic Duplication of Conversation Logs
+
+**Status:** Solved
+**Date:** 2026-09-20
+
+**How this issue was solved:**
+- We updated `app/use_cases/chat/query_orchestrator.py` to stop sending the full conversation history to the logger on every turn. Instead, it now packages only the newest question and answer pair.
+- We added an in-memory dictionary `self._active_sessions = {}` to `app/infrastructure/logging/conversation_logger.py` to track which JSON files belong to which active sessions.
+- We implemented an "append mode" in `log_conversation`: if the session is already active, the logger opens the existing JSON file, parses it, appends the newly received messages, and atomically overwrites the file. This completely eliminates quadratic duplication and fragmented log files without requiring a database migration.
