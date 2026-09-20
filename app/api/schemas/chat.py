@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(..., min_length=1)
+    timestamp: Optional[str] = None
 
 
 class ChatRequest(BaseModel):

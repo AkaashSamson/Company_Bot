@@ -25,3 +25,15 @@ This document tracks the issues that have been successfully resolved in the code
 - We added logic to check if a `session_id` exists in the Streamlit `session_state` upon app initialization. If it doesn't exist, we dynamically generate a new one using `str(uuid.uuid4())`.
 - We updated the `service.ask` method call to pass `st.session_state.session_id` to the backend, completely eliminating the hardcoded `"streamlit-session"` string.
 - We modified the "Log out" button's click handler to call a custom `handle_logout` function. This function resets the authentication token, generates a brand new UUID for the session, and clears the local chat history (`messages = []`). This guarantees session isolation even if multiple users log in on the same browser sequentially.
+
+## 3. Identical Message Timestamps
+
+**Status:** Solved
+**Date:** 2026-09-20
+
+**How this issue was solved:**
+- We updated the FastAPI Pydantic schema (`ChatMessage` in `app/api/schemas/chat.py`) to include an `Optional[str]` for `timestamp`. This prevents FastAPI from silently dropping the timestamp from the incoming API request.
+- In the frontend (`streamlit_app/app.py`), we imported `datetime` and `timezone`.
+- We updated the `st.session_state.messages.append()` calls so that the user's message is stamped with `datetime.now(timezone.utc).isoformat()` the exact millisecond they hit "Send".
+- We applied the same logic to the assistant's response so it is stamped the exact moment it arrives.
+- The backend logging engine (`conversation_logger.py`) was already programmed to read incoming timestamps, so this data simply passes through the entire stack unmodified, perfectly preserving the actual chat timeline in the JSON log file.

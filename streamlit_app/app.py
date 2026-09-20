@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import uuid
+from datetime import datetime, timezone
 
 from streamlit_app.services.chat_service import ChatService
 from streamlit_app.services.organization_service import OrganizationService
@@ -127,7 +128,11 @@ for message in st.session_state.messages:
 user_input = st.chat_input("Ask about the HR policy...")
 
 if user_input:
-    st.session_state.messages.append({"role": "user", "content": user_input})
+    st.session_state.messages.append({
+        "role": "user", 
+        "content": user_input,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
     with st.chat_message("user"):
         st.markdown(user_input)
 
@@ -155,6 +160,10 @@ if user_input:
     # Embed citations and token info as plain markdown into the answer so they persist in history
     full_content = answer + _format_citations(citations) + _format_token_info(tokens)
 
-    st.session_state.messages.append({"role": "assistant", "content": full_content})
+    st.session_state.messages.append({
+        "role": "assistant", 
+        "content": full_content,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
     with st.chat_message("assistant"):
         st.markdown(full_content)
