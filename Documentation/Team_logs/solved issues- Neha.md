@@ -47,3 +47,13 @@ This document tracks the issues that have been successfully resolved in the code
 - We updated `app/use_cases/chat/query_orchestrator.py` to stop sending the full conversation history to the logger on every turn. Instead, it now packages only the newest question and answer pair.
 - We added an in-memory dictionary `self._active_sessions = {}` to `app/infrastructure/logging/conversation_logger.py` to track which JSON files belong to which active sessions.
 - We implemented an "append mode" in `log_conversation`: if the session is already active, the logger opens the existing JSON file, parses it, appends the newly received messages, and atomically overwrites the file. This completely eliminates quadratic duplication and fragmented log files without requiring a database migration.
+
+## 5. Silent Fallback to Fake Employee IDs
+
+**Status:** Solved
+**Date:** 2026-09-21
+
+**How this issue was solved:**
+- We imported `DatabaseEmployeeIdProvider` at the top of `app/infrastructure/logging/conversation_logger.py`.
+- We updated the `__init__` method of the `ConversationLogger` to explicitly initialize the `DatabaseEmployeeIdProvider()` by default if no provider is passed in.
+- Per your explicit request, we completely removed the `MockEmployeeIdProvider` from the logger and the codebase entirely, ensuring that fake IDs like `"MSS001"` can never be silently injected. Unauthenticated users now correctly receive the `"anonymous"` ID from the database provider, keeping our analytics data perfectly clean.

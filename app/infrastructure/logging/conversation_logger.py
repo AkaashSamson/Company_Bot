@@ -17,7 +17,7 @@ from app.domain.entities.conversation_log import (
     ConversationMessage,
 )
 from app.domain.services.employee_id_provider import EmployeeIdProvider
-from app.infrastructure.logging.mock_employee_id_provider import MockEmployeeIdProvider
+from app.infrastructure.logging.database_employee_id_provider import DatabaseEmployeeIdProvider
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,11 @@ class ConversationLogger:
         sensitive_values: Optional[Sequence[str]] = None,
     ) -> None:
         self.log_dir = Path(log_dir) if log_dir else CONVERSATION_LOG_DIR
-        self.employee_id_provider = employee_id_provider or MockEmployeeIdProvider()
+        
+        if employee_id_provider:
+            self.employee_id_provider = employee_id_provider
+        else:
+            self.employee_id_provider = DatabaseEmployeeIdProvider()
 
         # Collect configured sensitive values to redact
         self._sensitive_values: List[str] = []

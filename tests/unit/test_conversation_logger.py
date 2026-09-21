@@ -6,7 +6,6 @@ import pytest
 from app.domain.entities.conversation_log import ConversationLog, ConversationMessage
 from app.domain.services.employee_id_provider import EmployeeIdProvider
 from app.infrastructure.logging.conversation_logger import ConversationLogger
-from app.infrastructure.logging.mock_employee_id_provider import MockEmployeeIdProvider
 
 
 class FixedIdProvider(EmployeeIdProvider):
