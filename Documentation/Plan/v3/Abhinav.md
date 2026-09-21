@@ -138,7 +138,7 @@ This feature encompasses three critical improvements to the chatbot system:
   - `app/infrastructure/llm/groq_client.py`: Added generate_with_response()
 
 #### Phase 6: Observability
-- **File:** `app/infrastructure/observability/pipeline_tracer.py`
+- **File:** `app/infrastructure/observability/pipeline_tracer.py`.
   - PipelineStage enum with 8 stages
   - PipelineTrace for end-to-end tracking
   - TraceContext context manager
