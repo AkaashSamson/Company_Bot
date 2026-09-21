@@ -70,3 +70,16 @@ The application's document ingestion pipeline was statically hardcoding the `sec
 - We updated the `streamlit_app/app.py` citation formatting function to stop rendering the `— {section}` string.
 - All integration and unit tests that expected `"section": "Policy"` were updated to reflect this removal.
 - This approach avoids unnecessary LLM processing for section extraction while streamlining the metadata payload and keeping the UI citations clean.
+
+---
+
+### 8. Issue 8: Hardcoded and Context-Blind Query Retrieval
+
+**What the issue was:**
+The `RetrievalService` utilized an extremely brittle regex-based method called `_query_parts()` that attempted to inject hardcoded synonyms (e.g., adding "annual leave entitlement" whenever the user typed "leaves"). Because of this artificial modification, the database performed exactly as instructed but entirely failed to resolve pronouns like "it" from earlier in the chat (i.e., it was context-blind). 
+
+**How this issue was solved:**
+- We entirely deleted the `_query_parts()` function and the hardcoded regex logic from `app/use_cases/chat/retrieval_service.py`.
+- We updated the retrieval loop to just pass the single, finalized `query_text` directly to ChromaDB.
+- We rely completely on the pre-existing `ConversationQueryResolver` within `QueryOrchestrator`, which uses an LLM to rewrite dependent follow-ups (e.g., "Does it apply to contractors?") into fully resolved, standalone search queries based on the last 2-3 chat turns.
+- We updated and cleaned the test suite in `tests/unit/test_retrieval_selection.py` to match this streamlined search logic.
