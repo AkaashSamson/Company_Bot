@@ -56,7 +56,6 @@ def test_chat_api_end_to_end():
         # Validate citation structure
         citation = body["citations"][0]
         assert "source" in citation, "Citation missing source"
-        assert "section" in citation, "Citation missing section"
         assert "text" in citation, "Citation missing text"
         assert len(citation["text"]) > 0, "Citation text is empty"
     finally:

@@ -94,9 +94,8 @@ def _format_citations(citations: list) -> str:
     lines = ["\n\n---\n**References:**"]
     for c in citations:
         source = c.get("source", "Policy")
-        section = c.get("section", "")
         text = c.get("text", "")
-        lines.append(f"\n📄 **{source}** — {section}")
+        lines.append(f"\n📄 **{source}**")
         if text:
             lines.append(f"\n> {text}")
     return "\n".join(lines)

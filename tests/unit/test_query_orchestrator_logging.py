@@ -16,7 +16,7 @@ class DummyRetrieval:
 
 class DummyProvenance:
     def build_citations(self, evidence):
-        return [{"source": "HR Handbook", "section": "Leave", "text": e["text"]} for e in evidence]
+        return [{"source": "HR Handbook", "text": e["text"]} for e in evidence]
 
 
 class DummyResolver:

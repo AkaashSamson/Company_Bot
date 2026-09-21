@@ -57,3 +57,16 @@ This document tracks the issues that have been successfully resolved in the code
 - We imported `DatabaseEmployeeIdProvider` at the top of `app/infrastructure/logging/conversation_logger.py`.
 - We updated the `__init__` method of the `ConversationLogger` to explicitly initialize the `DatabaseEmployeeIdProvider()` by default if no provider is passed in.
 - Per your explicit request, we completely removed the `MockEmployeeIdProvider` from the logger and the codebase entirely, ensuring that fake IDs like `"MSS001"` can never be silently injected. Unauthenticated users now correctly receive the `"anonymous"` ID from the database provider, keeping our analytics data perfectly clean.
+
+---
+
+### 6. Issue 6: Hardcoded Chunk Metadata (Section Field)
+
+**What the issue was:**
+The application's document ingestion pipeline was statically hardcoding the `section` metadata field to `"Policy"` for every single chunk, resulting in useless metadata and UI citations that all looked the same (e.g., `📄 Handbook — Policy`).
+
+**How this issue was solved:**
+- We entirely removed the hardcoded `section` metadata from the document chunking process in `app/use_cases/ingestion/document_processing.py`. 
+- We updated the `streamlit_app/app.py` citation formatting function to stop rendering the `— {section}` string.
+- All integration and unit tests that expected `"section": "Policy"` were updated to reflect this removal.
+- This approach avoids unnecessary LLM processing for section extraction while streamlining the metadata payload and keeping the UI citations clean.

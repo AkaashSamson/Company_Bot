@@ -225,7 +225,7 @@ def test_chroma_query_preserves_distance():
         {
             "query": lambda self, **kwargs: {
                 "documents": [["Sick leave is 10 days per year."]],
-                "metadatas": [[{"section": "Policy"}]],
+                "metadatas": [[{}]],
                 "distances": [[0.17]],
             }
         },
