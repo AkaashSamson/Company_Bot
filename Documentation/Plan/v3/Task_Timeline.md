@@ -73,17 +73,17 @@ This document defines the phase-by-phase execution timeline for KnowLayer V3. It
   - [ ] Define `ChannelMessage` and `ChannelResponse` unified dataclasses.
 
 #### 2. Abhinav [Parallel]
-- [ ] **Task AB-2 (LLM Response Standard Contract):** Implement `app/infrastructure/llm/llm_response.py`:
-  - [ ] Define `LLMResponse` standard dataclass.
-  - [ ] Define enums `LLMProviderName` (`OPENROUTER`, `GROQ`, `UNKNOWN`) and `LLMResponseStatus` (`SUCCESS`, `PARTIAL`, `CACHED`, `FAILED`).
-  - [ ] Implement `LLMResponseBuilder` factory and `ResponseAggregator`.
-- [ ] **Task AB-1.1 (Circuit Breaker & Provider Health Monitoring):** Implement `app/infrastructure/llm/provider_health.py` and `provider_error_tracker.py`:
-  - [ ] Build `ProviderHealthMonitor` with circuit breaker pattern (consecutive failure tracking).
-  - [ ] Implement intelligent retry categorization (retry on 429/5xx, fail-fast on 401/403).
-- [ ] **Task AB-3.1 (Query Normalizer Core):** Implement `app/use_cases/chat/query_normalizer.py`:
-  - [ ] Build domain vocabulary dictionary and typo detection.
-  - [ ] Implement whitespace/casing normalization and word boundary fixing (e.g., `"leavesavailable"` -> `"leaves available"`).
-  - [ ] Implement normalized cache key generator.
+- [x] **Task AB-2 (LLM Response Standard Contract):** Implement `app/infrastructure/llm/llm_response.py`:
+  - [x] Define `LLMResponse` standard dataclass.
+  - [x] Define enums `LLMProviderName` (`OPENROUTER`, `GROQ`, `UNKNOWN`) and `LLMResponseStatus` (`SUCCESS`, `PARTIAL`, `CACHED`, `FAILED`).
+  - [x] Implement `LLMResponseBuilder` factory and `ResponseAggregator`.
+- [x] **Task AB-1.1 (Circuit Breaker & Provider Health Monitoring):** Implement `app/infrastructure/llm/provider_health.py` and `provider_error_tracker.py`:
+  - [x] Build `ProviderHealthMonitor` with circuit breaker pattern (consecutive failure tracking).
+  - [x] Implement intelligent retry categorization (retry on 429/5xx, fail-fast on 401/403).
+- [x] **Task AB-3.1 (Query Normalizer Core):** Implement `app/use_cases/chat/query_normalizer.py`:
+  - [x] Build domain vocabulary dictionary and typo detection.
+  - [x] Implement whitespace/casing normalization and word boundary fixing (e.g., `"leavesavailable"` -> `"leaves available"`).
+  - [x] Implement normalized cache key generator.
 
 #### 3. Neha [Parallel]
 - [ ] **Task NE-3.1 (YAML Prompt Externalization):** Externalize system prompts and QA rules:
