@@ -82,3 +82,15 @@ The `RetrievalService` utilized an extremely brittle regex-based method called `
 - We updated the retrieval loop to just pass the single, finalized `query_text` directly to ChromaDB.
 - We rely completely on the pre-existing `ConversationQueryResolver` within `QueryOrchestrator`, which uses an LLM to rewrite dependent follow-ups (e.g., "Does it apply to contractors?") into fully resolved, standalone search queries based on the last 2-3 chat turns.
 - We updated and cleaned the test suite in `tests/unit/test_retrieval_selection.py` to match this streamlined search logic.
+
+---
+
+### Task NE-3: Externalize YAML Prompts & XML Sanitization
+
+**Status:** Solved
+**Date:** 2026-09-22
+
+**How this issue was solved:**
+- We moved the hardcoded system prompt and user instructions out of `app/use_cases/chat/rag_context_builder.py`.
+- We placed them into a central `config/prompts.yaml` configuration file using the standard `yaml` module.
+- We implemented XML Delimiters (`<user_question>{question}</user_question>`) in the YAML prompt template. The Python code now safely injects the user's string between these tags, preventing malicious prompt injection attacks by cordoning off the user's input from the LLM's system instructions.
