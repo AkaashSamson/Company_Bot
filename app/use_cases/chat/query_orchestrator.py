@@ -97,15 +97,17 @@ class QueryOrchestrator:
         answer: str,
         conversation_history=None,
         user_context: Optional[Any] = None,
+        question_timestamp: Optional[str] = None,
     ) -> None:
         if not self.conversation_logger:
             return
 
         try:
             now_iso = datetime.now(timezone.utc).isoformat()
+            q_time = question_timestamp or now_iso
             
             new_messages = [
-                {"role": "user", "content": question, "timestamp": now_iso},
+                {"role": "user", "content": question, "timestamp": q_time},
                 {"role": "assistant", "content": answer, "timestamp": now_iso}
             ]
 
@@ -131,6 +133,7 @@ class QueryOrchestrator:
         authorization_scope=None,
         defer_citations: bool = False,
         user_context: Optional[Any] = None,
+        question_timestamp: Optional[str] = None,
     ):
         def _finish(res):
             ans_text = res.get("answer", "") if isinstance(res, dict) else str(res)
@@ -140,6 +143,7 @@ class QueryOrchestrator:
                 answer=ans_text,
                 conversation_history=conversation_history,
                 user_context=user_context,
+                question_timestamp=question_timestamp,
             )
             return res
 

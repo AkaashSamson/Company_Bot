@@ -127,10 +127,11 @@ for message in st.session_state.messages:
 user_input = st.chat_input("Ask about the HR policy...")
 
 if user_input:
+    question_timestamp = datetime.now(timezone.utc).isoformat()
     st.session_state.messages.append({
         "role": "user", 
         "content": user_input,
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": question_timestamp
     })
     with st.chat_message("user"):
         st.markdown(user_input)
@@ -140,6 +141,7 @@ if user_input:
     try:
         response = service.ask(
             user_input,
+            question_timestamp=question_timestamp,
             session_id=st.session_state.session_id,
             history=conversation_history,
             project_id=selected_project_id,

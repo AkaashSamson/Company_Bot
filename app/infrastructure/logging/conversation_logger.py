@@ -72,8 +72,6 @@ class ConversationLogger:
             for secret in (OPENROUTER_API_KEY, GROQ_API_KEY):
                 if secret and len(secret) >= 4:
                     self._sensitive_values.append(secret)
-        
-        self._active_sessions: dict[str, Path] = {}
 
     def redact(self, text: str) -> str:
         """
@@ -95,24 +93,17 @@ class ConversationLogger:
 
         return redacted
 
-    def _generate_log_path(self, employee_id: str, timestamp: datetime) -> Path:
+    def _generate_log_path(self, employee_id: str, session_id: str) -> Path:
         """
-        Construct destination file path with format: <employee_id>_<timestamp>.json
-        Handles same-second collisions with a numerical suffix (_1, _2, etc.).
+        Construct destination file path with format: <employee_id>_<session_id>.json
         """
-        base_ts = timestamp.strftime("%Y%m%d_%H%M%S")
-        filename = f"{employee_id}_{base_ts}.json"
-        target_path = self.log_dir / filename
-
-        if not target_path.exists():
-            return target_path
-
-        counter = 1
-        while True:
-            candidate = self.log_dir / f"{employee_id}_{base_ts}_{counter}.json"
-            if not candidate.exists():
-                return candidate
-            counter += 1
+        # Sanitize session_id to prevent path traversal issues
+        safe_session_id = "".join(c for c in session_id if c.isalnum() or c in ('-', '_'))
+        if not safe_session_id:
+            safe_session_id = "default"
+            
+        filename = f"{employee_id}_{safe_session_id}.json"
+        return self.log_dir / filename
 
     def _write_atomic(self, target_path: Path, log_data: dict) -> None:
         """
@@ -177,8 +168,8 @@ class ConversationLogger:
                     )
                 )
 
-            if session_id in self._active_sessions and self._active_sessions[session_id].exists():
-                target_path = self._active_sessions[session_id]
+            target_path = self._generate_log_path(employee_id, session_id)
+            if target_path.exists():
                 try:
                     with open(target_path, "r", encoding="utf-8") as f:
                         existing_data = json.load(f)
@@ -188,7 +179,7 @@ class ConversationLogger:
                     logger.info("Successfully appended to conversation log: %s", target_path.name)
                     return target_path
                 except Exception as e:
-                    logger.warning("Failed to append to %s, falling back to new file: %s", target_path, e)
+                    logger.warning("Failed to append to %s, falling back to overwriting/new file: %s", target_path, e)
 
             conversation_log = ConversationLog(
                 employee_id=employee_id,
@@ -197,9 +188,7 @@ class ConversationLogger:
                 recording_status="completed",
             )
 
-            target_path = self._generate_log_path(employee_id, now_utc)
             self._write_atomic(target_path, conversation_log.model_dump())
-            self._active_sessions[session_id] = target_path
             logger.info("Successfully recorded new conversation log: %s", target_path.name)
             return target_path
 
