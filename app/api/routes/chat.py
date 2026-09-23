@@ -163,3 +163,92 @@ async def faqs():
     ]
     logger.info("faq_generation_complete citations=%d", len(citations))
     return FAQResponse(faqs=result.get("faqs", ""), citations=citations)
+
+
+@router.post("/chat/cache/clear")
+@router.post("/cache/clear")
+async def clear_cache():
+    """Clear in-memory response caches, LLM prompt caches, and session citations."""
+    import app.api.routes.chat as this_module
+    from app.use_cases.chat.query_orchestrator import _pending_citations
+
+    active_orchestrator = getattr(this_module, "orchestrator", None) or _orchestrator
+    cleared = []
+
+    if active_orchestrator is not None:
+        # 1. Clear response cache (QualityAwareCache / DualCache / PromptLRUCache)
+        if hasattr(active_orchestrator, "response_cache") and active_orchestrator.response_cache:
+            try:
+                active_orchestrator.response_cache.clear()
+                cleared.append("response_cache")
+            except Exception as exc:
+                logger.warning("Failed to clear response_cache: %s", exc)
+
+        # 2. Clear LLM prompt cache
+        if hasattr(active_orchestrator, "llm") and active_orchestrator.llm:
+            llm = active_orchestrator.llm
+            if hasattr(llm, "cache") and llm.cache and hasattr(llm.cache, "clear"):
+                try:
+                    llm.cache.clear()
+                    cleared.append("llm_prompt_cache")
+                except Exception as exc:
+                    logger.warning("Failed to clear llm cache: %s", exc)
+
+        # 3. Clear FAQ cache if applicable
+        if hasattr(active_orchestrator, "faq_cache") and active_orchestrator.faq_cache and hasattr(active_orchestrator.faq_cache, "clear"):
+            try:
+                active_orchestrator.faq_cache.clear()
+                cleared.append("faq_cache")
+            except Exception as exc:
+                logger.warning("Failed to clear faq cache: %s", exc)
+
+    # 4. Clear module-level pending citations and interaction states
+    _pending_citations.clear()
+    cleared.append("pending_citations")
+    try:
+        from app.use_cases.chat.query_orchestrator import _last_interaction, _alternative_answer_given
+        _last_interaction.clear()
+        _alternative_answer_given.clear()
+    except Exception:
+        pass
+
+    logger.info("Caches cleared successfully: %s", cleared)
+    return {"status": "ok", "cleared": cleared}
+
+
+@router.get("/providers/health")
+@router.get("/chat/providers/health")
+async def get_providers_health():
+    """Return health metrics and circuit breaker status for all LLM providers (Task AB-1.2)."""
+    from app.infrastructure.llm.provider_health import get_provider_health_monitor
+    monitor = get_provider_health_monitor()
+    all_metrics = monitor.get_all_metrics()
+    result = {}
+    for name, metrics in all_metrics.items():
+        status = monitor.get_health_status(name)
+        result[name] = {
+            "status": status.value if status else "healthy",
+            "available": monitor.is_provider_available(name),
+            "total_requests": metrics.total_requests,
+            "successful_requests": metrics.successful_requests,
+            "failed_requests": metrics.failed_requests,
+            "consecutive_failures": metrics.consecutive_failures,
+            "consecutive_successes": metrics.consecutive_successes,
+            "average_latency_ms": round(metrics.average_latency_ms, 2),
+            "success_rate": round(metrics.success_rate, 1),
+            "last_success_time": metrics.last_success_time,
+            "last_failure_time": metrics.last_failure_time,
+        }
+    return result
+
+
+@router.post("/providers/reset")
+@router.post("/chat/providers/reset")
+async def reset_providers():
+    """Reset circuit breakers for all LLM providers."""
+    from app.infrastructure.llm.provider_health import get_provider_health_monitor
+    monitor = get_provider_health_monitor()
+    monitor.reset_all()
+    return {"status": "ok", "message": "All provider circuit breakers reset to healthy."}
+
+

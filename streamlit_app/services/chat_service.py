@@ -38,3 +38,28 @@ class ChatService:
         response = requests.post(f"{self.base_url}/api/chat", json=payload, headers=self._headers(), timeout=90)
         response.raise_for_status()
         return response.json()
+
+    def clear_cache(self):
+        response = requests.post(f"{self.base_url}/api/chat/cache/clear", headers=self._headers(), timeout=10)
+        response.raise_for_status()
+        return response.json()
+
+    def get_provider_health(self):
+        """Fetch LLM provider health status and circuit breaker metrics."""
+        try:
+            response = requests.get(f"{self.base_url}/api/chat/providers/health", headers=self._headers(), timeout=5)
+            if response.status_code == 200:
+                return response.json()
+        except Exception:
+            pass
+        return {}
+
+    def reset_providers(self):
+        """Reset all provider circuit breakers."""
+        try:
+            response = requests.post(f"{self.base_url}/api/chat/providers/reset", headers=self._headers(), timeout=5)
+            if response.status_code == 200:
+                return response.json()
+        except Exception:
+            pass
+        return {}

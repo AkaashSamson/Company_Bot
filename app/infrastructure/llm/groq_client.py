@@ -1,10 +1,22 @@
+import logging
 import re
-from typing import Dict, List
+import time
+from typing import Any, Dict, List, Optional
 
 import httpx
 
 from app.core.settings import GROQ_API_KEY, GROQ_MODEL
 from app.domain.services.llm_provider import LLMProvider, LLMProviderError
+from app.infrastructure.llm.provider_health import get_provider_health_monitor, ProviderType
+from app.infrastructure.llm.llm_response import (
+    LLMResponse,
+    LLMResponseBuilder,
+    LLMProviderName,
+    LLMResponseStatus,
+    LLMTokenUsage,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def _sanitize_response_body(body: str, max_length: int = 1000) -> str:
@@ -23,10 +35,13 @@ class GroqClient(LLMProvider):
         model: str = GROQ_MODEL,
         timeout: float = 60.0,
         max_tokens: int = 400,
+        health_monitor: Optional[Any] = None,
     ):
         self.api_key = api_key
         self.model = model
         self.max_tokens = max_tokens
+        self.health_monitor = health_monitor or get_provider_health_monitor()
+        self._last_tokens: Optional[dict] = None
 
         # Persistent client — reuses TCP/TLS connection across calls.
         self._client = httpx.Client(
@@ -38,7 +53,13 @@ class GroqClient(LLMProvider):
         )
 
     def generate(self, messages: List[Dict[str, str]]) -> str:
+        start_time = time.perf_counter()
+        if self.health_monitor:
+            self.health_monitor.record_request_start(ProviderType.GROQ.value)
+
         if not self.api_key:
+            if self.health_monitor:
+                self.health_monitor.record_request_failure(ProviderType.GROQ.value)
             raise LLMProviderError("GROQ_API_KEY is not configured.")
 
         payload = {
@@ -49,8 +70,11 @@ class GroqClient(LLMProvider):
 
         try:
             response = self._client.post(self.BASE_URL, json=payload)
+            latency_ms = (time.perf_counter() - start_time) * 1000.0
 
             if response.is_error:
+                if self.health_monitor:
+                    self.health_monitor.record_request_failure(ProviderType.GROQ.value)
                 raise LLMProviderError(
                     f"Groq returned HTTP {response.status_code}: "
                     f"{_sanitize_response_body(response.text)}"
@@ -60,11 +84,124 @@ class GroqClient(LLMProvider):
             content = data["choices"][0]["message"]["content"]
 
             if not content:
+                if self.health_monitor:
+                    self.health_monitor.record_request_failure(ProviderType.GROQ.value)
                 raise LLMProviderError("Groq returned an empty response.")
+
+            # Record success metrics
+            if self.health_monitor:
+                self.health_monitor.record_request_success(ProviderType.GROQ.value, latency_ms)
+
+            # Track tokens if present in response
+            usage = data.get("usage", {})
+            if usage:
+                self._last_tokens = {
+                    "prompt_tokens": usage.get("prompt_tokens", 0),
+                    "completion_tokens": usage.get("completion_tokens", 0),
+                    "total_tokens": usage.get("total_tokens", 0),
+                    "model": self.model,
+                }
 
             return content
 
         except LLMProviderError:
             raise
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
+            if self.health_monitor:
+                self.health_monitor.record_request_failure(ProviderType.GROQ.value)
             raise LLMProviderError(f"Groq request failed: {error}") from error
+
+    def generate_with_response(self, messages: List[Dict[str, str]]) -> LLMResponse:
+        """Execute chat completion and return structured LLMResponse object (Task AB-1.2)."""
+        start_time = time.perf_counter()
+        if self.health_monitor:
+            self.health_monitor.record_request_start(ProviderType.GROQ.value)
+
+        if not self.api_key:
+            if self.health_monitor:
+                self.health_monitor.record_request_failure(ProviderType.GROQ.value)
+            return LLMResponseBuilder.error(
+                "GROQ_API_KEY is not configured.",
+                status=LLMResponseStatus.FAILED,
+                provider=LLMProviderName.GROQ,
+            )
+
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": self.max_tokens,
+        }
+
+        try:
+            response = self._client.post(self.BASE_URL, json=payload)
+            latency_ms = (time.perf_counter() - start_time) * 1000.0
+
+            if response.status_code == 429:
+                if self.health_monitor:
+                    self.health_monitor.record_request_failure(ProviderType.GROQ.value)
+                return LLMResponseBuilder.error(
+                    f"Groq rate limited (HTTP 429): {_sanitize_response_body(response.text)}",
+                    status=LLMResponseStatus.RATE_LIMITED,
+                    provider=LLMProviderName.GROQ,
+                )
+
+            if response.is_error:
+                if self.health_monitor:
+                    self.health_monitor.record_request_failure(ProviderType.GROQ.value)
+                return LLMResponseBuilder.error(
+                    f"Groq returned HTTP {response.status_code}: {_sanitize_response_body(response.text)}",
+                    status=LLMResponseStatus.FAILED,
+                    provider=LLMProviderName.GROQ,
+                )
+
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
+
+            if not content:
+                if self.health_monitor:
+                    self.health_monitor.record_request_failure(ProviderType.GROQ.value)
+                return LLMResponseBuilder.error(
+                    "Groq returned an empty response.",
+                    status=LLMResponseStatus.FAILED,
+                    provider=LLMProviderName.GROQ,
+                )
+
+            if self.health_monitor:
+                self.health_monitor.record_request_success(ProviderType.GROQ.value, latency_ms)
+
+            usage = data.get("usage", {})
+            tokens = LLMTokenUsage(
+                prompt_tokens=usage.get("prompt_tokens", 0),
+                completion_tokens=usage.get("completion_tokens", 0),
+                total_tokens=usage.get("total_tokens", 0),
+            )
+            self._last_tokens = {
+                "prompt_tokens": tokens.prompt_tokens,
+                "completion_tokens": tokens.completion_tokens,
+                "total_tokens": tokens.total_tokens,
+                "model": self.model,
+            }
+
+            return (
+                LLMResponseBuilder()
+                .with_content(content)
+                .with_status(LLMResponseStatus.SUCCESS)
+                .with_provider(LLMProviderName.GROQ)
+                .with_model(self.model)
+                .with_tokens(tokens=tokens)
+                .with_latency(latency_ms)
+                .build()
+            )
+
+        except Exception as error:
+            if self.health_monitor:
+                self.health_monitor.record_request_failure(ProviderType.GROQ.value)
+            return LLMResponseBuilder.error(
+                f"Groq request failed: {error}",
+                status=LLMResponseStatus.FAILED,
+                provider=LLMProviderName.GROQ,
+            )
+
+    def get_last_tokens(self) -> Optional[dict]:
+        """Get token usage from the last generate call."""
+        return self._last_tokens

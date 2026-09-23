@@ -132,18 +132,28 @@ This document defines the phase-by-phase execution timeline for KnowLayer V3. It
 - [ ] **Task AK-3.3 (Groq Token Standardization):** Update `app/infrastructure/llm/groq_client.py` to parse OpenAI-compatible `usage` blocks (`prompt_tokens`, `completion_tokens`, `total_tokens`) and populate `TokenUsage`.
 
 #### 2. Abhinav [Parallel]
-- [ ] **Task AB-4 (Quality-Aware Semantic Cache):** Implement `app/infrastructure/cache/quality_aware_cache.py`:
-  - [ ] Implement `InMemoryQualityAwareCache` with thread-safe LRU eviction and TTL expiration.
-  - [ ] Create `QualityAwareCacheEntry` and `CacheEntryMetadata` (tracking source, confidence score, evidence count, and timestamp).
-  - [ ] Implement `CacheQualityValidator` ensuring only verified answers meeting quality thresholds are stored.
-- [ ] **Task AB-5.1 (Multi-Dimensional Retrieval Quality Gate Core):** Implement `app/use_cases/chat/retrieval_quality.py`:
-  - [ ] Create `RetrievalQualityGate` evaluating lexical grounding, distance score, and separation gap.
-  - [ ] Define `EvidenceQualityLevel` enum (`STRONG`, `BORDERLINE`, `WEAK`, `INVALID`).
-  - [ ] Implement adaptive confidence scoring ($0.0$ to $1.0$).
-- [ ] **Task AB-6.1 (Pipeline Tracing Engine):** Implement `app/infrastructure/observability/pipeline_tracer.py`:
-  - [ ] Define `PipelineStage` enum with 8 stages (Context Rewrite, Normalization, Cache Lookup, Vector Retrieval, Reranking, Quality Gate, LLM Generation, Post Guardrails).
-  - [ ] Implement `TraceContext` context manager for measuring stage durations and token metrics.
-- [ ] **Task AB-1.2 (Client Health Integration):** Update `openrouter_client.py` and `groq_client.py` to report status to `ProviderHealthMonitor` and utilize `LLMResponseBuilder`.
+- [x] **Task AB-4 (Quality-Aware Semantic Cache):** Implement `app/infrastructure/cache/quality_aware_cache.py`:
+  - [x] Implement `InMemoryQualityAwareCache` with thread-safe LRU eviction and TTL expiration.
+  - [x] Create `QualityAwareCacheEntry` and `CacheEntryMetadata` (tracking source, confidence score, evidence count, and timestamp).
+  - [x] Implement `CacheQualityValidator` ensuring only verified answers meeting quality thresholds are stored.
+- [x] **Task AB-5.1 (Multi-Dimensional Retrieval Quality Gate Core):** Implement `app/use_cases/chat/retrieval_quality.py`:
+  - [x] Create `RetrievalQualityGate` evaluating lexical grounding, distance score, and separation gap.
+  - [x] Define `EvidenceQualityLevel` enum (`STRONG`, `BORDERLINE`, `WEAK`, `INVALID`).
+  - [x] Implement adaptive confidence scoring ($0.0$ to $1.0$).
+- [x] **Task AB-6.1 (Pipeline Tracing Engine):** Implement `app/infrastructure/observability/pipeline_tracer.py`:
+  - [x] Define `PipelineStage` enum with 8 stages (Context Rewrite, Normalization, Cache Lookup, Vector Retrieval, Reranking, Quality Gate, LLM Generation, Post Guardrails).
+  - [x] Implement `TraceContext` context manager for measuring stage durations and token metrics.
+- [x] **Task AB-1.2 (Client Health Integration):** Update `openrouter_client.py` and `groq_client.py` to report status to `ProviderHealthMonitor` and utilize `LLMResponseBuilder`. Add it to Streamlit.
+- [ ] **Task AB-3.3 (POS Noun Filtering, Lemmatization & Vector Synonym Clustering):** Implement `app/use_cases/chat/synonym_clustering.py`:
+  - [ ] Extract and filter all noun-type unique words (`NN`, `NNS`, `NNP`, `NNPS`) from documents/queries using Part-of-Speech (POS) tagging.
+  - [ ] Apply lemmatization to reduce extracted noun tokens to their canonical lemma base form.
+  - [ ] Group and cluster canonical nouns based on embedding vector similarity (cosine threshold).
+  - [ ] Integrate generated synonym clusters into `QueryNormalizer` domain synonym map to enhance lexical grounding in retrieval and caching.
+- [x] **Task AB-3.4 (Query Intent Disambiguation & Semantic Routing):** Implement `app/use_cases/chat/query_intent_classifier.py`:
+  - [x] Implement rule-based intent classification (`PROCEDURAL`, `PERSONAL_BALANCE`, `POLICY_GENERAL`).
+  - [x] Differentiate procedural action keywords ("apply", "submit", "portal", "approval") from quantitative entitlement keywords ("how many", "balance", "remaining", "days").
+  - [x] Inject intent tags into `QualityAwareCache` keys (`proc:...` vs `bal:...`) to eliminate cache cross-talk.
+  - [x] Provide intent-specific lexical filters and prompt directives for RAG context selection and personal HRMS clarification.
 
 #### 3. Neha [Parallel]
 - [ ] **Task NE-4.1 (Contextual Query Rewriter):** Implement `app/use_cases/chat/conversation_query_resolver.py`:
@@ -374,6 +384,8 @@ If scope needs adjustment during execution:
 | **AB-5.1** | Abhinav | Phase 2 | Parallel | `app/use_cases/chat/retrieval_quality.py` |
 | **AB-6.1** | Abhinav | Phase 2 | Parallel | `app/infrastructure/observability/pipeline_tracer.py` |
 | **AB-1.2** | Abhinav | Phase 2 | Parallel | `app/infrastructure/llm/openrouter_client.py`, `groq_client.py` |
+| **AB-3.3** | Abhinav | Phase 2 | Parallel | `app/use_cases/chat/synonym_clustering.py` |
+| **AB-3.4** | Abhinav | Phase 2 | Parallel | `app/use_cases/chat/query_intent_classifier.py` |
 | **NE-4.1** | Neha | Phase 2 | Parallel | `app/use_cases/chat/conversation_query_resolver.py` |
 | **NE-5.1** | Neha | Phase 2 | Parallel | `app/use_cases/chat/retrieval_service.py` |
 | **NE-6.1** | Neha | Phase 2 | Parallel | `app/use_cases/ingestion/document_processing.py` |

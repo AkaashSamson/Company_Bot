@@ -23,7 +23,7 @@ FAQ_SIMILARITY_CACHE_ENABLED = os.getenv("FAQ_SIMILARITY_CACHE_ENABLED", "true")
 FAQ_SIMILARITY_THRESHOLD = float(os.getenv("FAQ_SIMILARITY_THRESHOLD", "0.92"))
 FAQ_JSON_PATH = os.getenv("FAQ_JSON_PATH", str(BASE_DIR / "data" / "faqs.json"))
 LLM_CACHE_SIMILARITY_THRESHOLD = float(
-    os.getenv("LLM_CACHE_SIMILARITY_THRESHOLD", "0.70")
+    os.getenv("LLM_CACHE_SIMILARITY_THRESHOLD", "0.92")
 )
 RESPONSE_CACHE_FILE = os.getenv(
     "RESPONSE_CACHE_FILE",
@@ -111,3 +111,74 @@ def parse_retention_days(raw_value: Optional[str]) -> int:
 CONVERSATION_LOG_RETENTION_DAYS = parse_retention_days(
     os.getenv("CONVERSATION_LOG_RETENTION_DAYS")
 )
+
+
+# ============================================
+# AB-13: Query Normalization & Quality Settings
+# ============================================
+
+# Query Normalization (AB-3)
+ENABLE_QUERY_NORMALIZATION = os.getenv("ENABLE_QUERY_NORMALIZATION", "true").lower() == "true"
+QUERY_NORMALIZER_TYPO_CORRECTION = os.getenv("QUERY_NORMALIZER_TYPO_CORRECTION", "true").lower() == "true"
+QUERY_NORMALIZER_VOCABULARY = os.getenv("QUERY_NORMALIZER_VOCABULARY", "true").lower() == "true"
+QUERY_NORMALIZER_EXPANSION = os.getenv("QUERY_NORMALIZER_EXPANSION", "false").lower() == "true"
+
+# Quality Gate (AB-5)
+ENABLE_QUALITY_GATE = os.getenv("ENABLE_QUALITY_GATE", "true").lower() == "true"
+QUALITY_GATE_MIN_SCORE = float(os.getenv("QUALITY_GATE_MIN_SCORE", "0.4"))
+QUALITY_GATE_MIN_EVIDENCE = int(os.getenv("QUALITY_GATE_MIN_EVIDENCE", "1"))
+QUALITY_GATE_DISTANCE_THRESHOLD = float(os.getenv("QUALITY_GATE_DISTANCE_THRESHOLD", "0.60"))
+QUALITY_GATE_GROUNDING_THRESHOLD = float(os.getenv("QUALITY_GATE_GROUNDING_THRESHOLD", "0.2"))
+
+
+# ============================================
+# AB-4, AB-14: Semantic Cache Settings
+# ============================================
+
+# Quality-Aware Cache (AB-4)
+SEMANTIC_CACHE_ENABLED = os.getenv("SEMANTIC_CACHE_ENABLED", "true").lower() == "true"
+SEMANTIC_CACHE_MAX_ENTRIES = int(os.getenv("SEMANTIC_CACHE_MAX_ENTRIES", "1000"))
+SEMANTIC_CACHE_TTL_SECONDS = float(os.getenv("SEMANTIC_CACHE_TTL_SECONDS", "3600"))
+SEMANTIC_CACHE_MIN_CONFIDENCE = float(os.getenv("SEMANTIC_CACHE_MIN_CONFIDENCE", "0.6"))
+
+
+# ============================================
+# AB-1: Provider Health & Circuit Breaker
+# ============================================
+
+# Provider Health Monitoring
+ENABLE_PROVIDER_HEALTH = os.getenv("ENABLE_PROVIDER_HEALTH", "true").lower() == "true"
+CIRCUIT_BREAKER_FAILURE_THRESHOLD = int(os.getenv("CIRCUIT_BREAKER_FAILURE_THRESHOLD", "5"))
+CIRCUIT_BREAKER_SUCCESS_THRESHOLD = int(os.getenv("CIRCUIT_BREAKER_SUCCESS_THRESHOLD", "2"))
+CIRCUIT_BREAKER_TIMEOUT_SECONDS = float(os.getenv("CIRCUIT_BREAKER_TIMEOUT_SECONDS", "30.0"))
+
+
+# ============================================
+# AB-6: Pipeline Tracing
+# ============================================
+
+# Pipeline Tracing
+ENABLE_PIPELINE_TRACING = os.getenv("ENABLE_PIPELINE_TRACING", "true").lower() == "true"
+PIPELINE_TRACER_MAX_TRACES = int(os.getenv("PIPELINE_TRACER_MAX_TRACES", "1000"))
+
+
+# ============================================
+# AB-14: LangCache Configuration (Dual-Cache)
+# ============================================
+
+# LangCache Primary Semantic Cache
+LANGCACHE_ENABLED = os.getenv("LANGCACHE_ENABLED", "true").lower() == "true"
+LANGCACHE_SERVER_URL = os.getenv("LANGCACHE_SERVER_URL", "https://aws-us-east-1.langcache.redis.io")
+LANGCACHE_CACHE_ID = os.getenv("LANGCACHE_CACHE_ID", "")
+LANGCACHE_API_KEY = os.getenv("LANGCACHE_API_KEY", "")
+
+# Dual Cache: JSON Fallback when LangCache unavailable
+DUAL_CACHE_JSON_FALLBACK_ENABLED = os.getenv("DUAL_CACHE_JSON_FALLBACK_ENABLED", "true").lower() == "true"
+DUAL_CACHE_JSON_FILE_PATH = os.getenv(
+    "DUAL_CACHE_JSON_FILE_PATH",
+    str(BASE_DIR / "data" / "semantic_cache.json")
+)
+
+# Cache sync settings
+DUAL_CACHE_SYNC_INTERVAL_SECONDS = float(os.getenv("DUAL_CACHE_SYNC_INTERVAL_SECONDS", "60.0"))
+DUAL_CACHE_SYNC_ON_WRITE = os.getenv("DUAL_CACHE_SYNC_ON_WRITE", "true").lower() == "true"
