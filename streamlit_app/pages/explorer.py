@@ -2,9 +2,11 @@ import streamlit as st
 
 from streamlit_app.services.explorer_api import ExplorerAPI
 from streamlit_app.services.ui_helpers import format_error
+from streamlit_app.session_auth import require_auth
 
 
 st.set_page_config(page_title="Organization Explorer | KnowLayer")
+require_auth()
 st.title("Organization Explorer")
 
 access_labels = {

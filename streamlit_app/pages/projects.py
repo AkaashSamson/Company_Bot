@@ -3,9 +3,11 @@ import streamlit as st
 from streamlit_app.services.admin_api import AdminAPI
 from streamlit_app.services.organization_service import OrganizationService
 from streamlit_app.services.ui_helpers import format_error
+from streamlit_app.session_auth import require_auth
 
 
 st.set_page_config(page_title="Projects | KnowLayer")
+require_auth()
 st.title("Projects")
 service = OrganizationService()
 admin = AdminAPI()

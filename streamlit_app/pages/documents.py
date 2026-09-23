@@ -7,9 +7,11 @@ from streamlit_app.services.admin_api import AdminAPI
 from streamlit_app.services.document_service import DocumentService
 from streamlit_app.services.organization_service import OrganizationService
 from streamlit_app.services.ui_helpers import format_error
+from streamlit_app.session_auth import require_auth
 
 
 st.set_page_config(page_title="Documents | KnowLayer")
+require_auth()
 st.title("Documents")
 document_service = DocumentService()
 organization_service = OrganizationService()

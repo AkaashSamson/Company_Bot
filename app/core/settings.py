@@ -48,6 +48,7 @@ ADMIN_INITIAL_PASSWORD = os.getenv("ADMIN_INITIAL_PASSWORD", "")
 DEFAULT_USER_PASSWORD = os.getenv("DEFAULT_USER_PASSWORD", "ChangeMe123!")
 AUTH_SECRET_KEY = os.getenv("AUTH_SECRET_KEY", "change-this-development-secret")
 AUTH_TOKEN_EXPIRE_MINUTES = int(os.getenv("AUTH_TOKEN_EXPIRE_MINUTES", "480"))
+AUTH_REFRESH_TOKEN_EXPIRE_MINUTES = int(os.getenv("AUTH_REFRESH_TOKEN_EXPIRE_MINUTES", "10080"))
 
 # LangSmith observability — set LANGCHAIN_TRACING_V2=true to enable
 LANGCHAIN_TRACING_V2 = os.getenv("LANGCHAIN_TRACING_V2", "false").lower() == "true"

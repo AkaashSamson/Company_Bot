@@ -1,16 +1,17 @@
 import streamlit as st
 import requests
 
+from streamlit_app.session_auth import bootstrap_cookies, persist_auth, restore_auth
 from streamlit_app.services.chat_service import ChatService
 from streamlit_app.services.organization_service import OrganizationService
 from streamlit_app.services.authentication_service import AuthenticationService
 
 st.set_page_config(page_title="KnowLayer HR Chatbot", page_icon="📘")
 
-if "auth" not in st.session_state:
-    st.session_state.auth = None
+cookies = bootstrap_cookies()
 
-if st.session_state.auth is None:
+if st.session_state.get("auth") is None:
+    restore_auth(cookies)
     st.title("KnowLayer Login")
     with st.form("login"):
         login_username = st.text_input("Username")
@@ -18,7 +19,8 @@ if st.session_state.auth is None:
         login_submitted = st.form_submit_button("Log in")
     if login_submitted:
         try:
-            st.session_state.auth = AuthenticationService().login(login_username, login_password)
+            auth = AuthenticationService().login(login_username, login_password)
+            st.session_state.auth = auth
             st.rerun()
         except requests.exceptions.HTTPError as error:
             status_code = error.response.status_code if error.response is not None else None
@@ -33,7 +35,17 @@ if st.session_state.auth is None:
             )
     st.stop()
 
-st.sidebar.button("Log out", on_click=lambda: st.session_state.update(auth=None))
+persist_auth(cookies)
+
+def _logout():
+    st.session_state.auth = None
+    try:
+        cookies.remove("knowlayer_auth")
+    except KeyError:
+        pass
+
+
+st.sidebar.button("Log out", on_click=_logout)
 st.title("KnowLayer HR Policy Assistant")
 
 st.sidebar.page_link("app.py", label="Chat")

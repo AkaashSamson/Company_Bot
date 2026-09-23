@@ -16,6 +16,15 @@ class AuthenticationService:
         response.raise_for_status()
         return response.json()
 
+    def refresh(self, refresh_token: str):
+        response = requests.post(
+            f"{self.base_url}/api/auth/refresh",
+            json={"refresh_token": refresh_token},
+            timeout=15,
+        )
+        response.raise_for_status()
+        return response.json()
+
     def change_password(self, token: str, current_password: str, new_password: str, uid: str | None = None):
         payload = {"current_password": current_password, "new_password": new_password}
         if uid:
