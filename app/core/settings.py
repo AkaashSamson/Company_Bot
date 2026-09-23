@@ -49,6 +49,10 @@ DEFAULT_USER_PASSWORD = os.getenv("DEFAULT_USER_PASSWORD", "ChangeMe123!")
 AUTH_SECRET_KEY = os.getenv("AUTH_SECRET_KEY", "change-this-development-secret")
 AUTH_TOKEN_EXPIRE_MINUTES = int(os.getenv("AUTH_TOKEN_EXPIRE_MINUTES", "480"))
 
+# Session memory configuration (Task AK-1.2)
+SESSION_INACTIVITY_TIMEOUT_HOURS = float(os.getenv("SESSION_INACTIVITY_TIMEOUT_HOURS", "12.0"))
+SESSION_MAX_HISTORY_TURNS = int(os.getenv("SESSION_MAX_HISTORY_TURNS", "6"))
+
 # LangSmith observability — set LANGCHAIN_TRACING_V2=true to enable
 LANGCHAIN_TRACING_V2 = os.getenv("LANGCHAIN_TRACING_V2", "false").lower() == "true"
 LANGCHAIN_API_KEY = os.getenv("LANGCHAIN_API_KEY", "")
