@@ -60,11 +60,11 @@ This document defines the phase-by-phase execution timeline for KnowLayer V3. It
 **Objective:** Build base protocols, standalone entity models, schema definitions, and settings without touching shared pipeline logic. All contributors work in parallel with zero merge conflict risk.
 
 #### 1. Akaash Samson [Parallel]
-- [ ] **Task AK-1.1 (Domain Service Foundation):** Implement stateful foundation of `app/domain/services/session_memory_service.py`:
-  - [ ] Create thread-safe in-memory session store keyed by `session_id`.
-  - [ ] Implement sliding history buffer ($k=6$ turns).
-  - [ ] Implement inactivity TTL check (default 12 hours) and programmatic `clear_session(session_id)` hook.
-- [ ] **Task AK-1.2 (Settings Configuration):** Add `SESSION_INACTIVITY_TIMEOUT_HOURS = 12.0` and `SESSION_MAX_HISTORY_TURNS = 6` to `app/core/settings.py`.
+- [x] **Task AK-1.1 (Domain Service Foundation):** Implement stateful foundation of `app/domain/services/session_memory_service.py`:
+  - [x] Create thread-safe in-memory session store keyed by `session_id`.
+  - [x] Implement sliding history buffer ($k=6$ turns).
+  - [x] Implement inactivity TTL check (default 12 hours) and programmatic `clear_session(session_id)` hook.
+- [x] **Task AK-1.2 (Settings Configuration):** Add `SESSION_INACTIVITY_TIMEOUT_HOURS = 12.0` and `SESSION_MAX_HISTORY_TURNS = 6` to `app/core/settings.py`.
 - [ ] **Task AK-3.1 (Observability Protocol & Entities):** Create `app/infrastructure/observability/provider.py`:
   - [ ] Define `BaseObservabilityProvider` protocol with `record_llm_call()`, `create_trace()`, `end_trace()`.
   - [ ] Define standardized `TokenUsage` dataclass (`prompt_tokens`, `completion_tokens`, `total_tokens`).
