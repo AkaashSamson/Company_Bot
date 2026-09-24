@@ -53,6 +53,18 @@ AUTH_TOKEN_EXPIRE_MINUTES = int(os.getenv("AUTH_TOKEN_EXPIRE_MINUTES", "480"))
 SESSION_INACTIVITY_TIMEOUT_HOURS = float(os.getenv("SESSION_INACTIVITY_TIMEOUT_HOURS", "12.0"))
 SESSION_MAX_HISTORY_TURNS = int(os.getenv("SESSION_MAX_HISTORY_TURNS", "6"))
 
+# Vendor-neutral observability configuration (Task AK-3.2)
+OBSERVABILITY_PROVIDER = os.getenv("OBSERVABILITY_PROVIDER", "null").lower()
+
+# Langfuse settings
+LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY", "")
+LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY", "")
+LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "http://localhost:3000")
+
+# Arize Phoenix settings
+PHOENIX_COLLECTOR_ENDPOINT = os.getenv("PHOENIX_COLLECTOR_ENDPOINT", "http://localhost:6006/v1/traces")
+PHOENIX_PROJECT_NAME = os.getenv("PHOENIX_PROJECT_NAME", "company-bot")
+
 # LangSmith observability — set LANGCHAIN_TRACING_V2=true to enable
 LANGCHAIN_TRACING_V2 = os.getenv("LANGCHAIN_TRACING_V2", "false").lower() == "true"
 LANGCHAIN_API_KEY = os.getenv("LANGCHAIN_API_KEY", "")

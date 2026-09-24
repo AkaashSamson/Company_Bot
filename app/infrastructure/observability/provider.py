@@ -14,9 +14,22 @@ from app.domain.ports.observability import (
     TokenUsage,
     TraceSpanPort,
 )
+from app.infrastructure.observability.langfuse_provider import (
+    LangfuseProvider,
+    LangfuseSpan,
+)
+from app.infrastructure.observability.manager import (
+    ObservabilityManager,
+    get_observability_manager,
+    reset_observability_manager,
+)
 from app.infrastructure.observability.null_provider import (
     NullObservabilityProvider,
     NullSpan,
+)
+from app.infrastructure.observability.phoenix_provider import (
+    PhoenixProvider,
+    PhoenixSpan,
 )
 
 __all__ = [
@@ -26,4 +39,11 @@ __all__ = [
     "TraceSpanPort",
     "NullObservabilityProvider",
     "NullSpan",
+    "LangfuseProvider",
+    "LangfuseSpan",
+    "PhoenixProvider",
+    "PhoenixSpan",
+    "ObservabilityManager",
+    "get_observability_manager",
+    "reset_observability_manager",
 ]

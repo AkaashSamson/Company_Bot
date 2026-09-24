@@ -125,10 +125,10 @@ This document defines the phase-by-phase execution timeline for KnowLayer V3. It
   - [ ] Create `app/infrastructure/channels/teams/adapter.py`: Mount Teams webhook route, resolve identity via `ChannelIdentityBridge`, dispatch in-memory ASGI request to `POST /api/chat`, and return response.
   - [ ] Create `app/infrastructure/channels/teams/formatter.py`: Convert chat answer and citation records into Teams Adaptive Cards.
 - [ ] **Task AK-2.4 (Channel Registry):** Create `app/infrastructure/channels/registry.py`: Discover and load enabled channel adapters based on environment flags (`TEAMS_ENABLED=true`).
-- [ ] **Task AK-3.2 (Observability Providers & Manager):** Implement observability dispatch in `app/infrastructure/observability/`:
-  - [ ] `langfuse_provider.py`: REST client integration with self-hosted Langfuse server.
-  - [ ] `langsmith_provider.py`: Configurable LangSmith provider.
-  - [ ] `manager.py`: `ObservabilityManager` dispatching spans and tokens according to `OBSERVABILITY_PROVIDER`.
+- [x] **Task AK-3.2 (Observability Providers & Manager):** Implement observability dispatch in `app/infrastructure/observability/`:
+  - [x] `langfuse_provider.py`: REST client integration with self-hosted Langfuse server.
+  - [x] `langsmith_provider.py`: Configurable LangSmith provider.
+  - [x] `manager.py`: `ObservabilityManager` dispatching spans and tokens according to `OBSERVABILITY_PROVIDER`.
 - [ ] **Task AK-3.3 (Groq Token Standardization):** Update `app/infrastructure/llm/groq_client.py` to parse OpenAI-compatible `usage` blocks (`prompt_tokens`, `completion_tokens`, `total_tokens`) and populate `TokenUsage`.
 
 #### 2. Abhinav [Parallel]
@@ -212,8 +212,8 @@ This document defines the phase-by-phase execution timeline for KnowLayer V3. It
 
 #### Subsystem 3: Observability Bridge (Akaash + Abhinav)
 - **Top Dependency:** `[Dependency: Task AK-3.2 - ObservabilityManager & LangfuseProvider (Akaash)]`
-- [ ] **Task AK-3.4 (Observability Manager Singleton - Akaash Samson [Sequential Step 1]):**
-  - [ ] Expose singleton `get_observability_manager()` in `app/infrastructure/observability/manager.py`.
+- [x] **Task AK-3.4 (Observability Manager Singleton - Akaash Samson [Sequential Step 1]):**
+  - [x] Expose singleton `get_observability_manager()` in `app/infrastructure/observability/manager.py`.
 - **Top Dependency:** `[Dependency: Task AB-6.1 - PipelineTracer Engine (Abhinav)]`
 - [ ] **Task AB-6.3 (Pipeline Tracer Dispatch Hook - Abhinav [Sequential Step 2 - Depends on Akaash's ObservabilityManager]):**
   - [ ] In `app/infrastructure/observability/pipeline_tracer.py`, bind completed `PipelineTrace` execution records and stage spans to `ObservabilityManager.dispatch_trace()`.
