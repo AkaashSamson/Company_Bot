@@ -1,9 +1,9 @@
 import datetime
 import logging
-import os
 import threading
 from typing import Any, Dict, Optional
 
+from app.core import settings
 from app.domain.ports.observability import (
     BaseObservabilityProvider,
     TokenUsage,
@@ -19,13 +19,6 @@ try:
 except ImportError:
     Langfuse = None  # type: ignore
     _HAS_LANGFUSE = False
-
-
-def _clean_env_val(val: Optional[str]) -> str:
-    """Strip quotes and surrounding whitespace from environment variable strings."""
-    if not val:
-        return ""
-    return val.strip("\"' \t\r\n")
 
 
 def _resolve_observation_type(name: str) -> str:
@@ -123,19 +116,19 @@ class LangfuseProvider(BaseObservabilityProvider):
 
     def __init__(
         self,
-        public_key: str = "",
-        secret_key: str = "",
-        host: str = "",
+        public_key: Optional[str] = None,
+        secret_key: Optional[str] = None,
+        host: Optional[str] = None,
         enabled: bool = True,
         timeout_seconds: float = 5.0,
     ) -> None:
         self._lock = threading.Lock()
 
-        # Resolve credentials with robust env fallback and quote stripping
-        self.public_key = _clean_env_val(public_key or os.getenv("LANGFUSE_PUBLIC_KEY", ""))
-        self.secret_key = _clean_env_val(secret_key or os.getenv("LANGFUSE_SECRET_KEY", ""))
-        raw_host = host or os.getenv("LANGFUSE_BASE_URL") or os.getenv("LANGFUSE_HOST") or "https://cloud.langfuse.com"
-        self.host = _clean_env_val(raw_host).rstrip("/")
+        # Default directly to centralized app settings
+        self.public_key = public_key if public_key is not None else getattr(settings, "LANGFUSE_PUBLIC_KEY", "")
+        self.secret_key = secret_key if secret_key is not None else getattr(settings, "LANGFUSE_SECRET_KEY", "")
+        raw_host = host if host is not None else getattr(settings, "LANGFUSE_HOST", "https://cloud.langfuse.com")
+        self.host = (raw_host or "https://cloud.langfuse.com").rstrip("/")
 
         self.timeout = timeout_seconds
         self.enabled = enabled and bool(self.public_key and self.secret_key and _HAS_LANGFUSE)
