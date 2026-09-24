@@ -65,9 +65,9 @@ This document defines the phase-by-phase execution timeline for KnowLayer V3. It
   - [x] Implement sliding history buffer ($k=6$ turns).
   - [x] Implement inactivity TTL check (default 12 hours) and programmatic `clear_session(session_id)` hook.
 - [x] **Task AK-1.2 (Settings Configuration):** Add `SESSION_INACTIVITY_TIMEOUT_HOURS = 12.0` and `SESSION_MAX_HISTORY_TURNS = 6` to `app/core/settings.py`.
-- [ ] **Task AK-3.1 (Observability Protocol & Entities):** Create `app/infrastructure/observability/provider.py`:
-  - [ ] Define `BaseObservabilityProvider` protocol with `record_llm_call()`, `create_trace()`, `end_trace()`.
-  - [ ] Define standardized `TokenUsage` dataclass (`prompt_tokens`, `completion_tokens`, `total_tokens`).
+- [x] **Task AK-3.1 (Observability Protocol & Entities):** Create `app/infrastructure/observability/provider.py`:
+  - [x] Define `BaseObservabilityProvider` protocol with `record_llm_call()`, `create_trace()`, `end_trace()`.
+  - [x] Define standardized `TokenUsage` dataclass (`prompt_tokens`, `completion_tokens`, `total_tokens`).
 - [ ] **Task AK-2.1 (Channel Interfaces):** Create `app/infrastructure/channels/base.py`:
   - [ ] Define `BaseChannelAdapter` abstract base class.
   - [ ] Define `ChannelMessage` and `ChannelResponse` unified dataclasses.
