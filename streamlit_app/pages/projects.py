@@ -85,7 +85,7 @@ st.subheader("Project details")
 if not project_options:
     st.info("No projects available.")
 else:
-    detail_label = st.selectbox("Project", list(project_options))
+    detail_label = st.selectbox("Project", list(project_options), key="detail-project")
     detail_id = project_options[detail_label]
     detail = next((p for p in projects if p["project_id"] == detail_id), {})
     manager_uid = detail.get("manager_uid")

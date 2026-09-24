@@ -65,6 +65,21 @@ class OrganizationExplorerService:
             ]
 
             departments = {item.department_id: item for item in uow.departments.list()}
+            department_names = {key: item.department_name for key, item in departments.items()}
+
+            people = [
+                {
+                    "uid": user.uid,
+                    "name": user.name,
+                    "employee_id": user.employee_id,
+                    "role": user.role,
+                    "department_id": user.department_id,
+                    "department_name": department_names.get(user.department_id, user.department_id or None),
+                }
+                for user in uow.users.list()
+                if user.status == "active"
+            ]
+            people.sort(key=lambda person: (person["name"] or person["uid"]).casefold())
 
             project_documents = {}
             unassigned = []
@@ -126,6 +141,7 @@ class OrganizationExplorerService:
             ]
 
             return {
+                "people": people,
                 "departments": departments_list,
                 "unassigned_documents": [
                     self._document(uow, document, grant_document_ids, role_ids, actor.uid)
@@ -141,7 +157,7 @@ class OrganizationExplorerService:
         if document.document_id in grant_document_ids:
             access = "document_grant"
         elif document.project_id is None:
-            access = "manager_scope"
+            access = "org_wide"
         else:
             access = "project_access"
 

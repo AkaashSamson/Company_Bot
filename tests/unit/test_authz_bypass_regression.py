@@ -167,7 +167,7 @@ class TestScenario06_EmptyScopeRetrieval:
         scope = engine.authorization_scope(OUTSIDER)
         assert scope.project_ids == []
         assert scope.document_ids is None
-        assert scope.include_unassigned is False
+        assert scope.include_unassigned is True
 
 
 # ─────────────────────────────────────────────────────────────────────

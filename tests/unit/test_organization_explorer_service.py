@@ -86,8 +86,21 @@ def test_developer_never_sees_hidden_information():
     assert "Hidden Project" not in raw
     assert "doc-secret" not in raw
     assert "Secret Planning" not in raw
-    assert "Other" not in raw
-    assert "Manager Manual" not in raw
+    assert [dept["department_id"] for dept in body["departments"]] == ["d1"]
+
+
+def test_developer_sees_all_people_and_unassigned_documents():
+    body = _body(_explorer_unit_of_work(), "u1")
+    people = body["people"]
+    assert [person["uid"] for person in people] == ["u1", "m1", "org"]
+    by_uid = {person["uid"]: person for person in people}
+    assert by_uid["u1"]["department_name"] == "Engineering"
+    assert by_uid["u1"]["employee_id"] == "EMP-001"
+    assert by_uid["m1"]["department_name"] == "Engineering"
+    assert by_uid["org"]["department_name"] == "Other"
+    unassigned = [document["document_id"] for document in body["unassigned_documents"]]
+    assert unassigned == ["doc-unassigned"]
+    assert body["unassigned_documents"][0]["access"] == "org_wide"
 
 
 def test_granted_document_lands_in_additional_bucket_without_project_leak():

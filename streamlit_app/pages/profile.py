@@ -26,7 +26,7 @@ department = profile.get("department") or {}
 access_source_labels = {
     "document_grant": "direct document grant",
     "project_access": "via project access",
-    "manager_scope": "manager scope",
+    "org_wide": "org-wide (unassigned) document",
     "lead_or_manager": "lead or manager",
     "department": "department",
     "member": "project member",

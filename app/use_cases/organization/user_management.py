@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import Callable
+from uuid import uuid4
 
 from app.domain.entities.organization_models import Department, User
 from app.domain.services.business_id_generator import build_business_id_generator
@@ -89,12 +90,14 @@ class UserManagementService:
             uow.commit()
             return department
 
-    def create_user(self, actor_uid, uid, name, email, role, department_id, username=None, initial_password=None,
+    def create_user(self, actor_uid, uid=None, name=None, email=None, role=None, department_id=None, username=None, initial_password=None,
                     employee_id=None, first_name=None, last_name=None):
         with self.unit_of_work_factory() as uow:
             actor = uow.users.get_by_uid(actor_uid)
             if actor is None or actor.status != "active":
                 raise ForbiddenError("Active authenticated user required")
+            if uid is None:
+                uid = uuid4().hex
             username = username or uid
             if uow.users.get_by_uid(uid) or uow.users.get_by_email(email) or uow.users.get_by_username(username):
                 raise ConflictError("User UID or email already exists")

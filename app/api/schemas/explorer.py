@@ -8,6 +8,15 @@ class ExplorerPerson(BaseModel):
     name: str | None
 
 
+class ExplorerOrgMember(BaseModel):
+    uid: str
+    name: str | None
+    employee_id: str | None
+    role: str
+    department_id: str
+    department_name: str | None
+
+
 class ExplorerMember(BaseModel):
     uid: str
     name: str | None
@@ -50,6 +59,7 @@ class ExplorerDepartment(BaseModel):
 
 
 class OrganizationExplorerResponse(BaseModel):
+    people: list[ExplorerOrgMember]
     departments: list[ExplorerDepartment]
     unassigned_documents: list[ExplorerDocument]
     additional_documents: list[ExplorerDocument]

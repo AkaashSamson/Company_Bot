@@ -42,11 +42,10 @@ user_options = {item["name"] or item["uid"]: item["uid"] for item in users}
 role_options = {role["name"]: role["name"] for role in roles}
 
 with st.expander("Add department"):
-    department_id = st.text_input("Department ID")
     department_name = st.text_input("Department name")
     if st.button("Create department"):
         try:
-            service.create_department({"department_id": department_id, "department_name": department_name})
+            service.create_department({"department_name": department_name})
             st.success("Department created.")
             st.rerun()
         except Exception as error:
@@ -54,7 +53,7 @@ with st.expander("Add department"):
 
 with st.expander("Add user"):
     with st.form("create-user"):
-        uid = st.text_input("UID")
+        username = st.text_input("Username", help="Login handle; leave blank to use the generated employee ID.")
         name = st.text_input("Name")
         email = st.text_input("Email")
         role = st.text_input("Role")
@@ -73,7 +72,7 @@ with st.expander("Add user"):
         else:
             try:
                 service.create_user({
-                    "uid": uid,
+                    "username": username or None,
                     "name": name,
                     "email": email,
                     "role": role,

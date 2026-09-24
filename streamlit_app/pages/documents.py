@@ -1,5 +1,4 @@
 import base64
-from pathlib import Path
 
 import streamlit as st
 
@@ -55,7 +54,6 @@ with st.expander("Upload document", expanded=True):
     uploaded_file = st.file_uploader("Choose a file to provision for Q&A", type=["docx", "txt", "md", "rst"])
     if uploaded_file is not None:
         with st.form("upload-document"):
-            document_id = st.text_input("Document ID", value=Path(uploaded_file.name).stem)
             document_name = st.text_input("Document name", value=uploaded_file.name)
             project_name = st.selectbox("Project", list(project_options), key="upload-project")
             submitted = st.form_submit_button("Upload and provision")
@@ -63,7 +61,6 @@ with st.expander("Upload document", expanded=True):
             try:
                 content = base64.b64encode(uploaded_file.getvalue()).decode("utf-8")
                 document_service.create_document({
-                    "document_id": document_id,
                     "document_name": document_name,
                     "project_id": project_options[project_name],
                     "content": content,
@@ -72,24 +69,6 @@ with st.expander("Upload document", expanded=True):
                 st.rerun()
             except Exception as error:
                 st.error(str(error))
-
-with st.expander("Register document (metadata only)"):
-    with st.form("create-document"):
-        document_id = st.text_input("Document ID", key="meta-doc-id")
-        document_name = st.text_input("Document name", key="meta-doc-name")
-        project_name = st.selectbox("Project", list(project_options), key="meta-project")
-        submitted = st.form_submit_button("Register document")
-    if submitted:
-        try:
-            document_service.create_document({
-                "document_id": document_id,
-                "document_name": document_name,
-                "project_id": project_options[project_name],
-            })
-            st.success("Document registered.")
-            st.rerun()
-        except Exception as error:
-            st.error(str(error))
 
 # ------------------------------------------------------------ detail view
 

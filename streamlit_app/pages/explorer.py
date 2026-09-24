@@ -12,7 +12,7 @@ st.title("Organization Explorer")
 access_labels = {
     "document_grant": "available through a direct document grant",
     "project_access": "available through project access",
-    "manager_scope": "available in manager scope",
+    "org_wide": "available organization-wide (unassigned document)",
 }
 
 
@@ -123,12 +123,29 @@ st.caption("Read-only, authorization-scoped view. Only information you are autho
 
 expand_all = st.checkbox("Expand all sections", value=False)
 
+people = organization.get("people") or []
 departments = organization.get("departments") or []
 unassigned = organization.get("unassigned_documents") or []
 additional = organization.get("additional_documents") or []
 
+if people:
+    st.subheader("People")
+    st.dataframe(
+        [
+            {
+                "Name": person.get("name") or person.get("uid"),
+                "Employee ID": person.get("employee_id") or "—",
+                "Role": person.get("role") or "—",
+                "Department": person.get("department_name") or person.get("department_id") or "—",
+            }
+            for person in people
+        ],
+        use_container_width=True,
+        hide_index=True,
+    )
+
 if not departments and not unassigned and not additional:
-    st.info("You do not currently have access to any departments or documents.")
+    st.info("No departments or documents are available in your access scope.")
     st.stop()
 
 for department in departments:
