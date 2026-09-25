@@ -259,7 +259,7 @@ def _format_citations(citations: list, answer: str = "") -> str:
 
 
 def _format_corrections(corrections: list) -> str:
-    """Format spelling / typo corrections for display."""
+    """Format spelling / typo corrections for display (excluding internal lemmas)."""
     if not corrections:
         return ""
     cleaned = []
