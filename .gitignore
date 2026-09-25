@@ -16,3 +16,6 @@ instance/
 *.sqlite3
 # Conversation logs
 conversation_logs/
+
+# Implementation notes
+Implementation_notes.md

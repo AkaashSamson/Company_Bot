@@ -346,7 +346,7 @@ class AuthorizationEngine:
             if self._has_document_grant(uow, user, document.document_id):
                 return True
             if document.project_id is None:
-                return user.role.casefold() == "manager"
+                return True
             project = uow.projects.get(document.project_id)
             if project is None:
                 return False
@@ -408,7 +408,7 @@ class AuthorizationEngine:
                         is_admin=False,
                         project_ids=[selected_project_id],
                         document_ids=active_document_ids or None,
-                        include_unassigned=False,
+                        include_unassigned=True,
                     )
                 selected_project_doc_grants = [
                     document_id
@@ -420,7 +420,7 @@ class AuthorizationEngine:
                         is_admin=False,
                         project_ids=[],
                         document_ids=selected_project_doc_grants,
-                        include_unassigned=False,
+                        include_unassigned=True,
                     )
                 return empty
 
@@ -428,7 +428,7 @@ class AuthorizationEngine:
                 is_admin=False,
                 project_ids=sorted(scoped_projects),
                 document_ids=active_document_ids or None,
-                include_unassigned=user.role.casefold() == "manager",
+                include_unassigned=True,
             )
 
 

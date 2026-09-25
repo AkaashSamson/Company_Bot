@@ -2,8 +2,10 @@ import streamlit as st
 
 from streamlit_app.services.admin_api import AdminAPI
 from streamlit_app.services.ui_helpers import format_error, unavailable
+from streamlit_app.session_auth import require_auth
 
 st.set_page_config(page_title="Departments | KnowLayer", page_icon="🏢")
+require_auth()
 st.title("Departments")
 
 service = AdminAPI()
@@ -32,7 +34,6 @@ user_options = {u["name"] or u["uid"]: u["uid"] for u in users}
 
 with st.expander("Create department"):
     with st.form("create-department"):
-        department_id = st.text_input("Department ID")
         department_name = st.text_input("Department name")
         description = st.text_input("Description")
         default_billable = st.selectbox("Default billable policy", BILLABLE_POLICIES)
@@ -40,7 +41,6 @@ with st.expander("Create department"):
     if submitted:
         try:
             service.create_department({
-                "department_id": department_id,
                 "department_name": department_name,
                 "description": description or None,
                 "default_billable": default_billable,

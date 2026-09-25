@@ -2,9 +2,11 @@ import streamlit as st
 
 from streamlit_app.services.profile_api import ProfileAPI
 from streamlit_app.services.ui_helpers import format_error
+from streamlit_app.session_auth import require_auth
 
 
 st.set_page_config(page_title="My Profile | KnowLayer")
+require_auth()
 st.title("My Profile")
 
 api = ProfileAPI()
@@ -24,7 +26,7 @@ department = profile.get("department") or {}
 access_source_labels = {
     "document_grant": "direct document grant",
     "project_access": "via project access",
-    "manager_scope": "manager scope",
+    "org_wide": "org-wide (unassigned) document",
     "lead_or_manager": "lead or manager",
     "department": "department",
     "member": "project member",

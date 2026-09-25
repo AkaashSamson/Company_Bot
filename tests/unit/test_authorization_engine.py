@@ -264,13 +264,13 @@ class TestDocumentAccess:
         uow, engine = ctx
         assert engine.can_read_document(MANAGER, "doc3") is True
 
-    def test_unassigned_doc_developer_denied(self, ctx):
+    def test_unassigned_doc_developer_can_read(self, ctx):
         uow, engine = ctx
-        assert engine.can_read_document(DEVELOPER, "doc3") is False
+        assert engine.can_read_document(DEVELOPER, "doc3") is True
 
-    def test_unassigned_doc_pm_denied(self, ctx):
+    def test_unassigned_doc_pm_can_read(self, ctx):
         uow, engine = ctx
-        assert engine.can_read_document(PM, "doc3") is False
+        assert engine.can_read_document(PM, "doc3") is True
 
     def test_document_grant_to_user(self, ctx):
         uow, engine = ctx
@@ -363,7 +363,7 @@ class TestAuthorizationScope:
         scope = engine.authorization_scope(DEVELOPER)
         assert scope.is_admin is False
         assert scope.project_ids == ["p1"]
-        assert scope.include_unassigned is False
+        assert scope.include_unassigned is True
 
     def test_manager_scope_includes_unassigned(self, ctx):
         uow, engine = ctx

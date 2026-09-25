@@ -134,7 +134,7 @@ class ProfileService:
         if document.document_id in grant_document_ids:
             access_source = "document_grant"
         elif document.project_id is None:
-            access_source = "manager_scope"
+            access_source = "org_wide"
         else:
             access_source = "project_access"
 

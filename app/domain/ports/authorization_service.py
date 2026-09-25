@@ -9,6 +9,7 @@ class AuthenticatedPrincipal:
     uid: str
     token: str | None = None
     must_change_password: bool = False
+    refresh_token: str | None = None
 
 
 class AuthorizationService(Protocol):
