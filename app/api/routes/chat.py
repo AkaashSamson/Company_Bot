@@ -26,7 +26,10 @@ orchestrator: QueryOrchestrator | None = None
 
 def init_orchestrator() -> None:
     global _orchestrator
-    _orchestrator = QueryOrchestrator()
+    from app.infrastructure.cache.quality_aware_cache import get_quality_cache
+    _orchestrator = QueryOrchestrator(
+        response_cache=get_quality_cache(),
+    )
     logger.info("QueryOrchestrator initialised and ready.")
 
 
@@ -79,8 +82,24 @@ async def chat(
         kwargs["session_id"] = request.session_id
     if "defer_citations" in answer_sig.parameters:
         kwargs["defer_citations"] = request.defer_citations if request.defer_citations is not None else False
+    user_context = principal
+    if principal is not None and authorization is not None:
+        try:
+            user_roles = authorization.roles_for_user(principal.uid)
+            role_names = [getattr(r, "name", str(r)) for r in user_roles] if user_roles else []
+            primary_role = role_names[0] if role_names else ("admin" if getattr(scope, "is_admin", False) else None)
+            user_context = {
+                "uid": principal.uid,
+                "role": primary_role,
+                "roles": role_names,
+                "is_admin": getattr(scope, "is_admin", False),
+                "principal": principal,
+            }
+        except Exception:
+            user_context = principal
+
     if "user_context" in answer_sig.parameters:
-        kwargs["user_context"] = principal
+        kwargs["user_context"] = user_context
 
     try:
         result = await asyncio.to_thread(
@@ -137,9 +156,13 @@ async def chat(
         answer=result.get("answer", ""),
         citations=citations,
         cache_hit=result.get("cache_hit", False),
+        cache_id=result.get("cache_id"),
+        assigned_role=result.get("assigned_role"),
         matched_faq=result.get("matched_faq"),
         similarity=result.get("similarity"),
         tokens=token_usage,
+        is_latest=result.get("is_latest", True),
+        corrections=result.get("corrections", []),
     )
 
 

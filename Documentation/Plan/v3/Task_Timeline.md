@@ -144,11 +144,7 @@ This document defines the phase-by-phase execution timeline for KnowLayer V3. It
   - [x] Define `PipelineStage` enum with 8 stages (Context Rewrite, Normalization, Cache Lookup, Vector Retrieval, Reranking, Quality Gate, LLM Generation, Post Guardrails).
   - [x] Implement `TraceContext` context manager for measuring stage durations and token metrics.
 - [x] **Task AB-1.2 (Client Health Integration):** Update `openrouter_client.py` and `groq_client.py` to report status to `ProviderHealthMonitor` and utilize `LLMResponseBuilder`. Add it to Streamlit.
-- [ ] **Task AB-3.3 (POS Noun Filtering, Lemmatization & Vector Synonym Clustering):** Implement `app/use_cases/chat/synonym_clustering.py`:
-  - [ ] Extract and filter all noun-type unique words (`NN`, `NNS`, `NNP`, `NNPS`) from documents/queries using Part-of-Speech (POS) tagging.
-  - [ ] Apply lemmatization to reduce extracted noun tokens to their canonical lemma base form.
-  - [ ] Group and cluster canonical nouns based on embedding vector similarity (cosine threshold).
-  - [ ] Integrate generated synonym clusters into `QueryNormalizer` domain synonym map to enhance lexical grounding in retrieval and caching.
+
 - [x] **Task AB-3.4 (Query Intent Disambiguation & Semantic Routing):** Implement `app/use_cases/chat/query_intent_classifier.py`:
   - [x] Implement rule-based intent classification (`PROCEDURAL`, `PERSONAL_BALANCE`, `POLICY_GENERAL`).
   - [x] Differentiate procedural action keywords ("apply", "submit", "portal", "approval") from quantitative entitlement keywords ("how many", "balance", "remaining", "days").

@@ -2,7 +2,6 @@
 Enhanced Query Normalizer with Advanced NLP Features
 
 Implements comprehensive query normalization for chatbots:
-- Unicode normalization (NFKD, accent removal)
 - Case normalization (lowercase)
 - Whitespace normalization
 - Punctuation & symbol handling
@@ -759,16 +758,20 @@ class QueryNormalizer:
         """
         Generate a deterministic cache key from normalized query.
         
-        Uses simple hashing for cache key generation.
+        Uses simple hashing for cache key generation with question prefix canonicalization.
         """
         if not normalized_query:
             return "empty_query"
         
         # Simple hash - just use the normalized query lowercased
-        # This is deterministic and readable for debugging
         key = normalized_query.lower().strip()
-        key = re.sub(r'[^a-z0-9\s]', '', key)  # Remove special chars
+        # Canonicalize leading question prefixes for policy/informational questions
+        key = re.sub(r'^(?:what|how)\s+is\s+(?:the\s+)?', 'what_is_the_', key)
+        key = re.sub(r'^(?:what|how)\s+are\s+(?:the\s+)?', 'what_are_the_', key)
+        key = re.sub(r'^(?:tell\s+me\s+about\s+(?:the\s+)?|explain\s+(?:the\s+)?)', 'what_is_the_', key)
+        key = re.sub(r'[^a-z0-9\s_]', '', key)  # Remove special chars
         key = re.sub(r'\s+', '_', key)  # Replace spaces with underscores
+        key = re.sub(r'_+', '_', key).strip('_')
         
         return key[:200]  # Limit key length
     

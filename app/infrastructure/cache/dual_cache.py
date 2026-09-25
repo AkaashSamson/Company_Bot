@@ -105,15 +105,17 @@ class JSONLocalCache:
             logger.error("json_local_cache load failed: %s", e)
     
     def _save(self) -> None:
-        """Save cache to JSON file."""
+        """Save cache to JSON file atomically."""
         try:
             data = {
                 key: entry.to_dict() 
                 for key, entry in self._cache.items()
             }
             
-            with open(self.file_path, 'w') as f:
+            temp_path = self.file_path.with_name(f"{self.file_path.name}.{os.getpid()}.tmp")
+            with open(temp_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2)
+            os.replace(temp_path, self.file_path)
             
             logger.debug("json_local_cache saved entries=%d", len(self._cache))
         except Exception as e:

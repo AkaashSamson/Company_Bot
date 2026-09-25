@@ -22,9 +22,24 @@ class AdminAuthorization:
 client = TestClient(app)
 
 
-def test_chat_endpoint_returns_chat_response():
+def test_chat_endpoint_returns_chat_response(monkeypatch):
     app.dependency_overrides[get_chat_principal] = lambda: AuthenticatedPrincipal("admin")
     app.dependency_overrides[get_authorization_service] = lambda: AdminAuthorization()
+    llm = Mock()
+    llm.generate.return_value = "Employees receive annual leave according to company policy."
+    retrieval = Mock()
+    retrieval.retrieve.return_value = [
+        {
+            "text": "Employees receive annual leave according to company policy.",
+            "metadata": {"source": "HR_Policy.pdf", "section": "Leave"},
+        }
+    ]
+    mock_orchestrator = chat_route.QueryOrchestrator(
+        llm=FallbackLLMProvider(primary=llm, fallback=Mock()),
+        retrieval=retrieval,
+        response_cache=PromptLRUCache(maxsize=2),
+    )
+    monkeypatch.setattr(chat_route, "orchestrator", mock_orchestrator)
     try:
         payload = {
             "question": "What is the annual leave policy?",
@@ -63,6 +78,7 @@ def test_chat_endpoint_reuses_cached_answer(monkeypatch):
         ),
         retrieval=retrieval,
         response_cache=PromptLRUCache(maxsize=2),
+        faq_cache=None,
     )
     monkeypatch.setattr(chat_route, "orchestrator", cached_orchestrator)
     payload = {
@@ -136,6 +152,7 @@ def test_similar_questions_return_the_exact_previous_response(monkeypatch):
         llm=FallbackLLMProvider(primary=llm, fallback=Mock()),
         retrieval=retrieval,
         response_cache=response_cache,
+        faq_cache=None,
     )
     monkeypatch.setattr(chat_route, "orchestrator", cached_orchestrator)
 
@@ -176,3 +193,26 @@ def test_faq_endpoint_reads_json_cache_without_llm(monkeypatch, tmp_path):
     assert response.json()["faqs"] == "1. What is the leave entitlement?"
     retrieval.retrieve.assert_not_called()
     llm.generate.assert_not_called()
+
+
+def test_clear_cache_endpoint(monkeypatch):
+    mock_response_cache = Mock()
+    mock_llm_cache = Mock()
+    mock_llm = Mock()
+    mock_llm.cache = mock_llm_cache
+    orchestrator = Mock()
+    orchestrator.response_cache = mock_response_cache
+    orchestrator.llm = mock_llm
+    orchestrator.faq_cache = None
+
+    monkeypatch.setattr(chat_route, "orchestrator", orchestrator)
+
+    response = client.post("/api/chat/cache/clear")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert "response_cache" in body["cleared"]
+    assert "llm_prompt_cache" in body["cleared"]
+    mock_response_cache.clear.assert_called_once()
+    mock_llm_cache.clear.assert_called_once()
+

@@ -45,7 +45,7 @@ class RAGContextBuilder:
             "- If information is not in the context, say 'I could not find that information in the available documents'\n"
             "- Cite relevant sections when applicable\n"
             "- Do not add external knowledge or assumptions\n"
-            "- End with: 'Would you like to see the references for this?'"
+            "- End with: 'Was this response relevant to your question?'"
         )
 
     def build_user_prompt(
@@ -131,7 +131,7 @@ class RAGContextBuilder:
             prompt_parts.append(
                 "\nInstructions: Answer using ONLY the document context above. "
                 "Write 2-4 sentences. No analysis or reasoning — just the answer. "
-                "End with: 'Would you like to see the references for this?'"
+                "End with: 'Was this response relevant to your question?'"
             )
 
         if self.include_timestamp:

@@ -34,7 +34,7 @@ class GroqClient(LLMProvider):
         api_key: str = GROQ_API_KEY,
         model: str = GROQ_MODEL,
         timeout: float = 60.0,
-        max_tokens: int = 400,
+        max_tokens: int = 1024,
         health_monitor: Optional[Any] = None,
     ):
         self.api_key = api_key
