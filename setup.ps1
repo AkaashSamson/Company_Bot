@@ -150,6 +150,15 @@ if (-not (Test-Path $VenvPython)) {
     $InstallDeps = $true
 }
 
+if (-not $InstallDeps) {
+    # Check if newly added dependencies (e.g. streamlit-cookies-controller) are installed
+    $CheckDeps = & "$VenvPython" -c "import streamlit_cookies_controller" 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[DEPS] Detected missing package(s). Installing dependencies from requirements.txt..." -ForegroundColor Yellow
+        $InstallDeps = $true
+    }
+}
+
 if ($InstallDeps) {
     Write-Host "[DEPS] Installing/Updating dependencies from requirements.txt..." -ForegroundColor Cyan
     & "$VenvPython" -m pip install --upgrade pip --quiet
