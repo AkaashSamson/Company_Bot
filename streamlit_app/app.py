@@ -1,5 +1,7 @@
 import streamlit as st
 import requests
+import uuid
+from datetime import datetime, timezone
 
 from streamlit_app.session_auth import bootstrap_cookies, persist_auth, restore_auth
 from streamlit_app.services.chat_service import ChatService
@@ -9,6 +11,10 @@ from streamlit_app.services.authentication_service import AuthenticationService
 st.set_page_config(page_title="KnowLayer HR Chatbot", page_icon="📘")
 
 cookies = bootstrap_cookies()
+if "auth" not in st.session_state:
+    st.session_state.auth = None
+if "session_id" not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())
 
 if st.session_state.get("auth") is None:
     restore_auth(cookies)
@@ -39,11 +45,12 @@ persist_auth(cookies)
 
 def _logout():
     st.session_state.auth = None
+    st.session_state.session_id = str(uuid.uuid4())
+    st.session_state.messages = []
     try:
         cookies.remove("knowlayer_auth")
     except KeyError:
         pass
-
 
 st.sidebar.button("Log out", on_click=_logout)
 st.title("KnowLayer HR Policy Assistant")
@@ -97,9 +104,8 @@ def _format_citations(citations: list) -> str:
     lines = ["\n\n---\n**References:**"]
     for c in citations:
         source = c.get("source", "Policy")
-        section = c.get("section", "")
         text = c.get("text", "")
-        lines.append(f"\n📄 **{source}** — {section}")
+        lines.append(f"\n📄 **{source}**")
         if text:
             lines.append(f"\n> {text}")
     return "\n".join(lines)
@@ -131,7 +137,12 @@ for message in st.session_state.messages:
 user_input = st.chat_input("Ask about the HR policy...")
 
 if user_input:
-    st.session_state.messages.append({"role": "user", "content": user_input})
+    question_timestamp = datetime.now(timezone.utc).isoformat()
+    st.session_state.messages.append({
+        "role": "user", 
+        "content": user_input,
+        "timestamp": question_timestamp
+    })
     with st.chat_message("user"):
         st.markdown(user_input)
 
@@ -140,7 +151,8 @@ if user_input:
     try:
         response = service.ask(
             user_input,
-            session_id="streamlit-session",
+            question_timestamp=question_timestamp,
+            session_id=st.session_state.session_id,
             history=conversation_history,
             project_id=selected_project_id,
         )
@@ -159,6 +171,10 @@ if user_input:
     # Embed citations and token info as plain markdown into the answer so they persist in history
     full_content = answer + _format_citations(citations) + _format_token_info(tokens)
 
-    st.session_state.messages.append({"role": "assistant", "content": full_content})
+    st.session_state.messages.append({
+        "role": "assistant", 
+        "content": full_content,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
     with st.chat_message("assistant"):
         st.markdown(full_content)

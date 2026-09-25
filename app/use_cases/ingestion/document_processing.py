@@ -80,7 +80,6 @@ def build_chunk_records(
                 "project_id": project_id or "unassigned",
                 "source": source or document_id,
                 "chunk_index": index,
-                "section": "Policy",
                 "file_type": (file_type or "text").lstrip("."),
                 "version": version or "1.0",
             },

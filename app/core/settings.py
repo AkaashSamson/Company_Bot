@@ -128,3 +128,5 @@ def parse_retention_days(raw_value: Optional[str]) -> int:
 CONVERSATION_LOG_RETENTION_DAYS = parse_retention_days(
     os.getenv("CONVERSATION_LOG_RETENTION_DAYS")
 )
+
+LOG_CLEANUP_INTERVAL_SECONDS = int(os.getenv("LOG_CLEANUP_INTERVAL_SECONDS", "86400"))

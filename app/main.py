@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -16,6 +17,28 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 logger = logging.getLogger("knowlayer")
+
+
+from app.core.settings import LOG_CLEANUP_INTERVAL_SECONDS
+
+async def periodic_log_cleanup_task(interval_seconds: int = LOG_CLEANUP_INTERVAL_SECONDS):
+    from app.infrastructure.logging.conversation_log_cleanup import ConversationLogCleanup
+    cleanup_service = ConversationLogCleanup()
+    while True:
+        try:
+            await asyncio.sleep(interval_seconds)
+            result = await asyncio.to_thread(cleanup_service.cleanup_expired_logs)
+            logger.info(
+                "Periodic conversation log cleanup completed: %d deleted, %d preserved, %d failed",
+                result.deleted,
+                result.preserved,
+                result.failed,
+            )
+        except asyncio.CancelledError:
+            logger.info("Periodic conversation log cleanup task cancelled.")
+            break
+        except Exception as exc:
+            logger.error("Periodic conversation log cleanup failed: %s", exc)
 
 
 @asynccontextmanager
@@ -39,8 +62,16 @@ async def lifespan(app: FastAPI):
     logger.info("Lifespan: warming up orchestrator…")
     init_orchestrator()
     logger.info("Lifespan: startup complete.")
+    
+    cleanup_task = asyncio.create_task(periodic_log_cleanup_task())
+    
     yield
     logger.info("Lifespan: shutdown.")
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(title="KnowLayer API", lifespan=lifespan)

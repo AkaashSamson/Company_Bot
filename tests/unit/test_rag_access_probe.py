@@ -12,15 +12,12 @@ def _candidate(
     project_id="p2",
     document_id="docx",
     source="unknown.txt",
-    section=None,
 ):
     metadata = {
         "document_id": document_id,
         "project_id": project_id,
         "source": source,
     }
-    if section is not None:
-        metadata["section"] = section
     return {"text": text, "distance": distance, "metadata": metadata}
 
 
@@ -57,7 +54,6 @@ def test_probe_hits_only_redacted_fields_never_text():
             "project_id": "p2",
             "document_id": "docB",
             "source": "ProjectB_Policy.txt",
-            "section": None,
             "distance": 0.31,
         }
     ]

@@ -45,7 +45,7 @@ class PromptLRUCache:
                 embed_text = " ".join(
                     message.get("content", "")
                     for message in parsed
-                    if isinstance(message, dict) and message.get("role") == "user"
+                    if isinstance(message, dict) and message.get("role") in ("system", "user")
                 ) or key
             elif isinstance(parsed, str):
                 embed_text = parsed

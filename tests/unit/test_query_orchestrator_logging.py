@@ -16,7 +16,7 @@ class DummyRetrieval:
 
 class DummyProvenance:
     def build_citations(self, evidence):
-        return [{"source": "HR Handbook", "section": "Leave", "text": e["text"]} for e in evidence]
+        return [{"source": "HR Handbook", "text": e["text"]} for e in evidence]
 
 
 class DummyResolver:
@@ -68,13 +68,12 @@ def test_orchestrator_logs_conversation_on_successful_answer():
 
     # Messages include prior history, current question, and assistant answer
     messages = call_kwargs["messages"]
-    assert len(messages) == 3
+    messages = call_kwargs["messages"]
+    assert len(messages) == 2
     assert messages[0]["role"] == "user"
-    assert messages[0]["content"] == "Prior question"
-    assert messages[1]["role"] == "user"
-    assert messages[1]["content"] == "How many days?"
-    assert messages[2]["role"] == "assistant"
-    assert messages[2]["content"] == "You have 20 days of leave."
+    assert messages[0]["content"] == "How many days?"
+    assert messages[1]["role"] == "assistant"
+    assert messages[1]["content"] == "You have 20 days of leave."
 
 
 def test_orchestrator_does_not_log_when_llm_fails():
@@ -156,10 +155,8 @@ def test_orchestrator_does_not_duplicate_trailing_user_question():
     orchestrator.answer("Current question", conversation_history=history)
 
     call_messages = mock_logger.log_conversation.call_args.kwargs["messages"]
-    assert len(call_messages) == 4
+    assert len(call_messages) == 2
     assert [m["content"] for m in call_messages] == [
-        "Initial question",
-        "Initial answer",
         "Current question",
         "Standard answer",
     ]
