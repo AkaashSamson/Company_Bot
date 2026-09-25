@@ -4,9 +4,10 @@
 # Virtual environment
 .venv/
 
-# Python cache
+# Python cache & test cache
 __pycache__/
 *.py[cod]
+.pytest_cache/
 
 # Chroma local database
 .chroma/
@@ -19,3 +20,10 @@ conversation_logs/
 
 # Implementation notes
 Implementation_notes.md
+
+# Runtime vector and FAQ response caches
+data/response_cache.json
+data/faqs_cache.json
+
+# Seeded credentials
+docs/SEEDED_USERS_AND_CREDENTIALS.md
