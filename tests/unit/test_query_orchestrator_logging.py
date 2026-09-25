@@ -76,8 +76,8 @@ def test_orchestrator_logs_conversation_on_successful_answer():
     assert messages[1]["content"] == "You have 20 days of leave."
 
 
-def test_orchestrator_does_not_log_when_llm_fails():
-    """Verify that if answer generation fails, incomplete conversation is NOT logged."""
+def test_orchestrator_fallback_on_llm_failure():
+    """Verify that if answer generation fails, orchestrator gracefully falls back to document text."""
     mock_logger = MagicMock()
     orchestrator = QueryOrchestrator(
         retrieval=DummyRetrieval(),
@@ -87,11 +87,9 @@ def test_orchestrator_does_not_log_when_llm_fails():
         conversation_logger=mock_logger,
     )
 
-    with pytest.raises(LLMProviderError):
-        orchestrator.answer("Any leave?", session_id="fail-session")
-
-    # Logger should not have been called
-    mock_logger.log_conversation.assert_not_called()
+    result = orchestrator.answer("Any leave?", session_id="fail-session")
+    assert "Leave policy is 20 days." in result["answer"]
+    assert mock_logger.log_conversation.called
 
 
 def test_orchestrator_isolates_logging_failure_from_chat_response():
