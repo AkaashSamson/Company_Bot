@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional
 import logging
+from app.core.cache_quality import is_negative_response, _NO_INFO_PATTERN
 
 from app.domain.services.llm_provider import (
     LLMProvider,
@@ -31,15 +32,19 @@ class FallbackLLMProvider(LLMProvider):
     def generate(self, messages: List[Dict[str, str]]) -> str:
         cached_response = self.cache.get(messages)
         if cached_response is not None:
-            logger.info("llm_call outcome=cache_hit provider=none")
-            # For cached responses, set zero tokens
-            self._last_tokens = {
-                "prompt_tokens": 0,
-                "completion_tokens": 0,
-                "total_tokens": 0,
-                "cache_hit": True,
-            }
-            return cached_response
+            if is_negative_response(cached_response):
+                logger.info("llm_cache_evict reason=cached_negative_response")
+                cached_response = None
+            else:
+                logger.info("llm_call outcome=cache_hit provider=none")
+                # For cached responses, set zero tokens
+                self._last_tokens = {
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0,
+                    "cache_hit": True,
+                }
+                return cached_response
 
         try:
             logger.info("llm_call provider=primary")
@@ -63,7 +68,10 @@ class FallbackLLMProvider(LLMProvider):
                     "Both primary and fallback LLM providers failed."
                 ) from fallback_error
 
-        self.cache.put(messages, response)
+        if not is_negative_response(response):
+            self.cache.put(messages, response)
+        else:
+            logger.info("llm_cache_skip reason=negative_response")
         logger.info("llm_success outcome=generated response_chars=%d", len(response))
         return response
 

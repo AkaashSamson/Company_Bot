@@ -1,10 +1,19 @@
 import re
-from typing import Dict, List, Optional
+import time
+from typing import Any, Dict, List, Optional
 
 import httpx
 
 from app.core.settings import LLM_MODEL, OPENROUTER_API_KEY
 from app.domain.services.llm_provider import LLMProvider, LLMProviderError
+from app.infrastructure.llm.provider_health import get_provider_health_monitor, ProviderType
+from app.infrastructure.llm.llm_response import (
+    LLMResponse,
+    LLMResponseBuilder,
+    LLMProviderName,
+    LLMResponseStatus,
+    LLMTokenUsage,
+)
 from app.infrastructure.observability.token_tracker import get_token_tracker
 
 # Matches the offer-for-references line we ask the model to append.
@@ -73,11 +82,13 @@ class OpenRouterClient(LLMProvider):
         timeout: float = 60.0,
         max_tokens: int = 400,
         session_id: Optional[str] = None,
+        health_monitor: Optional[Any] = None,
     ):
         self.api_key = api_key
         self.model = model
         self.max_tokens = max_tokens
         self.session_id = session_id
+        self.health_monitor = health_monitor or get_provider_health_monitor()
 
         # Persistent client — reuses TCP/TLS connection across calls.
         self._client = httpx.Client(
@@ -89,7 +100,13 @@ class OpenRouterClient(LLMProvider):
         )
 
     def generate(self, messages: List[Dict[str, str]]) -> str:
+        start_time = time.perf_counter()
+        if self.health_monitor:
+            self.health_monitor.record_request_start(ProviderType.OPENROUTER.value)
+
         if not self.api_key:
+            if self.health_monitor:
+                self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
             raise LLMProviderError("OPENROUTER_API_KEY is not configured.")
 
         payload = {
@@ -100,8 +117,11 @@ class OpenRouterClient(LLMProvider):
 
         try:
             response = self._client.post(self.BASE_URL, json=payload)
+            latency_ms = (time.perf_counter() - start_time) * 1000.0
 
             if response.is_error:
+                if self.health_monitor:
+                    self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
                 raise LLMProviderError(
                     f"OpenRouter returned HTTP {response.status_code}: {response.text}"
                 )
@@ -110,6 +130,8 @@ class OpenRouterClient(LLMProvider):
 
             # Some models return {"error": {...}} with HTTP 200 (upstream errors)
             if "error" in data and "choices" not in data:
+                if self.health_monitor:
+                    self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
                 err_msg = data["error"].get("message", str(data["error"]))
                 raise LLMProviderError(f"OpenRouter upstream error: {err_msg}")
 
@@ -123,6 +145,8 @@ class OpenRouterClient(LLMProvider):
                 ]
                 response = self._client.post(self.BASE_URL, json=payload)
                 if response.is_error:
+                    if self.health_monitor:
+                        self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
                     raise LLMProviderError(
                         f"OpenRouter returned HTTP {response.status_code}: {response.text}"
                     )
@@ -130,7 +154,13 @@ class OpenRouterClient(LLMProvider):
                 raw = data["choices"][0]["message"]["content"]
 
             if not raw:
+                if self.health_monitor:
+                    self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
                 raise LLMProviderError("OpenRouter returned an empty response.")
+
+            # Record health success
+            if self.health_monitor:
+                self.health_monitor.record_request_success(ProviderType.OPENROUTER.value, latency_ms)
 
             # Track token usage from OpenRouter response
             self._track_tokens(data)
@@ -143,7 +173,123 @@ class OpenRouterClient(LLMProvider):
         except LLMProviderError:
             raise
         except (httpx.HTTPError, KeyError, IndexError, TypeError) as error:
+            if self.health_monitor:
+                self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
             raise LLMProviderError(f"OpenRouter request failed: {error}") from error
+
+    def generate_with_response(self, messages: List[Dict[str, str]]) -> LLMResponse:
+        """Execute chat completion and return structured LLMResponse object (Task AB-1.2)."""
+        start_time = time.perf_counter()
+        if self.health_monitor:
+            self.health_monitor.record_request_start(ProviderType.OPENROUTER.value)
+
+        if not self.api_key:
+            if self.health_monitor:
+                self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
+            return LLMResponseBuilder.error(
+                "OPENROUTER_API_KEY is not configured.",
+                status=LLMResponseStatus.FAILED,
+                provider=LLMProviderName.OPENROUTER,
+            )
+
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": self.max_tokens,
+        }
+
+        try:
+            response = self._client.post(self.BASE_URL, json=payload)
+            latency_ms = (time.perf_counter() - start_time) * 1000.0
+
+            if response.status_code == 429:
+                if self.health_monitor:
+                    self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
+                return LLMResponseBuilder.error(
+                    f"OpenRouter rate limited (HTTP 429): {response.text}",
+                    status=LLMResponseStatus.RATE_LIMITED,
+                    provider=LLMProviderName.OPENROUTER,
+                )
+
+            if response.is_error:
+                if self.health_monitor:
+                    self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
+                return LLMResponseBuilder.error(
+                    f"OpenRouter returned HTTP {response.status_code}: {response.text}",
+                    status=LLMResponseStatus.FAILED,
+                    provider=LLMProviderName.OPENROUTER,
+                )
+
+            data = response.json()
+            if "error" in data and "choices" not in data:
+                if self.health_monitor:
+                    self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
+                err_msg = data["error"].get("message", str(data["error"]))
+                return LLMResponseBuilder.error(
+                    f"OpenRouter upstream error: {err_msg}",
+                    status=LLMResponseStatus.FAILED,
+                    provider=LLMProviderName.OPENROUTER,
+                )
+
+            raw = data["choices"][0]["message"]["content"]
+            if not raw:
+                # Retry once with user-only message
+                payload["messages"] = [
+                    {"role": "user", "content": payload["messages"][-1]["content"]}
+                ]
+                response = self._client.post(self.BASE_URL, json=payload)
+                if response.is_error:
+                    if self.health_monitor:
+                        self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
+                    return LLMResponseBuilder.error(
+                        f"OpenRouter returned HTTP {response.status_code}: {response.text}",
+                        status=LLMResponseStatus.FAILED,
+                        provider=LLMProviderName.OPENROUTER,
+                    )
+                data = response.json()
+                raw = data["choices"][0]["message"]["content"]
+
+            if not raw:
+                if self.health_monitor:
+                    self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
+                return LLMResponseBuilder.error(
+                    "OpenRouter returned an empty response.",
+                    status=LLMResponseStatus.FAILED,
+                    provider=LLMProviderName.OPENROUTER,
+                )
+
+            if self.health_monitor:
+                self.health_monitor.record_request_success(ProviderType.OPENROUTER.value, latency_ms)
+
+            self._track_tokens(data)
+            self._add_tokens_to_langsmith(data)
+
+            usage = data.get("usage", {})
+            tokens = LLMTokenUsage(
+                prompt_tokens=usage.get("prompt_tokens", 0),
+                completion_tokens=usage.get("completion_tokens", 0),
+                total_tokens=usage.get("total_tokens", 0),
+            )
+            cleaned = _strip_reasoning(raw)
+            return (
+                LLMResponseBuilder()
+                .with_content(cleaned)
+                .with_status(LLMResponseStatus.SUCCESS)
+                .with_provider(LLMProviderName.OPENROUTER)
+                .with_model(self.model)
+                .with_tokens(tokens=tokens)
+                .with_latency(latency_ms)
+                .build()
+            )
+
+        except Exception as error:
+            if self.health_monitor:
+                self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
+            return LLMResponseBuilder.error(
+                f"OpenRouter request failed: {error}",
+                status=LLMResponseStatus.FAILED,
+                provider=LLMProviderName.OPENROUTER,
+            )
 
     def _track_tokens(self, response_data: dict) -> None:
         """Extract and track token usage from OpenRouter response."""

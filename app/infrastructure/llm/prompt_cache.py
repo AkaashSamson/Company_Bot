@@ -53,6 +53,12 @@ class PromptLRUCache:
                 embed_text = str(parsed)
         except (TypeError, ValueError):
             embed_text = key
+
+        # If the user message is formatted with document context and "Question: ...",
+        # isolate the question so that shared background context does not dominate the embedding.
+        if "Question:" in embed_text:
+            embed_text = embed_text.split("Question:", 1)[1].strip()
+
         if self._embedding_model is None:
             self._embedding_model = SentenceTransformer(EMBEDDING_MODEL)
         return self._embedding_model.encode(embed_text, convert_to_numpy=True).tolist()
