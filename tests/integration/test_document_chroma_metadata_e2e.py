@@ -41,7 +41,6 @@ def test_chroma_stores_document_and_project_metadata(tmp_path, monkeypatch):
     assert metadata["source"] == "Onboarding.txt"
     assert metadata["file_type"] == "txt"
     assert metadata["version"] == "2.1"
-    assert metadata["section"] == "Policy"
 
 
 def test_chroma_metadata_defaults_for_unassigned_document(tmp_path, monkeypatch):

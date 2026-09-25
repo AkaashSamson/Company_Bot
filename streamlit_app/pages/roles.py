@@ -2,8 +2,10 @@ import streamlit as st
 
 from streamlit_app.services.admin_api import AdminAPI
 from streamlit_app.services.ui_helpers import format_error, unavailable
+from streamlit_app.session_auth import require_auth
 
 st.set_page_config(page_title="Roles | KnowLayer", page_icon="🔑")
+require_auth()
 st.title("Roles & Permissions")
 
 service = AdminAPI()
@@ -139,30 +141,36 @@ if not role_options:
 else:
     assign_role_label = st.selectbox("Role", list(role_options), key="assign-role")
     assign_role_id = role_options[assign_role_label]
-    try:
-        current_permissions = {
-            p["permission_id"]
-            for p in service.list_role_permissions(assign_role_id).get("permissions", [])
-        }
-    except Exception as error:
-        st.error(format_error(error))
-        current_permissions = set()
-
-    selected = set()
-    with st.form("permission-assignment"):
-        selected = set(permission_checkboxes(
-            "Permissions",
-            current_permissions,
-            f"assign-{assign_role_id}",
-        ))
-        submitted = st.form_submit_button("Save permissions")
-    if submitted:
+    if assign_role_label == "Admin":
+        st.info(
+            "The system Admin role cannot be modified. Admin access is granted "
+            "by role identity, so permission assignment is disabled for this role."
+        )
+    else:
         try:
-            service.set_role_permissions(assign_role_id, {"permission_ids": sorted(selected)})
-            st.success("Permissions saved.")
-            st.rerun()
+            current_permissions = {
+                p["permission_id"]
+                for p in service.list_role_permissions(assign_role_id).get("permissions", [])
+            }
         except Exception as error:
             st.error(format_error(error))
+            current_permissions = set()
+
+        selected = set()
+        with st.form("permission-assignment"):
+            selected = set(permission_checkboxes(
+                "Permissions",
+                current_permissions,
+                f"assign-{assign_role_id}",
+            ))
+            submitted = st.form_submit_button("Save permissions")
+        if submitted:
+            try:
+                service.set_role_permissions(assign_role_id, {"permission_ids": sorted(selected)})
+                st.success("Permissions saved.")
+                st.rerun()
+            except Exception as error:
+                st.error(format_error(error))
 
 # ------------------------------------------------------------------ delete
 

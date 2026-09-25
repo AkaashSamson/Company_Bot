@@ -58,14 +58,14 @@ class RetrievalService:
             logger.info("retrieval document scope for user: %s", list(authorized_document_ids))
 
         candidates = []
-        for part_index, retrieval_query in enumerate(self._query_parts(query_text)):
-            query_kwargs = {"top_k": top_k}
-            if where_filter is not None:
-                query_kwargs["where"] = where_filter
-            elif project_ids_for_filter is not None:
-                query_kwargs["project_ids"] = project_ids_for_filter
-            for candidate in self.store.query(retrieval_query, **query_kwargs):
-                candidates.append({**candidate, "_query_part_index": part_index})
+        query_kwargs = {"top_k": top_k}
+        if where_filter is not None:
+            query_kwargs["where"] = where_filter
+        elif project_ids_for_filter is not None:
+            query_kwargs["project_ids"] = project_ids_for_filter
+            
+        for candidate in self.store.query(query_text, **query_kwargs):
+            candidates.append({**candidate, "_query_part_index": 0})
         logger.info(
             "retrieval collected %d raw candidates for query %r (authorized_projects=%s documents=%s)",
             len(candidates), query_text, authorized_project_ids, authorized_document_ids,
@@ -142,7 +142,6 @@ class RetrievalService:
                 "project_id": str(project_id) if project_id else None,
                 "document_id": document_id,
                 "source": metadata.get("source"),
-                "section": metadata.get("section"),
                 "distance": distance,
             })
 
@@ -153,52 +152,6 @@ class RetrievalService:
         )
         return hits
 
-    @staticmethod
-    def _query_parts(query_text: str) -> list[str]:
-        parts = [
-            part.strip(" ,;:")
-            for part in re.split(r"[;\n]+|,", query_text)
-        ]
-        parts = [re.sub(r"^(and|or)\s+", "", part, flags=re.IGNORECASE) for part in parts]
-        parts = [part for part in parts if part]
-        queries = [query_text] + [part for part in parts if part.lower() != query_text.lower()]
-        if re.search(r"\bleaves?\b", query_text, flags=re.IGNORECASE) and not re.search(
-            r"\b(annual|sick|parental|maternity|paternity|bereavement)\b",
-            query_text,
-            flags=re.IGNORECASE,
-        ):
-            queries.append("annual leave entitlement")
-        if re.search(r"\b(faqs?|frequently asked|main questions)\b", query_text, flags=re.IGNORECASE):
-            queries.extend([
-                "How many Annual Leave days do I receive",
-                "Can I carry forward unused Annual Leave",
-                "What happens to unused Casual Leave",
-                "Do I need approval before taking leave",
-            ])
-        if re.search(r"\b(other policies|policy sections|company policies)\b", query_text, flags=re.IGNORECASE):
-            queries.append("handbook policies")
-        # Expand payment/pay/salary/compensation synonyms to match document vocabulary
-        if re.search(r"\b(payment|pay|paid|paycheck|wages?)\b", query_text, flags=re.IGNORECASE):
-            queries.extend([
-                "salary payroll cycle payment method",
-                "Compensation and Payroll policy",
-                "salary structure gross net deductions",
-            ])
-        # Expand benefit/bonus/reimbursement queries
-        if re.search(r"\b(benefits?|bonus|bonuses|reimbursement|perks?)\b", query_text, flags=re.IGNORECASE):
-            queries.extend([
-                "Employee Benefits health insurance provident fund",
-                "performance bonus variable pay",
-                "expense reimbursement certification",
-            ])
-        # Expand conduct/harassment/discipline queries
-        if re.search(r"\b(conduct|harassment|disciplin|misconduct|grievance)\b", query_text, flags=re.IGNORECASE):
-            queries.extend([
-                "Code of Conduct workplace behaviour",
-                "harassment reporting investigation",
-                "disciplinary policy misconduct",
-            ])
-        return queries
 
     @staticmethod
     def select_relevant(

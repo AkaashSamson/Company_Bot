@@ -6,7 +6,6 @@ import pytest
 from app.domain.entities.conversation_log import ConversationLog, ConversationMessage
 from app.domain.services.employee_id_provider import EmployeeIdProvider
 from app.infrastructure.logging.conversation_logger import ConversationLogger
-from app.infrastructure.logging.mock_employee_id_provider import MockEmployeeIdProvider
 
 
 class FixedIdProvider(EmployeeIdProvider):
@@ -38,7 +37,7 @@ def test_conversation_logger_writes_json_file_with_required_fields(tmp_path):
 
     assert log_file is not None
     assert log_file.exists()
-    assert log_file.name == "MSS001_20260910_153000.json"
+    assert log_file.name == "MSS001_session-xyz-123.json"
 
     with open(log_file, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -88,31 +87,29 @@ def test_conversation_logger_preserves_message_order_and_timestamps(tmp_path):
     assert loaded_contents == ["Step 1", "Step 2", "Step 3", "Step 4"]
 
 
-def test_conversation_logger_same_second_collision_handling(tmp_path):
-    """Verify that same-second completions create unique files with numerical suffixes."""
+def test_conversation_logger_appends_to_existing_session_file(tmp_path):
+    """Verify that using the same session_id appends to the existing file instead of creating a new one."""
     logger = ConversationLogger(
         log_dir=tmp_path,
         employee_id_provider=FixedIdProvider("MSS001"),
     )
 
     fixed_time = datetime(2026, 9, 10, 12, 0, 0, tzinfo=timezone.utc)
-    messages = [{"role": "user", "content": "Test"}]
+    messages1 = [{"role": "user", "content": "Test1"}]
+    messages2 = [{"role": "user", "content": "Test2"}]
 
-    file1 = logger.log_conversation("s1", messages, timestamp=fixed_time)
-    file2 = logger.log_conversation("s2", messages, timestamp=fixed_time)
-    file3 = logger.log_conversation("s3", messages, timestamp=fixed_time)
+    file1 = logger.log_conversation("s1", messages1, timestamp=fixed_time)
+    file2 = logger.log_conversation("s1", messages2, timestamp=fixed_time)
 
-    assert file1.name == "MSS001_20260910_120000.json"
-    assert file2.name == "MSS001_20260910_120000_1.json"
-    assert file3.name == "MSS001_20260910_120000_2.json"
+    assert file1.name == "MSS001_s1.json"
+    assert file2.name == "MSS001_s1.json"
 
-    # All files exist and contain their respective sessions
+    # Verify append
     with open(file1) as f:
-        assert json.load(f)["session_id"] == "s1"
-    with open(file2) as f:
-        assert json.load(f)["session_id"] == "s2"
-    with open(file3) as f:
-        assert json.load(f)["session_id"] == "s3"
+        data = json.load(f)
+        assert len(data["messages"]) == 2
+        assert data["messages"][0]["content"] == "Test1"
+        assert data["messages"][1]["content"] == "Test2"
 
 
 def test_conversation_logger_redacts_sensitive_values(tmp_path):

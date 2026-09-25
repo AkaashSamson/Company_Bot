@@ -24,7 +24,7 @@ class DepartmentResponse(DepartmentCreate):
 
 
 class UserCreate(BaseModel):
-    uid: str = Field(min_length=1)
+    uid: str | None = Field(default=None, min_length=1)
     username: str | None = Field(default=None, min_length=1)
     name: str = Field(min_length=1)
     email: EmailStr

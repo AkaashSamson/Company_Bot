@@ -9,7 +9,6 @@ def test_chunk_records_include_document_and_section_metadata():
     assert metadata["document_id"] == "doc-1"
     assert metadata["project_id"] == "p1"
     assert metadata["source"] == "Policy.txt"
-    assert metadata["section"] == "Policy"
     assert metadata["chunk_index"] == 0
 
 

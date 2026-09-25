@@ -27,9 +27,10 @@ class ChatService:
             return None
         return None
 
-    def ask(self, question: str, session_id: str = "default-session", history=None, project_id=None, defer_citations: bool = True):
+    def ask(self, question: str, question_timestamp: str | None = None, session_id: str = "default-session", history=None, project_id=None, defer_citations: bool = True):
         payload = {
             "question": question,
+            "question_timestamp": question_timestamp,
             "session_id": session_id,
             "project_id": project_id,
             "conversation_history": history or [],
@@ -62,4 +63,4 @@ class ChatService:
                 return response.json()
         except Exception:
             pass
-        return {}
+        return {}

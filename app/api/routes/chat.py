@@ -82,6 +82,8 @@ async def chat(
         kwargs["session_id"] = request.session_id
     if "defer_citations" in answer_sig.parameters:
         kwargs["defer_citations"] = request.defer_citations if request.defer_citations is not None else False
+    if "question_timestamp" in answer_sig.parameters:
+        kwargs["question_timestamp"] = request.question_timestamp
     user_context = principal
     if principal is not None and authorization is not None:
         try:
@@ -97,7 +99,6 @@ async def chat(
             }
         except Exception:
             user_context = principal
-
     if "user_context" in answer_sig.parameters:
         kwargs["user_context"] = user_context
 

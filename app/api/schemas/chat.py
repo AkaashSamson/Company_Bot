@@ -5,10 +5,12 @@ from pydantic import BaseModel, Field
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(..., min_length=1)
+    timestamp: Optional[str] = None
 
 
 class ChatRequest(BaseModel):
     question: str = Field(..., min_length=1)
+    question_timestamp: Optional[str] = None
     session_id: str = Field(default="default-session")
     project_id: Optional[str] = None
     conversation_history: Optional[List[ChatMessage]] = None

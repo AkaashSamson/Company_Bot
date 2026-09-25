@@ -17,7 +17,7 @@ from app.domain.entities.conversation_log import (
     ConversationMessage,
 )
 from app.domain.services.employee_id_provider import EmployeeIdProvider
-from app.infrastructure.logging.mock_employee_id_provider import MockEmployeeIdProvider
+from app.infrastructure.logging.database_employee_id_provider import DatabaseEmployeeIdProvider
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,11 @@ class ConversationLogger:
         sensitive_values: Optional[Sequence[str]] = None,
     ) -> None:
         self.log_dir = Path(log_dir) if log_dir else CONVERSATION_LOG_DIR
-        self.employee_id_provider = employee_id_provider or MockEmployeeIdProvider()
+        
+        if employee_id_provider:
+            self.employee_id_provider = employee_id_provider
+        else:
+            self.employee_id_provider = DatabaseEmployeeIdProvider()
 
         # Collect configured sensitive values to redact
         self._sensitive_values: List[str] = []
@@ -89,24 +93,17 @@ class ConversationLogger:
 
         return redacted
 
-    def _generate_log_path(self, employee_id: str, timestamp: datetime) -> Path:
+    def _generate_log_path(self, employee_id: str, session_id: str) -> Path:
         """
-        Construct destination file path with format: <employee_id>_<timestamp>.json
-        Handles same-second collisions with a numerical suffix (_1, _2, etc.).
+        Construct destination file path with format: <employee_id>_<session_id>.json
         """
-        base_ts = timestamp.strftime("%Y%m%d_%H%M%S")
-        filename = f"{employee_id}_{base_ts}.json"
-        target_path = self.log_dir / filename
-
-        if not target_path.exists():
-            return target_path
-
-        counter = 1
-        while True:
-            candidate = self.log_dir / f"{employee_id}_{base_ts}_{counter}.json"
-            if not candidate.exists():
-                return candidate
-            counter += 1
+        # Sanitize session_id to prevent path traversal issues
+        safe_session_id = "".join(c for c in session_id if c.isalnum() or c in ('-', '_'))
+        if not safe_session_id:
+            safe_session_id = "default"
+            
+        filename = f"{employee_id}_{safe_session_id}.json"
+        return self.log_dir / filename
 
     def _write_atomic(self, target_path: Path, log_data: dict) -> None:
         """
@@ -171,6 +168,19 @@ class ConversationLogger:
                     )
                 )
 
+            target_path = self._generate_log_path(employee_id, session_id)
+            if target_path.exists():
+                try:
+                    with open(target_path, "r", encoding="utf-8") as f:
+                        existing_data = json.load(f)
+                    existing_log = ConversationLog(**existing_data)
+                    existing_log.messages.extend(processed_messages)
+                    self._write_atomic(target_path, existing_log.model_dump())
+                    logger.info("Successfully appended to conversation log: %s", target_path.name)
+                    return target_path
+                except Exception as e:
+                    logger.warning("Failed to append to %s, falling back to overwriting/new file: %s", target_path, e)
+
             conversation_log = ConversationLog(
                 employee_id=employee_id,
                 session_id=session_id,
@@ -178,9 +188,8 @@ class ConversationLogger:
                 recording_status="completed",
             )
 
-            target_path = self._generate_log_path(employee_id, now_utc)
             self._write_atomic(target_path, conversation_log.model_dump())
-            logger.info("Successfully recorded conversation log: %s", target_path.name)
+            logger.info("Successfully recorded new conversation log: %s", target_path.name)
             return target_path
 
         except Exception as exc:

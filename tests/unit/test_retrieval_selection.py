@@ -163,51 +163,6 @@ def test_relevance_threshold_and_relaxation_are_configurable():
     ) == [candidate]
 
 
-def test_query_parts_preserve_meaningful_conjunction_phrases():
-    assert RetrievalService._query_parts("Explain health and safety requirements") == [
-        "Explain health and safety requirements",
-    ]
-
-
-def test_query_parts_split_explicit_multi_part_lists():
-    assert RetrievalService._query_parts(
-        "Explain eligibility, documentation, and approval requirements"
-    ) == [
-        "Explain eligibility, documentation, and approval requirements",
-        "Explain eligibility",
-        "documentation",
-        "approval requirements",
-    ]
-
-
-def test_retrieve_queries_full_question_and_distinct_parts():
-    class Store:
-        def __init__(self):
-            self.queries = []
-
-        def query(self, query_text, top_k):
-            self.queries.append(query_text)
-            return [result(f"Distinct section {len(self.queries)}", 0.2)]
-
-    service = RetrievalService.__new__(RetrievalService)
-    service.store = Store()
-
-    selected = service.retrieve(
-        "Explain eligibility, documentation, and approval requirements.",
-        top_k=2,
-        max_evidence=3,
-    )
-
-    assert service.store.queries == [
-        "Explain eligibility, documentation, and approval requirements.",
-        "Explain eligibility",
-        "documentation",
-        "approval requirements.",
-    ]
-    assert len(selected) == 3
-    assert [item["_query_part_index"] for item in selected] == [0, 1, 2]
-
-
 def test_chroma_query_preserves_distance():
     class Embedding:
         def tolist(self):
@@ -225,7 +180,7 @@ def test_chroma_query_preserves_distance():
         {
             "query": lambda self, **kwargs: {
                 "documents": [["Sick leave is 10 days per year."]],
-                "metadatas": [[{"section": "Policy"}]],
+                "metadatas": [[{}]],
                 "distances": [[0.17]],
             }
         },

@@ -11,8 +11,10 @@ if str(_REPO_ROOT) not in sys.path:
 import re
 import streamlit as st
 import requests
+from datetime import datetime, timezone
 import importlib
 
+from streamlit_app.session_auth import bootstrap_cookies, persist_auth, restore_auth
 import streamlit_app.services.chat_service as chat_service_module
 importlib.reload(chat_service_module)
 from streamlit_app.services.chat_service import ChatService
@@ -22,26 +24,19 @@ from streamlit_app.services.authentication_service import AuthenticationService
 
 st.set_page_config(page_title="KnowLayer HR Chatbot", page_icon="📘")
 
+cookies = bootstrap_cookies()
 if "auth" not in st.session_state:
     st.session_state.auth = None
-
 if "session_id" not in st.session_state:
-    st.session_state.session_id = f"st-{uuid.uuid4().hex[:8]}"
+    st.session_state.session_id = str(uuid.uuid4())
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "last_response" not in st.session_state:
     st.session_state.last_response = None
 
-
-def _logout():
-    st.session_state.auth = None
-    st.session_state.messages = []
-    st.session_state.last_response = None
-    st.session_state.session_id = f"st-{uuid.uuid4().hex[:8]}"
-
-
-if st.session_state.auth is None:
+if st.session_state.get("auth") is None:
+    restore_auth(cookies)
     st.title("KnowLayer Login")
     with st.form("login"):
         login_username = st.text_input("Username")
@@ -49,7 +44,8 @@ if st.session_state.auth is None:
         login_submitted = st.form_submit_button("Log in")
     if login_submitted:
         try:
-            st.session_state.auth = AuthenticationService().login(login_username, login_password)
+            auth = AuthenticationService().login(login_username, login_password)
+            st.session_state.auth = auth
             st.rerun()
         except requests.exceptions.HTTPError as error:
             status_code = error.response.status_code if error.response is not None else None
@@ -63,6 +59,18 @@ if st.session_state.auth is None:
                 "Start the FastAPI backend on http://127.0.0.1:8000 and try again."
             )
     st.stop()
+
+persist_auth(cookies)
+
+def _logout():
+    st.session_state.auth = None
+    st.session_state.messages = []
+    st.session_state.last_response = None
+    st.session_state.session_id = str(uuid.uuid4())
+    try:
+        cookies.remove("knowlayer_auth")
+    except KeyError:
+        pass
 
 st.sidebar.button("Log out", on_click=_logout)
 st.title("KnowLayer HR Policy Assistant")
@@ -241,7 +249,10 @@ def _format_citations(citations: list, answer: str = "") -> str:
         ).strip() or section
         raw_text = c.get("text", "")
         cleaned_text = _strip_citation_numbering(raw_text)
-        lines.append(f"\n📄 **{source}** — {clean_section}")
+        if clean_section:
+            lines.append(f"\n📄 **{source}** — {clean_section}")
+        else:
+            lines.append(f"\n📄 **{source}**")
         if cleaned_text:
             lines.append(f"\n> {cleaned_text}")
     return "\n".join(lines)
@@ -346,7 +357,12 @@ if feedback_input:
     user_input = feedback_input
 
 if user_input:
-    st.session_state.messages.append({"role": "user", "content": user_input})
+    question_timestamp = datetime.now(timezone.utc).isoformat()
+    st.session_state.messages.append({
+        "role": "user", 
+        "content": user_input,
+        "timestamp": question_timestamp
+    })
     with st.chat_message("user"):
         st.markdown(user_input)
 
@@ -359,6 +375,7 @@ if user_input:
     try:
         response = service.ask(
             user_input,
+            question_timestamp=question_timestamp,
             session_id=st.session_state.session_id,
             history=conversation_history,
             project_id=selected_project_id,
@@ -399,6 +416,7 @@ if user_input:
         "role": "assistant",
         "content": full_content,
         "raw_answer": answer,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     })
     with st.chat_message("assistant"):
         st.markdown(full_content)

@@ -8,10 +8,23 @@ generating answers based on retrieved document chunks from ChromaDB.
 import logging
 from typing import Optional
 from datetime import datetime
+from pathlib import Path
+import yaml
 
 from app.core.settings import RAG_MAX_CONTEXT_CHARS
 
 logger = logging.getLogger(__name__)
+
+def load_prompts() -> dict:
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
+    prompts_path = project_root / "config" / "prompts.yaml"
+    if prompts_path.exists():
+        try:
+            with open(prompts_path, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f) or {}
+        except Exception as e:
+            logger.error("Failed to load prompts.yaml, using defaults: %s", e)
+    return {}
 
 
 class RAGContextBuilder:
@@ -36,17 +49,11 @@ class RAGContextBuilder:
         str
             System prompt for the LLM to follow when generating answers.
         """
-        return (
-            "You are a helpful HR assistant. Your role is to provide accurate answers "
-            "based exclusively on the HR policy documents provided to you.\n\n"
-            "Guidelines:\n"
-            "- Answer ONLY using the provided document context\n"
-            "- Be concise (2-4 sentences)\n"
-            "- If information is not in the context, say 'I could not find that information in the available documents'\n"
-            "- Cite relevant sections when applicable\n"
-            "- Do not add external knowledge or assumptions\n"
-            "- End with: 'Was this response relevant to your question?'"
-        )
+        prompts_config = load_prompts().get("prompts", {}).get("rag_answer_generation", {})
+        return prompts_config.get(
+            "system_prompt",
+            "You are a helpful HR assistant. Answer ONLY using the provided document context."
+        ).strip()
 
     def build_user_prompt(
         self,
@@ -119,20 +126,28 @@ class RAGContextBuilder:
         context = "\n\n".join(formatted_chunks)
 
         # Build final prompt
+        
+        prompts_config = load_prompts().get("prompts", {}).get("rag_answer_generation", {})
+        question_template = prompts_config.get(
+            "question_template", 
+            "<user_question>{question}</user_question>"
+        ).strip()
+        formatted_question = question_template.format(question=question)
+        
         prompt_parts = [
             "Document Context:",
             "=" * 50,
             context,
             "=" * 50,
-            f"\nQuestion: {question}",
+            f"\nQuestion: {formatted_question}",
         ]
 
         if include_references:
-            prompt_parts.append(
-                "\nInstructions: Answer using ONLY the document context above. "
-                "Write 2-4 sentences. No analysis or reasoning — just the answer. "
-                "End with: 'Was this response relevant to your question?'"
-            )
+            instructions = prompts_config.get(
+                "user_instructions",
+                "Instructions: Answer using ONLY the document context above. End with: 'Was this response relevant to your question?'"
+            ).strip()
+            prompt_parts.append(f"\n{instructions}")
 
         if self.include_timestamp:
             prompt_parts.append(f"\nProcessed at: {datetime.now().isoformat()}")

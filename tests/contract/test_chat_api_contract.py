@@ -67,7 +67,7 @@ def test_chat_endpoint_reuses_cached_answer(monkeypatch):
     retrieval.retrieve.return_value = [
         {
             "text": "Employees receive annual leave according to company policy.",
-            "metadata": {"source": "policy.docx", "section": "Leave"},
+            "metadata": {"source": "policy.docx"},
         }
     ]
     cached_orchestrator = chat_route.QueryOrchestrator(
@@ -106,7 +106,7 @@ def test_faq_endpoint_caches_generated_document_faqs(monkeypatch, tmp_path):
     retrieval.retrieve.return_value = [
         {
             "text": "Eligible regular employees receive 18 days of Annual Leave per calendar year.",
-            "metadata": {"source": "policy.docx", "section": "FAQ"},
+            "metadata": {"source": "policy.docx"},
         }
     ]
     cached_orchestrator = chat_route.QueryOrchestrator(
@@ -136,7 +136,7 @@ def test_similar_questions_return_the_exact_previous_response(monkeypatch):
     retrieval.retrieve.return_value = [
         {
             "text": "Eligible regular employees receive 18 days of Annual Leave.",
-            "metadata": {"source": "policy.docx", "section": "Leave"},
+            "metadata": {"source": "policy.docx"},
         }
     ]
 

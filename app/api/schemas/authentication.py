@@ -11,6 +11,18 @@ class LoginResponse(BaseModel):
     token_type: str = "bearer"
     uid: str
     must_change_password: bool = False
+    refresh_token: str | None = None
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(min_length=1)
+
+
+class RefreshResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    uid: str
 
 
 class ChangePasswordRequest(BaseModel):

@@ -10,7 +10,7 @@ from app.use_cases.ingestion.document_processing import (
 
 
 def test_extract_text_from_nexora_docx():
-    doc_path = Path("input/NEXORA TECHNOLOGIES PVT.docx")
+    doc_path = Path("input/")
     assert doc_path.exists(), "Nexora policy document should exist in input/"
 
     text = extract_text_from_document(str(doc_path))

@@ -82,7 +82,18 @@ def test_developer_only_sees_authorized_slices():
         assert project["members"] == []
         assert [document["document_id"] for document in project["documents"]] == ["doc-a"]
 
-        assert body["unassigned_documents"] == []
+        unassigned = [document["document_id"] for document in body["unassigned_documents"]]
+        assert unassigned == ["doc-unassigned"]
+        assert body["unassigned_documents"][0]["access"] == "org_wide"
+
+        people = body["people"]
+        assert [person["uid"] for person in people] == ["a1", "u1", "bob", "m1"]
+        person_by_uid = {person["uid"]: person for person in people}
+        assert person_by_uid["u1"]["department_id"] == "d1"
+        assert person_by_uid["u1"]["department_name"] == "Engineering"
+        assert person_by_uid["bob"]["department_name"] == "Other"
+        assert person_by_uid["u1"]["employee_id"] == "EMP-001"
+
         additional = [document["document_id"] for document in body["additional_documents"]]
         assert additional == ["doc-grant"]
         assert body["additional_documents"][0]["access"] == "document_grant"
