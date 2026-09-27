@@ -1,0 +1,49 @@
+debug Telemetry: agents-playground-cli/cliStart {"cleanProperties":{"isExec":"false","argv":"<REDACTED: user-file-path>,<REDACTED: user-file-path>,--app-endpoint,http://localhost:8000/api/channels/teams/messages,--delivery-mode,expectReplies"}}
+
+log Listening on 56150
+log Microsoft 365 Agents Playground is being launched for you to debug the app: http://localhost:56150
+debug started web socket client
+debug started web socket client
+log Waiting for connection of endpoint: http://localhost:8000/api/channels/teams/messages
+log waiting for 1 resources: http://localhost:8000/api/channels/teams/messages
+log wait-on(2848) complete
+log Events recording disabled.
+debug Telemetry: agents-playground-server/eventsRecording {"cleanProperties":{"enabled":"false"}}
+
+log Using delivery mode: expectReplies.
+debug Telemetry: agents-playground-server/deliveryMode {"cleanProperties":{"deliveryMode":"expectReplies"}}
+
+debug Telemetry: agents-playground-server/getConfig {"cleanProperties":{"internalConfig":"{\"locale\":\"en-US\",\"localTimezone\":\"Asia/Calcutta\",\"channelId\":\"msteams\",\"debugConfig\":{\"eventsRecordingEnabled\":false,\"deliveryMode\":\"expectReplies\"}}"}}
+
+debug Telemetry: agents-playground-server/error {"cleanProperties":{"stack":"\"Error: Request failed with status code 400\\n    at exports.UserBotError (<REDACTED: user-file-path>:2:1255365)\\n    at InstallationUserBotAccessor.handleAxiosError (<REDACTED: user-file-path>:2:2235626)\\n    at InstallationUserBotAccessor.sendActivity (<REDACTED: user-file-path>:2:2234899)\\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\\n    at async InstallationUserBotAccessor.sendInstallationUpdateActivity (<REDACTED: user-file-path>:2:2179922)\"","message":"\"Request failed with status code 400\"","code":"\"UserBotError\"","innerHttpError":"{\"statusCode\":400,\"body\":{\"text\":\"Message text is empty after mention removal\"}}"}}
+
+log InternalServiceError: Request failed with status code 400
+    at exports.UserBotError (C:\Users\AkaashSamsonAnandGud\AppData\Local\npm-cache\_npx\9a351863f8b5f230\node_modules\@microsoft\teams-app-test-tool\dist\index.js:2:1255365)
+    at InstallationUserBotAccessor.handleAxiosError (C:\Users\AkaashSamsonAnandGud\AppData\Local\npm-cache\_npx\9a351863f8b5f230\node_modules\@microsoft\teams-app-test-tool\dist\index.js:2:2235626)
+    at InstallationUserBotAccessor.sendActivity (C:\Users\AkaashSamsonAnandGud\AppData\Local\npm-cache\_npx\9a351863f8b5f230\node_modules\@microsoft\teams-app-test-tool\dist\index.js:2:2234899)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async InstallationUserBotAccessor.sendInstallationUpdateActivity (C:\Users\AkaashSamsonAnandGud\AppData\Local\npm-cache\_npx\9a351863f8b5f230\node_modules\@microsoft\teams-app-test-tool\dist\index.js:2:2179922) {
+  code: 'UserBotError',
+  innerHttpError: {
+    statusCode: 400,
+    body: { text: 'Message text is empty after mention removal' }
+  }
+}
+debug Telemetry: agents-playground-server/error {"cleanProperties":{"stack":"\"Error: Request failed with status code 400\\n    at exports.UserBotError (<REDACTED: user-file-path>:2:1255365)\\n    at ConversationUpdateUserBotAccessor.handleAxiosError (<REDACTED: user-file-path>:2:2235626)\\n    at ConversationUpdateUserBotAccessor.sendActivity (<REDACTED: user-file-path>:2:2234899)\\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\\n    at async ConversationUpdateUserBotAccessor.sendInstallationMemberAddedActivity (<REDACTED: user-file-path>:5:331700)\"","message":"\"Request failed with status code 400\"","code":"\"UserBotError\"","innerHttpError":"{\"statusCode\":400,\"body\":{\"text\":\"Message text is empty after mention removal\"}}"}}
+
+log InternalServiceError: Request failed with status code 400
+    at exports.UserBotError (C:\Users\AkaashSamsonAnandGud\AppData\Local\npm-cache\_npx\9a351863f8b5f230\node_modules\@microsoft\teams-app-test-tool\dist\index.js:2:1255365)
+    at ConversationUpdateUserBotAccessor.handleAxiosError (C:\Users\AkaashSamsonAnandGud\AppData\Local\npm-cache\_npx\9a351863f8b5f230\node_modules\@microsoft\teams-app-test-tool\dist\index.js:2:2235626)
+    at ConversationUpdateUserBotAccessor.sendActivity (C:\Users\AkaashSamsonAnandGud\AppData\Local\npm-cache\_npx\9a351863f8b5f230\node_modules\@microsoft\teams-app-test-tool\dist\index.js:2:2234899)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async ConversationUpdateUserBotAccessor.sendInstallationMemberAddedActivity (C:\Users\AkaashSamsonAnandGud\AppData\Local\npm-cache\_npx\9a351863f8b5f230\node_modules\@microsoft\teams-app-test-tool\dist\index.js:5:331700) {
+  code: 'UserBotError',
+  innerHttpError: {
+    statusCode: 400,
+    body: { text: 'Message text is empty after mention removal' }
+  }
+}
+debug Telemetry: agents-playground-server/sendActivity {"cleanProperties":{"activityType":"message","conversationId":"4141590a-2285-45fc-86d1-6e35c2425840","headers":"{\"x-ms-agents-playground\":\"true\"}"}}
+
+debug Telemetry: agents-playground-server/sendActivity {"cleanProperties":{"activityType":"message","conversationId":"4141590a-2285-45fc-86d1-6e35c2425840","headers":"{\"x-ms-agents-playground\":\"true\"}"}}
+

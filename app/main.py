@@ -65,8 +65,11 @@ async def lifespan(app: FastAPI):
     try:
         from app.infrastructure.channels.registry import register_channel_adapter
         from app.infrastructure.channels.teams.adapter import TeamsChannelAdapter
-        register_channel_adapter(TeamsChannelAdapter(skip_auth=True))
-        logger.info("Lifespan: Teams channel adapter registered.")
+        import os
+        skip_auth = os.getenv("TEAMS_SKIP_AUTH", "true").lower() == "true"
+        security_token = os.getenv("TEAMS_SECURITY_TOKEN")
+        register_channel_adapter(TeamsChannelAdapter(security_token=security_token, skip_auth=skip_auth))
+        logger.info("Lifespan: Teams channel adapter registered (skip_auth=%s).", skip_auth)
     except Exception as exc:
         logger.warning("Failed to register Teams channel adapter: %s", exc)
     logger.info("Lifespan: startup complete.")

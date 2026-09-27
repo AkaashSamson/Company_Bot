@@ -123,8 +123,14 @@ class TeamsChannelAdapter(BaseChannelAdapter):
             ],
         }
 
+        # Combined payload: Outgoing Webhook reads top-level fields; Playground expectReplies reads 'activities'
+        response_payload = {
+            **activity_payload,
+            "activities": [activity_payload],
+        }
+
         return ChannelResponse(
             status_code=200,
             text=plain_text,
-            card_payload=activity_payload,
+            card_payload=response_payload,
         )
