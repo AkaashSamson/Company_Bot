@@ -4,13 +4,10 @@ import re
 from pathlib import Path
 
 from app.core.settings import BASE_DIR, COLLECTION_NAME, DOCUMENTS_DIR
+from app.domain.ports.document_processing import DocumentProcessingPort
+from app.infrastructure.document.processor_factory import build_document_processor
 from app.infrastructure.vector.chroma_client import ChromaVectorStore
-from app.use_cases.ingestion.document_processing import (
-    SUPPORTED_EXTENSIONS,
-    build_chunk_records,
-    extract_text_from_bytes,
-    extract_text_from_document,
-)
+from app.use_cases.ingestion.document_processing import build_chunk_records_from_processed
 
 logger = logging.getLogger("knowlayer.ingestion")
 
@@ -40,14 +37,28 @@ def _detect_extension(raw: bytes, name: str) -> str:
         return Path(name).suffix.lower()
 
 
-def provision_document(source_path, document, content=None, store=None) -> int:
+def provision_document(
+    source_path,
+    document,
+    content=None,
+    store=None,
+    processor: DocumentProcessingPort | None = None,
+) -> int:
     """Extract, chunk, and embed a document into the vector store.
 
     - ``content``: base64-encoded file contents (upload path).
     - ``source_path``: path of a file already on disk under DOCUMENTS_DIR.
     - ``store``: optional vector store to write chunks into; defaults to the
       configured collection in ``.chroma``.
+    - ``processor``: any ``DocumentProcessingPort`` implementation. When
+      omitted the configured processor is built by
+      :func:`build_document_processor`, which is the only place the concrete
+      parsers are chosen. This module depends on the port, never on a parser.
     - Neither ``content`` nor ``source_path``: metadata-only registration, returns 0.
+
+    Parsing and chunking always run through the port, so there is a single
+    record-building path and every stored chunk carries the canonical metadata
+    contract regardless of which processor ran.
     """
     if source_path is None and content is None:
         return 0
@@ -59,26 +70,38 @@ def provision_document(source_path, document, content=None, store=None) -> int:
             raise ValueError("Document content is not valid base64") from error
 
         extension = _detect_extension(raw, document.document_name)
-        if extension not in SUPPORTED_EXTENSIONS:
-            supported = ", ".join(sorted(SUPPORTED_EXTENSIONS))
-            raise ValueError(f"Unsupported document type: {extension or '(none)'} (supported: {supported})")
+        parse_name = f"upload{extension}"
+    else:
+        path = Path(source_path)
+        if not path.exists():
+            raise FileNotFoundError(source_path)
+        raw = path.read_bytes()
+        extension = path.suffix.lower()
+        parse_name = path.name
 
-        text = extract_text_from_bytes(raw, f"upload{extension}")
+    if processor is None:
+        processor = build_document_processor()
+    if not processor.supports(parse_name):
+        supported = ", ".join(sorted(processor.supported_extensions()))
+        raise ValueError(
+            f"Unsupported document type: {extension or '(none)'} (supported: {supported})"
+        )
+    processed = processor.process(raw, parse_name)
 
+    if content is not None:
         destination = Path(DOCUMENTS_DIR) / f"{_safe_document_id(document.document_id)}{extension}"
         destination.write_bytes(raw)
         logger.info("saved uploaded document to %s", destination)
         document.original_filename = document.original_filename or document.document_name
-        document.file_type = extension.lstrip(".")
+        document.file_type = (processed.file_type or extension).lstrip(".")
         document.storage_location = str(destination)
     else:
-        text = extract_text_from_document(source_path)
         document.original_filename = document.original_filename or Path(source_path).name
-        document.file_type = document.file_type or Path(source_path).suffix.lower().lstrip(".")
+        document.file_type = document.file_type or (processed.file_type or extension).lstrip(".")
         document.storage_location = document.storage_location or str(source_path)
 
-    records = build_chunk_records(
-        text,
+    records = build_chunk_records_from_processed(
+        processed,
         document_id=document.document_id,
         project_id=getattr(document, "project_id", None),
         source=document.document_name,

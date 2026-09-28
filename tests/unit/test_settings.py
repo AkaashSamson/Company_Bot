@@ -7,6 +7,7 @@ from app.core.settings import (
     CONVERSATION_LOG_RETENTION_DAYS,
     DEFAULT_CONVERSATION_LOG_DIR,
     DEFAULT_CONVERSATION_LOG_RETENTION_DAYS,
+    DOCLING_ENABLED,
     parse_retention_days,
 )
 from app.infrastructure.logging.conversation_log_cleanup import ConversationLogCleanup
@@ -85,3 +86,13 @@ def test_cleanup_consumes_validated_retention_setting():
     cleanup = ConversationLogCleanup()
     assert cleanup.retention_days == CONVERSATION_LOG_RETENTION_DAYS
     assert cleanup.log_dir == CONVERSATION_LOG_DIR
+
+
+def test_docling_flag_defaults_to_disabled():
+    """Verify the Docling ingestion flag is off by default.
+
+    Docling is currently a declared dependency only. The existing ingestion
+    flow stays the active path until a parsing adapter is introduced, so the
+    flag must not be enabled implicitly.
+    """
+    assert DOCLING_ENABLED is False

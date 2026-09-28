@@ -12,6 +12,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DOCUMENTS_DIR = os.getenv("DOCUMENTS_DIR", str(BASE_DIR / "input"))
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "hr_policy_docs")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+DOCLING_ENABLED = os.getenv("DOCLING_ENABLED", "false").lower() == "true"
+# Chunk budget in tokens. Kept at the embedding model's sequence limit
+# (sentence-transformers/all-MiniLM-L6-v2 truncates beyond 256) so chunks are
+# never silently truncated at embedding time.
+DOCLING_MAX_TOKENS = int(os.getenv("DOCLING_MAX_TOKENS", "256"))
 RAG_DISTANCE_THRESHOLD = float(os.getenv("RAG_DISTANCE_THRESHOLD", "0.60"))
 RAG_DISTANCE_RELAXATION = float(os.getenv("RAG_DISTANCE_RELAXATION", "0.05"))
 RAG_MIN_DISTANCE_GAP = float(os.getenv("RAG_MIN_DISTANCE_GAP", "0.10"))

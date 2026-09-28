@@ -1,4 +1,5 @@
 from fastapi import Depends, HTTPException, Request
+from functools import partial
 
 from app.domain.services.business_id_generator import build_business_id_generator
 from app.domain.ports.authorization_service import AuthenticatedPrincipal
@@ -15,6 +16,7 @@ from app.use_cases.organization.project_access import ProjectAccessService
 from app.use_cases.organization.profile import ProfileService
 from app.use_cases.organization.organization_explorer import OrganizationExplorerService
 from app.infrastructure.ingestion.provisioner import provision_document, remove_document
+from app.infrastructure.document.processor_factory import build_document_processor
 from app.domain.services.authentication_service import AuthenticationServiceImpl
 from app.infrastructure.authentication.password_hasher import PasswordHasher
 from app.core.settings import (
@@ -95,10 +97,21 @@ def get_role_management_service():
     return RoleManagementService(create_unit_of_work, get_authorization_service())
 
 
+def get_document_processor():
+    """Build the document-processing port implementation ingestion will use.
+
+    Composition happens here, in the dependency wiring, so the use cases and the
+    provisioner depend only on the port and never on a document-conversion
+    library. The concrete parsers are selected by
+    :func:`app.infrastructure.document.processor_factory.build_document_processor`.
+    """
+    return build_document_processor()
+
+
 def get_document_management_service():
     return DocumentManagementService(
         create_unit_of_work,
-        ingestion_handler=provision_document,
+        ingestion_handler=partial(provision_document, processor=get_document_processor()),
         deletion_handler=remove_document,
         business_id_generator=get_business_id_generator(),
     )
