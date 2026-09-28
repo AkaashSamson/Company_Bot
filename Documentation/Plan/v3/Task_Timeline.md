@@ -233,19 +233,19 @@ This document defines the phase-by-phase execution timeline for KnowLayer V3. It
   - [ ] Enforce non-empty content: reject metadata-only registration if both `content` and `source_path` are missing.
 
 #### Subsystem 5: Inbound Driving Channels & Microsoft Teams Integration (Akaash Samson)
-- [ ] **Task AK-2.1 (Channel Interfaces & Driving Port Protocol - Akaash Samson [Originally Phase 1]):** Create `app/infrastructure/channels/base.py`:
-  - [ ] Define `BaseChannelAdapter` abstract base class/protocol (`send_message`, `handle_webhook`, `verify_signature`).
-  - [ ] Define standardized channel entities: `ChannelMessage`, `ChannelResponse`, `ChannelUserContext`.
-- [ ] **Task AK-2.2 (Channel Identity & JWT Bridge - Akaash Samson [Originally Phase 2]):** Create `app/infrastructure/channels/identity_bridge.py`:
-  - [ ] Map inbound channel identity (Teams UPN/AAD Object ID) to internal user entity in SQL database via `UserRepository`.
-  - [ ] Generate ephemeral internal service JWT token (`create_access_token`) for the mapped principal.
-  - [ ] Handle unmapped channel users gracefully with fallback or registration advisory.
-- [ ] **Task AK-2.3 (Stateless Teams Adapter & Adaptive Card Formatter - Akaash Samson [Originally Phase 2]):**
-  - [ ] Create `app/infrastructure/channels/teams/adapter.py`: Inbound webhook endpoint verifying Bot Framework authorization and routing turn to `QueryOrchestrator.answer()`.
-  - [ ] Create `app/infrastructure/channels/teams/formatter.py`: Format markdown response and citation footnotes into Microsoft Teams Adaptive Cards.
-- [ ] **Task AK-2.4 (Channel Registry - Akaash Samson [Originally Phase 2]):** Create `app/infrastructure/channels/registry.py`:
-  - [ ] Provide thread-safe registry of active channel adapters keyed by channel name (e.g., `"teams"`, `"slack"`).
-  - [ ] Expose initialization hook for lifespan mounting.
+- [x] **Task AK-2.1 (Channel Interfaces & Driving Port Protocol - Akaash Samson [Originally Phase 1]):** Create `app/infrastructure/channels/base.py`:
+  - [x] Define `BaseChannelAdapter` abstract base class/protocol (`send_message`, `handle_webhook`, `verify_signature`).
+  - [x] Define standardized channel entities: `ChannelMessage`, `ChannelResponse`, `ChannelUserContext`.
+- [x] **Task AK-2.2 (Channel Identity & JWT Bridge - Akaash Samson [Originally Phase 2]):** Create `app/infrastructure/channels/identity_bridge.py`:
+  - [x] Map inbound channel identity (Teams UPN/AAD Object ID) to internal user entity in SQL database via `UserRepository`.
+  - [x] Generate ephemeral internal service JWT token (`create_access_token`) for the mapped principal.
+  - [x] Handle unmapped channel users gracefully with fallback or registration advisory.
+- [x] **Task AK-2.3 (Stateless Teams Adapter & Adaptive Card Formatter - Akaash Samson [Originally Phase 2]):**
+  - [x] Create `app/infrastructure/channels/teams/adapter.py`: Inbound webhook endpoint verifying Bot Framework authorization and routing turn to `QueryOrchestrator.answer()`.
+  - [x] Create `app/infrastructure/channels/teams/formatter.py`: Format markdown response and citation footnotes into Microsoft Teams Adaptive Cards.
+- [x] **Task AK-2.4 (Channel Registry - Akaash Samson [Originally Phase 2]):** Create `app/infrastructure/channels/registry.py`:
+  - [x] Provide thread-safe registry of active channel adapters keyed by channel name (e.g., `"teams"`, `"slack"`).
+  - [x] Expose initialization hook for lifespan mounting.
 
 ---
 
@@ -321,7 +321,7 @@ Step 4.1 (Akaash) -> Step 4.2 (Abhinav) -> Step 4.3 (Neha) -> Step 4.4 (Akaash)
   - [x] Register 24-hour periodic log cleanup `asyncio` background task inside FastAPI `lifespan` context manager.
 
 #### 3. Akaash Samson [Parallel - Channel Lifespan, DevOps & Containerization]
-- [ ] **Task AK-2.5 (Channel Lifespan Startup - Akaash Samson):** In `app/main.py`: Mount `ChannelRegistry.initialize_channels(app)` in FastAPI lifespan context manager to initialize active driving adapters (e.g. Teams).
+- [x] **Task AK-2.5 (Channel Lifespan Startup - Akaash Samson):** In `app/main.py`: Mount `ChannelRegistry.initialize_channels(app)` in FastAPI lifespan context manager to initialize active driving adapters (e.g. Teams).
 - [ ] **Task AK-6.1 (UI Token Privacy Separation):** In `streamlit_app/app.py`:
   - [ ] Remove technical token metric strings from user chat bubbles.
   - [ ] Move sidebar token usage metrics behind administrator role check (`if st.session_state.get("is_admin"): ...`).
