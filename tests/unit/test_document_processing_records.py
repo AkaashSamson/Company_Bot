@@ -199,6 +199,22 @@ def test_record_ids_are_unique_and_chunk_indexes_contiguous():
     assert [record["metadata"]["chunk_index"] for record in records] == [0, 1, 2, 3]
 
 
+def test_multiple_documents_restart_indexes_and_keep_ids_unique():
+    first = _document(
+        ProcessedChunk(text="First A", index=20),
+        ProcessedChunk(text="First B", index=21),
+    )
+    second = _document(ProcessedChunk(text="Second A", index=99))
+
+    first_records = build_chunk_records_from_processed(first, document_id="doc-1", project_id="p1")
+    second_records = build_chunk_records_from_processed(second, document_id="doc-2", project_id="p2")
+    records = first_records + second_records
+
+    assert [record["id"] for record in records] == ["doc-1-0", "doc-1-1", "doc-2-0"]
+    assert [record["metadata"]["chunk_index"] for record in records] == [0, 1, 0]
+    assert [record["metadata"]["project_id"] for record in records] == ["p1", "p1", "p2"]
+
+
 def test_ids_stay_unique_even_if_a_chunker_repeats_an_ordinal():
     processed = _document(
         ProcessedChunk(text="First", index=0),

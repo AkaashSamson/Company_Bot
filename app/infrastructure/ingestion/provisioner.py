@@ -22,19 +22,24 @@ def _safe_document_id(document_id: str) -> str:
 
 
 def _detect_extension(raw: bytes, name: str) -> str:
-    """Resolve the file type for a content upload from the actual bytes.
+    """Resolve the file type for a content upload.
 
-    DOCX files are zip archives carrying a content-types part; the remaining
-    supported formats are UTF-8 text. The name extension is used only as a
-    fallback when the bytes cannot be classified.
+    A supplied filename extension is authoritative so formats such as CSV,
+    HTML, and PDF are not misclassified merely because their bytes are
+    decodable as UTF-8. Byte sniffing remains the fallback for extensionless
+    uploads, including DOCX and plain text content.
     """
+    suffix = Path(name).suffix.lower()
+    if suffix:
+        return suffix
+
     if raw[:2] == b"PK" and b"[Content_Types].xml" in raw[:4096]:
         return ".docx"
     try:
         raw.decode("utf-8")
         return ".txt"
     except UnicodeDecodeError:
-        return Path(name).suffix.lower()
+        return ""
 
 
 def provision_document(

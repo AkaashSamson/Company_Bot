@@ -12,6 +12,7 @@ from app.domain.ports.document_processing import (
     ProcessedDocument,
 )
 from app.infrastructure.document.plaintext_processor import PlainTextDocumentProcessor
+from app.infrastructure.document.local_document_loader import LocalDocumentLoader
 from app.infrastructure.document.processor_factory import (
     CompositeDocumentProcessor,
     build_document_processor,
@@ -187,3 +188,13 @@ def test_factory_default_follows_the_configured_flag(monkeypatch):
         "app.infrastructure.document.processor_factory.DOCLING_ENABLED", True, raising=True
     )
     assert isinstance(build_document_processor(), CompositeDocumentProcessor)
+
+
+def test_local_loader_uses_the_active_processor_capabilities(tmp_path):
+    (tmp_path / "policy.pdf").write_bytes(b"pdf")
+    (tmp_path / "notes.rst").write_text("notes", encoding="utf-8")
+    processor = _StubProcessor((".pdf",))
+
+    files = LocalDocumentLoader(str(tmp_path), processor=processor).list_documents()
+
+    assert files == [str(tmp_path / "policy.pdf")]

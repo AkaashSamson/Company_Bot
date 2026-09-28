@@ -18,16 +18,16 @@ def main():
     persist_directory = str(BASE_DIR / ".chroma")
     project_id = os.getenv("DEFAULT_PROJECT_ID")
 
-    loader = LocalDocumentLoader(documents_dir)
+    # Built here, as for the API path, so the batch script never constructs a
+    # parser itself and both entry points ingest through the same port.
+    processor = build_document_processor()
+    loader = LocalDocumentLoader(documents_dir, processor=processor)
     files = loader.list_documents()
     if not files:
         print("No documents found.")
         return
 
     store = ChromaVectorStore(collection_name=collection_name, persist_directory=persist_directory)
-    # Built here, as for the API path, so the batch script never constructs a
-    # parser itself and both entry points ingest through the same port.
-    processor = build_document_processor()
 
     for file_path in files:
         path = Path(file_path)
