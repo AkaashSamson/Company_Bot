@@ -30,3 +30,7 @@ docs/SEEDED_USERS_AND_CREDENTIALS.md
 
 # Superpowers local scratch
 .superpowers/
+
+# Runtime logs
+*.log
+devTools/

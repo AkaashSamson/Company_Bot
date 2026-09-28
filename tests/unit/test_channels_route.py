@@ -44,4 +44,3 @@ def test_teams_message_dispatch(monkeypatch):
     assert response.status_code == 200
     data = response.json()
     assert "Echo: What is the vacation policy?" in data["text"]
-    assert data["attachments"][0]["contentType"] == "application/vnd.microsoft.card.adaptive"

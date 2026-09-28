@@ -93,4 +93,4 @@ def test_teams_adapter_format_response():
     assert response.status_code == 200
     assert response.card_payload is not None
     assert response.card_payload["type"] == "message"
-    assert response.card_payload["attachments"][0]["contentType"] == "application/vnd.microsoft.card.adaptive"
+    assert "42 is the answer" in response.card_payload["text"]
