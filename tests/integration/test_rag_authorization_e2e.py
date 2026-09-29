@@ -183,3 +183,22 @@ def test_admin_scope_never_produces_access_denied_response(orchestrator_fixture)
     assert llm.messages is not None
     assert result["citations"] != []
     assert "do not currently have access to" not in result["answer"]
+
+def test_docling_metadata_does_not_break_authorization(orchestrator_fixture):
+    # Regression test proving that metadata enrichment (such as section_heading and hierarchy_path)
+    # does not alter authorization filtering behavior in Chroma.
+    llm = CapturingLLM()
+    orchestrator_fixture["orchestrator"].llm = llm
+
+    # The document "Project_Bravo_Leave.txt" belongs to "p2".
+    # User only has access to "p1". The query specifically asks for Bravo leave policy,
+    # which would semantically match highly if the chunks were exposed.
+    result = orchestrator_fixture["orchestrator"].answer(
+        "What is the annual leave policy in the caboodle vault?",
+        authorized_project_ids=["p1"],
+    )
+
+    # Must be denied despite any rich metadata on the chunk
+    assert llm.messages is None, "LLM must not be invoked for out-of-scope document"
+    assert result["citations"] == [], "No citations should be returned"
+    assert "do not currently have access to" in result["answer"]

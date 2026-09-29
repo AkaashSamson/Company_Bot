@@ -1,11 +1,5 @@
 from app.domain.entities.chunk_metadata import build_chunk_metadata
 from app.domain.ports.document_processing import ProcessedDocument
-from app.infrastructure.document.plaintext_processor import (
-    SUPPORTED_EXTENSIONS,
-    chunk_text,
-    extract_text_from_bytes,
-    extract_text_from_document,
-)
 
 def build_chunk_records_from_processed(
     processed: ProcessedDocument,
@@ -51,10 +45,13 @@ def build_chunk_records_from_processed(
         metadata.update(entry.as_legacy())
         metadata["file_type"] = resolved_file_type
         metadata["version"] = version or "1.0"
+        hierarchy_text = entry.hierarchy_text
+        text_with_context = f"{hierarchy_text}\n\n{chunk.text}" if hierarchy_text else chunk.text
+        
         records.append(
             {
                 "id": f"{document_id}-{position}",
-                "text": chunk.text,
+                "text": text_with_context,
                 "metadata": metadata,
             }
         )

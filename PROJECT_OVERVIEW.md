@@ -1264,22 +1264,27 @@ Structured-extra logging only. **No durable audit sink, no separate logger, no D
 
 ### 13.1 `app/use_cases/ingestion/document_processing.py`
 
-- `SUPPORTED_EXTENSIONS = {".docx", ".txt", ".md", ".rst"}`
-- `_clean_text` — normalizes `\r`→`\n`, collapses 3+ newlines, strips trailing/leading horizontal
-  whitespace on lines, collapses double spaces.
-- `chunk_text(text, chunk_size=500)` — paragraph-first, sentence-fallback. Splits on blank lines;
-  paragraphs longer than 500 chars are re-split on `(?<=[.!?])\s+`. Greedily packs segments up to
-  500 chars. **No overlap** between chunks.
-- `extract_text_from_bytes(content, file_name)` — `.docx` via `python-docx` (non-empty paragraphs
-  joined by blank lines); `.txt/.md/.rst` decoded UTF-8 with `errors="ignore"`; anything else raises.
-- `build_chunk_records(text, document_id, project_id, source, file_type, version)` — produces
+The new ingestion architecture follows this pipeline:
+`Document` → `Document Processing Port` → `Docling Adapter` → `HybridChunker` → `Canonical Chunk Metadata` → `ChromaVectorStore`
+
+Key architectural rules:
+- **Docling is infrastructure.** It is strictly isolated behind the adapter pattern in `app/infrastructure/document/docling_processor.py`.
+- **Application code depends on the port.** The use-case layer operates exclusively on neutral `ProcessedDocument` and `ProcessedChunk` interfaces from `app/domain/ports/document_processing.py`.
+- **Domain code does not depend on Docling.** The domain layer is pure and knows nothing about the underlying document parser.
+- **RBAC metadata comes from KnowLayer, not Docling.** While Docling enriches structural metadata (`section_heading`, `hierarchy_path`), authorization properties such as `project_id` and document identity are injected by the application layer. The parser is never trusted to compute security scopes.
+
+The `app/use_cases/ingestion/document_processing.py` file maps the parser's structural results to store-ready records:
+- `build_chunk_records_from_processed(processed, document_id, project_id, source, file_type, version)` — produces:
   ```python
-  {"id": f"{document_id}-{index}", "text": chunk,
+  {"id": f"{document_id}-{index}", "text": chunk.text,
    "metadata": {"document_id":…, "project_id": project_id or "unassigned", "source":…,
-                "chunk_index": index, "file_type":…, "version": version or "1.0"}}
+                "chunk_index": index, "file_type":…, "version": version or "1.0",
+                "section_heading":…, "hierarchy_path":…}}
   ```
   **`project_id` defaults to the literal string `"unassigned"`** — that literal is what the
   `include_unassigned` filter matches on.
+
+*(Note: The old `python-docx → 500-character chunks` fixed-width logic is retained purely as a fallback adapter in `PlainTextDocumentProcessor` for formats Docling cannot parse, like `.rst`.)*
 
 ### 13.2 `app/infrastructure/ingestion/provisioner.py`
 

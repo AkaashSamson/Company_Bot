@@ -53,7 +53,7 @@ def test_upload_with_unsupported_file_type_is_rejected_without_persistence(tmp_p
     try:
         payload = {
             "document_id": "bad-2",
-            "document_name": "policy.pdf",
+            "document_name": "policy.exe",
             "content": base64.b64encode(b"\xff\xfe\x00\x01").decode("utf-8"),
         }
         response = client.post("/api/documents", json=payload)

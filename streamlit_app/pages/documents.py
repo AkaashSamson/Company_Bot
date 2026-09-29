@@ -51,7 +51,7 @@ role_name_by_id = {r["role_id"]: r["name"] for r in roles}
 document_options = {d["document_name"]: d["document_id"] for d in documents}
 
 with st.expander("Upload document", expanded=True):
-    uploaded_file = st.file_uploader("Choose a file to provision for Q&A", type=["docx", "txt", "md", "rst"])
+    uploaded_file = st.file_uploader("Choose a file to provision for Q&A", type=["pdf", "docx", "txt", "md", "rst"])
     if uploaded_file is not None:
         with st.form("upload-document"):
             document_name = st.text_input("Document name", value=uploaded_file.name)

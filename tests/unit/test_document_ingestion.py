@@ -2,10 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from app.use_cases.ingestion.document_processing import (
+from app.infrastructure.document.plaintext_processor import (
     chunk_text,
     extract_text_from_bytes,
-    extract_text_from_document,
 )
 
 
@@ -13,7 +12,7 @@ def test_extract_text_from_nexora_docx():
     doc_path = Path("input/HR_Policy_Manual.docx")
     assert doc_path.exists(), "HR policy document should exist in input/"
 
-    text = extract_text_from_document(str(doc_path))
+    text = extract_text_from_bytes(doc_path.read_bytes(), doc_path.name)
     assert "NEXORA TECHNOLOGIES" in text
     assert "HUMAN RESOURCES POLICY MANUAL" in text
 

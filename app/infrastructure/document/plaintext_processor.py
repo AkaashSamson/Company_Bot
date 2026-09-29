@@ -99,13 +99,6 @@ def extract_text_from_bytes(content: bytes, file_name: str) -> str:
     raise ValueError(f"Unsupported document type: {suffix}")
 
 
-def extract_text_from_document(file_path: str) -> str:
-    path = Path(file_path)
-    if not path.exists():
-        raise FileNotFoundError(file_path)
-    return extract_text_from_bytes(path.read_bytes(), path.name)
-
-
 class PlainTextDocumentProcessor:
     """Parse and chunk documents with the fixed-width text pipeline.
 

@@ -88,11 +88,10 @@ def test_cleanup_consumes_validated_retention_setting():
     assert cleanup.log_dir == CONVERSATION_LOG_DIR
 
 
-def test_docling_flag_defaults_to_disabled():
-    """Verify the Docling ingestion flag is off by default.
+def test_docling_flag_is_enabled():
+    """Verify the Docling ingestion flag is enabled.
 
-    Docling is currently a declared dependency only. The existing ingestion
-    flow stays the active path until a parsing adapter is introduced, so the
-    flag must not be enabled implicitly.
+    Docling is now the active parsing adapter for structural document
+    ingestion.
     """
-    assert DOCLING_ENABLED is False
+    assert DOCLING_ENABLED is True

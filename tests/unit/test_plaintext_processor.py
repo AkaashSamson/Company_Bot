@@ -17,7 +17,7 @@ from app.infrastructure.document.processor_factory import (
     CompositeDocumentProcessor,
     build_document_processor,
 )
-from app.use_cases.ingestion.document_processing import SUPPORTED_EXTENSIONS
+from app.infrastructure.document.plaintext_processor import PlainTextDocumentProcessor, SUPPORTED_EXTENSIONS
 
 
 class _StubProcessor:
