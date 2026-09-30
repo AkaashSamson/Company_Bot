@@ -18,8 +18,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
+import numpy as np
 
 from app.core.cache_quality import is_negative_response
+from app.core.settings import SEMANTIC_CACHE_SIMILARITY_THRESHOLD
 
 logger = logging.getLogger(__name__)
 
@@ -586,21 +588,26 @@ class InMemoryQualityAwareCache:
     def __init__(
         self,
         max_entries: int = 1000,
-        ttl_seconds: float = 3600.0,
+        ttl_seconds: float = 30 * 24 * 3600.0,  # 30 days (2,592,000s)
         min_confidence_threshold: float = 0.60,
+        semantic_similarity_threshold: float = SEMANTIC_CACHE_SIMILARITY_THRESHOLD,
         validator: Optional[CacheQualityValidator] = None,
         enable_stats: bool = True,
         document_timestamp_lookup: Optional[Callable[[str], Optional[float]]] = None,
+        embedding_model: Optional[Any] = None,
     ):
         self.max_entries = max_entries
         self.ttl_seconds = ttl_seconds
         self.min_confidence_threshold = min_confidence_threshold
+        self.semantic_similarity_threshold = semantic_similarity_threshold
         self.validator = validator or CacheQualityValidator(min_confidence_threshold=min_confidence_threshold)
         self.enable_stats = enable_stats
         self.document_timestamp_lookup = document_timestamp_lookup
+        self._embedding_model = embedding_model
         
         self._cache: dict[str, QualityAwareCacheEntry] = {}
         self._cache_id_to_key: dict[str, str] = {}
+        self._key_embeddings: dict[str, np.ndarray] = {}
         self._access_order: list[str] = []
         self._lock = threading.RLock()
         
@@ -614,12 +621,38 @@ class InMemoryQualityAwareCache:
             "rejected_quality_gate": 0,
             "rbac_denials": 0,
             "stale_document_evictions": 0,
+            "semantic_hits": 0,
         }
         
         logger.info(
-            "in_memory_quality_aware_cache initialized max_entries=%d ttl=%.0fs min_confidence=%.2f",
-            max_entries, ttl_seconds, min_confidence_threshold
+            "in_memory_quality_aware_cache initialized max_entries=%d ttl=%.0fs min_confidence=%.2f semantic_threshold=%.2f",
+            max_entries, ttl_seconds, min_confidence_threshold, semantic_similarity_threshold
         )
+
+    def _embed_text(self, text: str) -> Optional[np.ndarray]:
+        """Generate normalized vector embedding for query text or cache key."""
+        if not text or not str(text).strip():
+            return None
+        clean_text = str(text).replace("_", " ").strip()
+        if not clean_text:
+            return None
+        if self._embedding_model is None:
+            try:
+                from sentence_transformers import SentenceTransformer
+                from app.core.settings import EMBEDDING_MODEL
+                self._embedding_model = SentenceTransformer(EMBEDDING_MODEL)
+            except Exception as exc:
+                logger.debug("Failed loading embedding model for semantic cache: %s", exc)
+                return None
+        try:
+            emb = self._embedding_model.encode([clean_text], convert_to_numpy=True)[0]
+            norm = np.linalg.norm(emb)
+            if norm > 0:
+                emb = emb / norm
+            return emb
+        except Exception as exc:
+            logger.debug("Error generating embedding for semantic cache: %s", exc)
+            return None
 
     def _check_rbac_access(
         self,
@@ -714,18 +747,45 @@ class InMemoryQualityAwareCache:
         """
         with self._lock:
             entry = self._cache.get(cache_key)
+            semantic_matched = False
+            best_sim = 0.0
+            matched_key = None
+            
+            # Semantic search across stored key embeddings if exact key is not found
+            if entry is None and self.semantic_similarity_threshold > 0 and self._key_embeddings:
+                query_emb = self._embed_text(cache_key)
+                if query_emb is not None:
+                    best_sim = -1.0
+                    for k, emb in list(self._key_embeddings.items()):
+                        if k not in self._cache:
+                            continue
+                        sim = float(np.dot(query_emb, emb))
+                        if sim > best_sim:
+                            best_sim = sim
+                            matched_key = k
+                    
+                    if matched_key is not None and best_sim >= self.semantic_similarity_threshold:
+                        entry = self._cache.get(matched_key)
+                        if entry is not None:
+                            semantic_matched = True
+                            logger.info(
+                                "semantic_cache_hit query=%s matched_key=%s confidence=%.2f%% (threshold=%.2f%%)",
+                                cache_key, matched_key, best_sim * 100.0, self.semantic_similarity_threshold * 100.0
+                            )
             
             if entry is None:
                 self._stats["misses"] += 1
                 logger.debug("cache_miss key=%s", cache_key)
                 return None
             
+            effective_key = matched_key if semantic_matched else cache_key
+
             # 1. Check TTL expiry
             if entry.is_expired(self.ttl_seconds):
-                self._remove_entry(cache_key)
+                self._remove_entry(effective_key)
                 self._stats["misses"] += 1
                 self._stats["expirations"] += 1
-                logger.debug("cache_expired key=%s", cache_key)
+                logger.debug("cache_expired key=%s", effective_key)
                 return None
 
             # 2. RBAC Validation Gate
@@ -741,7 +801,7 @@ class InMemoryQualityAwareCache:
                 self._stats["rbac_denials"] = self._stats.get("rbac_denials", 0) + 1
                 logger.debug(
                     "cache_rbac_denied key=%s cache_id=%s assigned_role=%s req_role=%s",
-                    cache_key, entry.cache_id, entry.assigned_role, role
+                    effective_key, entry.cache_id, entry.assigned_role, role
                 )
                 return None
 
@@ -782,24 +842,40 @@ class InMemoryQualityAwareCache:
                 if is_stale:
                     logger.info(
                         "cache_stale_document_detected key=%s doc=%s (cached_ts=%.2f, current_updated_at=%.2f) - evicting stale cache to use LLM",
-                        cache_key, stale_doc, cached_ts, latest_ts
+                        effective_key, stale_doc, cached_ts, latest_ts
                     )
-                    self._remove_entry(cache_key)
+                    self._remove_entry(effective_key)
                     self._stats["misses"] += 1
                     self._stats["stale_document_evictions"] = self._stats.get("stale_document_evictions", 0) + 1
                     return None
             
             # Update LRU and access stats
             entry.update_access()
-            self._update_access_order(cache_key)
+            if semantic_matched:
+                entry.metadata.extra["semantic_confidence"] = round(best_sim, 4)
+                entry.metadata.extra["semantic_match"] = True
+                self._stats["semantic_hits"] = self._stats.get("semantic_hits", 0) + 1
+            self._update_access_order(effective_key)
             
             self._stats["hits"] += 1
             logger.debug(
-                "cache_hit key=%s cache_id=%s role=%s confidence=%.2f access_count=%d",
-                cache_key, entry.cache_id, entry.assigned_role, entry.confidence, entry.access_count
+                "cache_hit key=%s cache_id=%s role=%s confidence=%.2f access_count=%d semantic=%s",
+                effective_key, entry.cache_id, entry.assigned_role, entry.confidence, entry.access_count, semantic_matched
             )
             return entry
-    
+
+    def set(
+        self,
+        cache_key: str,
+        original_query: Optional[str] = None,
+        response: str = "",
+        *args,
+        **kwargs,
+    ) -> bool:
+        """Alias for put() to support standard dictionary / cache set semantics."""
+        orig_q = original_query if original_query is not None else cache_key
+        return self.put(cache_key=cache_key, original_query=orig_q, response=response, *args, **kwargs)
+
     def put(
         self,
         cache_key: str,
@@ -916,6 +992,19 @@ class InMemoryQualityAwareCache:
             self._update_access_order(cache_key)
             self._stats["writes"] += 1
             
+            # Index normalized key and original query embeddings for semantic caching with 89% confidence
+            key_emb = self._embed_text(cache_key)
+            if key_emb is not None:
+                self._key_embeddings[cache_key] = key_emb
+            if original_query and original_query != cache_key:
+                orig_emb = self._embed_text(original_query)
+                if orig_emb is not None:
+                    self._key_embeddings[original_query] = orig_emb
+            
+            # Timestamp right after embedding so model load latency does not consume entry TTL
+            entry.metadata.created_at = time.time()
+            entry.metadata.last_accessed = time.time()
+            
             logger.debug(
                 "cache_write key=%s cache_id=%s role=%s docs=%s confidence=%.2f source=%s decision=%s",
                 cache_key, effective_cache_id, assigned_role, docs_list, confidence, source_enum.value, validation.decision.value
@@ -1013,6 +1102,7 @@ class InMemoryQualityAwareCache:
             if entry.cache_id in self._cache_id_to_key:
                 del self._cache_id_to_key[entry.cache_id]
             del self._cache[oldest_key]
+            self._key_embeddings.pop(oldest_key, None)
             self._stats["evictions"] += 1
             logger.debug("cache_evicted key=%s reason=lru", oldest_key)
     
@@ -1023,6 +1113,7 @@ class InMemoryQualityAwareCache:
             if entry.cache_id in self._cache_id_to_key:
                 del self._cache_id_to_key[entry.cache_id]
             del self._cache[cache_key]
+        self._key_embeddings.pop(cache_key, None)
         if cache_key in self._access_order:
             self._access_order.remove(cache_key)
     
@@ -1040,12 +1131,17 @@ class InMemoryQualityAwareCache:
                 logger.info("cache_invalidated key=%s", cache_key)
                 return True
             return False
+
+    def delete(self, cache_key: str) -> bool:
+        """Alias for invalidate (satisfies SemanticCachePort)."""
+        return self.invalidate(cache_key)
     
     def clear(self) -> None:
         """Clear all cache entries."""
         with self._lock:
             self._cache.clear()
             self._cache_id_to_key.clear()
+            self._key_embeddings.clear()
             self._access_order.clear()
             logger.info("cache_cleared")
     
@@ -1068,6 +1164,7 @@ class InMemoryQualityAwareCache:
                 "rejected_quality_gate": self._stats.get("rejected_quality_gate", 0),
                 "rbac_denials": self._stats.get("rbac_denials", 0),
                 "stale_document_evictions": self._stats.get("stale_document_evictions", 0),
+                "semantic_hits": self._stats.get("semantic_hits", 0),
                 "current_entries": len(self._cache),
                 "max_entries": self.max_entries,
                 "utilization": (len(self._cache) / self.max_entries * 100) if self.max_entries > 0 else 0,
@@ -1102,7 +1199,8 @@ _quality_cache: Optional[InMemoryQualityAwareCache] = None
 
 def get_quality_cache(
     max_entries: int = 1000,
-    ttl_seconds: float = 3600.0,
+    ttl_seconds: float = 30 * 24 * 3600.0,  # 30 days (2,592,000s)
+    semantic_similarity_threshold: float = SEMANTIC_CACHE_SIMILARITY_THRESHOLD,
     document_timestamp_lookup: Optional[Callable[[str], Optional[float]]] = None,
 ) -> InMemoryQualityAwareCache:
     """Get the global quality-aware cache instance."""
@@ -1111,6 +1209,7 @@ def get_quality_cache(
         _quality_cache = InMemoryQualityAwareCache(
             max_entries=max_entries,
             ttl_seconds=ttl_seconds,
+            semantic_similarity_threshold=semantic_similarity_threshold,
             document_timestamp_lookup=document_timestamp_lookup,
         )
     elif document_timestamp_lookup is not None:

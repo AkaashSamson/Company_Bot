@@ -246,6 +246,17 @@ class TestWordBoundaryFixing:
         result = normalizer.normalize("employee handbook")
         assert "handbook" in result.normalized_query
 
+    def test_dp_multi_word_splitting(self, normalizer):
+        """Test dynamic programming splitting of multi-word conjoined tokens like 'howareyou'."""
+        res1 = normalizer.normalize("howareyou")
+        assert "how" in res1.normalized_query
+        assert any("word_boundary: howareyou -> how are you" in c for c in res1.corrections_made)
+
+        res2 = normalizer.normalize("whatisleavepolicy")
+        assert "leave" in res2.normalized_query
+        assert "policy" in res2.normalized_query
+        assert any("what is leave policy" in c for c in res2.corrections_made)
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

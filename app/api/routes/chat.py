@@ -26,11 +26,11 @@ orchestrator: QueryOrchestrator | None = None
 
 def init_orchestrator() -> None:
     global _orchestrator
-    from app.infrastructure.cache.quality_aware_cache import get_quality_cache
+    from app.infrastructure.cache import get_semantic_cache
     _orchestrator = QueryOrchestrator(
-        response_cache=get_quality_cache(),
+        response_cache=get_semantic_cache(),
     )
-    logger.info("QueryOrchestrator initialised and ready.")
+    logger.info("QueryOrchestrator initialised with loosely-coupled semantic cache.")
 
 
 @router.post("/chat", response_model=ChatResponse)

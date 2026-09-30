@@ -55,7 +55,6 @@ param(
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ProjectRoot
-
 # --- Helper Functions ---
 function Get-ProcessIdsOnPort([int]$Port) {
     try {
@@ -152,8 +151,13 @@ if (-not (Test-Path $VenvPython)) {
 
 if (-not $InstallDeps) {
     # Check if newly added dependencies (e.g. streamlit-cookies-controller) are installed
-    $CheckDeps = & "$VenvPython" -c "import streamlit_cookies_controller" 2>&1
-    if ($LASTEXITCODE -ne 0) {
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+    & "$VenvPython" -c "import streamlit_cookies_controller" 2>$null
+    $depExit = $LASTEXITCODE
+    $ErrorActionPreference = $prevEAP
+
+    if ($depExit -ne 0) {
         Write-Host "[DEPS] Detected missing package(s). Installing dependencies from requirements.txt..." -ForegroundColor Yellow
         $InstallDeps = $true
     }
@@ -161,8 +165,11 @@ if (-not $InstallDeps) {
 
 if ($InstallDeps) {
     Write-Host "[DEPS] Installing/Updating dependencies from requirements.txt..." -ForegroundColor Cyan
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
     & "$VenvPython" -m pip install --upgrade pip --quiet
     & "$VenvPython" -m pip install -r (Join-Path $ProjectRoot "requirements.txt")
+    $ErrorActionPreference = $prevEAP
     Write-Host "[DEPS] Dependencies up to date.`n" -ForegroundColor Green
 }
 
@@ -188,7 +195,7 @@ if ($ApiPids -or $UiPids) {
 
 # --- 4. Launch FastAPI Backend ---
 $ReloadArgs = if (-not $NoReload) { "--reload --reload-dir app" } else { "" }
-$ApiCommand = "Set-Location '$ProjectRoot'; `$env:PYTHONPATH='$ProjectRoot'; `$Host.UI.RawUI.WindowTitle = 'KnowLayer API (Port $ApiPort)'; & '$VenvPython' -m uvicorn app.main:app --host 127.0.0.1 --port $ApiPort $ReloadArgs"
+$ApiCommand = "Set-Location '$ProjectRoot'; `$env:PYTHONPATH='$ProjectRoot'; try { `$Host.UI.RawUI.WindowTitle = 'KnowLayer API (Port $ApiPort)' } catch {}; & '$VenvPython' -m uvicorn app.main:app --host 127.0.0.1 --port $ApiPort $ReloadArgs"
 
 Write-Host "[LAUNCH] Starting FastAPI backend on http://127.0.0.1:$ApiPort..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $ApiCommand
@@ -221,7 +228,7 @@ if ($IsReady) {
 
 # --- 6. Launch Streamlit UI ---
 $HeadlessArg = if ($NoBrowser) { "--server.headless true" } else { "--server.headless false" }
-$UiCommand = "Set-Location '$ProjectRoot'; `$env:PYTHONPATH='$ProjectRoot'; `$env:STREAMLIT_API_BASE_URL='http://127.0.0.1:$ApiPort'; `$Host.UI.RawUI.WindowTitle = 'KnowLayer Streamlit UI (Port $StreamlitPort)'; & '$VenvPython' -m streamlit run streamlit_app/app.py --server.port $StreamlitPort --server.address 127.0.0.1 $HeadlessArg"
+$UiCommand = "Set-Location '$ProjectRoot'; `$env:PYTHONPATH='$ProjectRoot'; `$env:STREAMLIT_API_BASE_URL='http://127.0.0.1:$ApiPort'; try { `$Host.UI.RawUI.WindowTitle = 'KnowLayer Streamlit UI (Port $StreamlitPort)' } catch {}; & '$VenvPython' -m streamlit run streamlit_app/app.py --server.port $StreamlitPort --server.address 127.0.0.1 $HeadlessArg"
 
 Write-Host "[LAUNCH] Starting Streamlit frontend on http://127.0.0.1:$StreamlitPort..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $UiCommand

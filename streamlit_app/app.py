@@ -277,10 +277,9 @@ def _format_token_info(
     tokens: dict | None,
     cache_id: str | None = None,
     assigned_role: str | None = None,
-    is_latest: bool = True,
 ) -> str:
     """Format token usage and cache info for display."""
-    if not tokens and not cache_id and is_latest is None:
+    if not tokens and not cache_id:
         return ""
     
     prompt = tokens.get("prompt_tokens", 0) if tokens else 0
@@ -288,24 +287,21 @@ def _format_token_info(
     total = tokens.get("total_tokens", 0) if tokens else 0
     cached = tokens.get("cache_hit", False) if tokens else False
     
-    latest_badge = "🟢 Latest" if is_latest else "⚠️ Outdated"
-    
     if cached:
-        text = f"💾 *Response from cache (0 tokens used)* • `{latest_badge}`"
+        text = "💾 *Response from cache (0 tokens used)*"
         if cache_id:
             text += f" • `ID: {cache_id}`"
         if assigned_role:
             text += f" • `Role: {assigned_role}`"
         return f"\n\n{text}"
     elif total > 0 or cache_id:
-        text = f"🤖 *Generated via LLM* • `{latest_badge}`"
+        text = "🤖 *Generated via LLM*"
         if total > 0:
             text += f" (Tokens: {prompt}P + {completion}C = {total}T)"
         if cache_id:
             text += f" • `Cache ID: {cache_id}`"
         return f"\n\n{text}"
-    else:
-        return f"\n\n`{latest_badge}`"
+    return ""
 
 
 # Replay full chat history (citations already embedded in content)
@@ -409,7 +405,7 @@ if user_input:
         answer
         + _format_citations(citations, answer=answer)
         + _format_corrections(corrections)
-        + _format_token_info(tokens, cache_id=cache_id, assigned_role=assigned_role, is_latest=is_latest)
+        + _format_token_info(tokens, cache_id=cache_id, assigned_role=assigned_role)
     )
 
     st.session_state.messages.append({

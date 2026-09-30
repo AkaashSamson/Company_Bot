@@ -170,7 +170,8 @@ class TraceContext:
             self.error = str(exc_val)
             if self.span:
                 self.span.error = self.error
-            logger.warning("pipeline_stage_error stage=%s error=%s", self.stage.value, exc_val)
+            stage_str = self.stage.value if hasattr(self.stage, "value") else str(self.stage)
+            logger.warning("pipeline_stage_error stage=%s error=%s", stage_str, exc_val)
 
         if self.span:
             if self.prompt_tokens or self.completion_tokens or self.tokens_used:

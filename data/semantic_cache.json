@@ -1,0 +1,14 @@
+{
+  "test_langcache_real": {
+    "cache_key": "test_langcache_real",
+    "original_query": "test langcache query",
+    "response": "test response",
+    "confidence": 0.0,
+    "source": "semantic_cache",
+    "evidence_count": 0,
+    "model": "",
+    "citations": [],
+    "created_at": 1790520966.3023808,
+    "metadata": {}
+  }
+}

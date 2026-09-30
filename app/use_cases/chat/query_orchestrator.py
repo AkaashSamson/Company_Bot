@@ -364,20 +364,39 @@ class QueryOrchestrator:
             prev_data = _last_interaction[session_id]
             prev_evidence = prev_data.get("selected_evidence", [])
 
-            # 0a. User indicates the response was NOT relevant or not satisfied → evict from cache & show references
+            # 0a. User indicates the response was NOT relevant or not satisfied → evict from cache & give new LLM response
             if _is_not_relevant(question):
                 logger.info(
                     "User indicated response was not relevant/satisfactory for session %s. "
-                    "Evicting stale cache and showing formatted references directly.",
+                    "Evicting stale cache and generating alternative LLM response.",
                     session_id,
                 )
                 # Clear backend caches so this query won't be served from stale cache
                 prev_q = prev_data.get("question")
-                if self.response_cache and prev_q and hasattr(self.response_cache, "delete"):
-                    try:
-                        self.response_cache.delete(prev_q)
-                    except Exception:
-                        pass
+                if self.response_cache and prev_q:
+                    if hasattr(self.response_cache, "delete"):
+                        try:
+                            self.response_cache.delete(prev_q)
+                        except Exception:
+                            pass
+                    if hasattr(self.response_cache, "invalidate"):
+                        try:
+                            self.response_cache.invalidate(prev_q)
+                        except Exception:
+                            pass
+                    # If normalizer is present, also delete normalized cache key
+                    if hasattr(self, "query_normalizer") and self.query_normalizer:
+                        try:
+                            norm_res = self.query_normalizer.normalize(prev_q)
+                            norm_key = getattr(norm_res, "cache_key", None)
+                            if norm_key and norm_key != prev_q:
+                                if hasattr(self.response_cache, "delete"):
+                                    self.response_cache.delete(norm_key)
+                                if hasattr(self.response_cache, "invalidate"):
+                                    self.response_cache.invalidate(norm_key)
+                        except Exception:
+                            pass
+
                 if self.response_cache and hasattr(self.response_cache, "clear"):
                     try:
                         self.response_cache.clear()
@@ -400,10 +419,108 @@ class QueryOrchestrator:
                     except Exception as exc:
                         logger.warning("Failed to evict FAQ entry from cache: %s", exc)
 
+                # Check if alternative answer has already been given:
+                # If alternative answer was already provided, second 'not relevant' provides document references directly
+                if _alternative_answer_given.get(session_id, False):
+                    _alternative_answer_given[session_id] = False
+                    citations = _pending_citations.pop(session_id, [])
+                    if not citations and prev_evidence:
+                        citations = self.provenance.build_citations(prev_evidence)
+                    if citations:
+                        return _finish({
+                            "answer": "Here are the references from the documents for your review:",
+                            "citations": citations,
+                            "cache_hit": False,
+                            "show_citations": True,
+                            "tokens": None,
+                        })
+                    return _finish({
+                        "answer": (
+                            "I'm sorry the response wasn't helpful. No additional document references are "
+                            "available for that query. Please consult your HR representative directly."
+                        ),
+                        "citations": [],
+                        "cache_hit": False,
+                        "tokens": None,
+                    })
+
+                # If no evidence was available initially, we cannot generate a grounded alternative
+                if not prev_evidence:
+                    no_ev_ans = (
+                        "I'm sorry the response wasn't helpful. I searched the available documents but could not find "
+                        f"additional information for your query. Please consult your HR representative directly.\n\n{RELEVANCE_PROMPT}"
+                    )
+                    return _finish({
+                        "answer": no_ev_ans,
+                        "citations": [],
+                        "cache_hit": False,
+                        "tokens": None,
+                    })
+
+                # First rejection: Generate a new alternative answer from LLM
+                context_text = prev_data.get("context", "")
+                if not context_text and prev_evidence:
+                    context_text = "\n\n".join(e.get("text", "") for e in prev_evidence if isinstance(e, dict))
+
+                if hasattr(self.context_builder, "build_messages"):
+                    alt_messages = self.context_builder.build_messages(
+                        question=f"Please provide an alternative and clearer answer to: {prev_q}",
+                        context_chunks=prev_evidence,
+                        include_system_prompt=True,
+                    )
+                else:
+                    alt_messages = [
+                        {
+                            "role": "system",
+                            "content": (
+                                "You answer questions using only the provided document context. "
+                                "The user indicated the previous answer was not relevant or satisfactory. "
+                                "Provide a different, more detailed or alternative answer to directly address their question. "
+                                f"End with: '{RELEVANCE_PROMPT}'"
+                            ),
+                        },
+                        {
+                            "role": "user",
+                            "content": (
+                                f"Document context:\n\n{context_text}\n\n"
+                                f"Question: {prev_q}"
+                            ),
+                        },
+                    ]
+
+                try:
+                    alt_answer = self._generate(alt_messages, session_id=session_id)
+                except Exception as exc:
+                    logger.warning("Alternative LLM generation failed: %s", exc)
+                    alt_answer = None
+
+                if alt_answer:
+                    if RELEVANCE_PROMPT not in alt_answer:
+                        alt_answer = alt_answer.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
+
+                    citations = self.provenance.build_citations(prev_evidence)
+                    _pending_citations[session_id] = citations
+                    _last_interaction[session_id] = {
+                        "question": prev_q,
+                        "context": context_text,
+                        "selected_evidence": prev_evidence,
+                        "answer": alt_answer,
+                    }
+                    _alternative_answer_given[session_id] = True
+
+                    return _finish({
+                        "answer": alt_answer,
+                        "citations": [],
+                        "context": context_text,
+                        "cache_hit": False,
+                        "is_latest": True,
+                        "tokens": None,
+                    })
+
+                # If LLM generation failed or returned empty, fall back to formatted references
                 citations = _pending_citations.pop(session_id, [])
                 if not citations and prev_evidence:
                     citations = self.provenance.build_citations(prev_evidence)
-
                 if citations:
                     return _finish({
                         "answer": "Here are the references from the documents for your review:",
@@ -422,11 +539,21 @@ class QueryOrchestrator:
                     "tokens": None,
                 })
 
-            # 0b. User indicates the response WAS relevant → ask if they want references
+            # 0b. User indicates the response WAS relevant → return formatted references
             elif _is_relevant(question):
-                _asked_references_confirm[session_id] = True
+                citations = _pending_citations.pop(session_id, [])
+                if not citations and prev_evidence:
+                    citations = self.provenance.build_citations(prev_evidence)
+                if citations:
+                    return _finish({
+                        "answer": "Here are the references from the documents:",
+                        "citations": citations,
+                        "cache_hit": False,
+                        "show_citations": True,
+                        "tokens": None,
+                    })
                 return _finish({
-                    "answer": f"I'm glad the answer was helpful! {REFERENCES_CONFIRM_PROMPT}",
+                    "answer": "I'm glad the answer was helpful! No additional document references are available.",
                     "citations": [],
                     "cache_hit": False,
                     "tokens": None,
@@ -607,7 +734,7 @@ class QueryOrchestrator:
         # FAQ similarity cache uses embeddings so it can catch semantically similar
         # queries that the exact-key response_cache missed.
         cached = (
-            self._faq_search(question)
+            (self._faq_search(processed_query) or self._faq_search(question))
             if authorized_project_ids is None
             else None
         )
