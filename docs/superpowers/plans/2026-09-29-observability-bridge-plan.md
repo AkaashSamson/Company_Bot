@@ -54,7 +54,7 @@
 - Consumes: `LLMTokenUsage` from `app.infrastructure.llm.llm_response`
 - Produces: `GroqClient.get_last_token_usage() -> Optional[LLMTokenUsage]`, `res.tokens: Optional[LLMTokenUsage]`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/unit/test_groq_token_standardization.py`:
 ```python
@@ -153,7 +153,7 @@ def test_groq_client_returns_none_when_usage_missing(monkeypatch):
     assert client.get_last_token_usage() is None
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 ```powershell
@@ -161,7 +161,7 @@ Run:
 ```
 Expected: FAIL with `AttributeError: 'GroqClient' object has no attribute 'get_last_token_usage'`
 
-- [ ] **Step 3: Implement minimal code in `groq_client.py`**
+- [x] **Step 3: Implement minimal code in `groq_client.py`**
 
 In `app/infrastructure/llm/groq_client.py`:
 1. Ensure `LLMTokenUsage` is imported from `app.infrastructure.llm.llm_response` (already on line 16).
@@ -232,7 +232,7 @@ In `app/infrastructure/llm/groq_client.py`:
        return self._last_token_usage
    ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run:
 ```powershell
@@ -240,7 +240,7 @@ Run:
 ```
 Expected: PASS
 
-- [ ] **Step 5: Run existing Groq and health unit tests**
+- [x] **Step 5: Run existing Groq and health unit tests**
 
 Run:
 ```powershell
@@ -248,7 +248,7 @@ Run:
 ```
 Expected: All tests PASS
 
-- [ ] **Step 6: Commit changes**
+- [x] **Step 6: Commit changes**
 
 ```bash
 git add app/infrastructure/llm/groq_client.py tests/unit/test_groq_token_standardization.py
