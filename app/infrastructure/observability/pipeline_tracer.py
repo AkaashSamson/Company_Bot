@@ -88,6 +88,17 @@ class StageSpan:
         self.duration_ms = (self.end_time - self.start_time) * 1000
         if output_metadata:
             self.output_metadata = output_metadata
+
+    def record_tokens(
+        self,
+        prompt_tokens: int = 0,
+        completion_tokens: int = 0,
+        tokens_used: Optional[int] = None,
+    ) -> None:
+        """Record token usage for this stage span."""
+        self.prompt_tokens = prompt_tokens
+        self.completion_tokens = completion_tokens
+        self.tokens_used = tokens_used if tokens_used is not None else (prompt_tokens + completion_tokens)
     
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization."""

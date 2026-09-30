@@ -218,10 +218,10 @@ This document defines the phase-by-phase execution timeline for KnowLayer V3. It
 - **Top Dependency:** `[Dependency: Task AK-3.2 - ObservabilityManager & LangfuseProvider (Akaash)]`
 - [x] **Task AK-3.4 (Observability Manager Singleton - Akaash Samson [Sequential Step 1]):**
   - [x] Expose singleton `get_observability_manager()` in `app/infrastructure/observability/manager.py`.
-- [ ] **Task AK-3.3 (Groq Token Standardization - Akaash Samson [Originally Phase 2]):** Update `app/infrastructure/llm/groq_client.py` to parse OpenAI-compatible `usage` blocks (`prompt_tokens`, `completion_tokens`, `total_tokens`) and populate `TokenUsage`.
+- [x] **Task AK-3.3 (Groq Token Standardization - Akaash Samson [Originally Phase 2]):** Update `app/infrastructure/llm/groq_client.py` to parse OpenAI-compatible `usage` blocks (`prompt_tokens`, `completion_tokens`, `total_tokens`) and populate `TokenUsage`.
 - **Top Dependency:** `[Dependency: Task AB-6.1 - PipelineTracer Engine (Abhinav)]`
-- [ ] **Task AB-6.3 (Pipeline Tracer Dispatch Hook - Abhinav [Sequential Step 2 - Depends on Akaash's ObservabilityManager]):**
-  - [ ] In `app/infrastructure/observability/pipeline_tracer.py`, bind completed `PipelineTrace` execution records and stage spans to `ObservabilityManager.dispatch_trace()`.
+- [x] **Task AB-6.3 (Pipeline Tracer Dispatch Hook - Abhinav [Sequential Step 2 - Depends on Akaash's ObservabilityManager]):**
+  - [x] In `app/infrastructure/observability/pipeline_tracer.py`, bind completed `PipelineTrace` execution records and stage spans to `ObservabilityManager.dispatch_trace()`.
 
 #### Subsystem 4: Document Governance & Auto-ID Handshake (Roshan)
 - [ ] **Task RO-4.1 (Document Update Schema - Roshan [Originally Phase 1]):** Add `DocumentUpdate` Pydantic model (`document_name`, `description`, `version`, `file_type`, `project_id`) in `app/api/schemas/documents.py`.

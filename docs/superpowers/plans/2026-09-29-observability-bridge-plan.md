@@ -687,7 +687,7 @@ git commit -m "feat(observability): wire PipelineTracer auto-dispatch to Observa
 **Interfaces:**
 - Verifies the full pipeline flow: `GroqClient` token generation (`LLMTokenUsage`) $\rightarrow$ `PipelineTracer` execution recording $\rightarrow$ `ObservabilityManager.dispatch_trace()` boundary conversion (`TokenUsage`) $\rightarrow$ active provider.
 
-- [ ] **Step 1: Write the end-to-end integration test**
+- [x] **Step 1: Write the end-to-end integration test**
 
 Create `tests/unit/test_observability_subsystem_e2e.py`:
 ```python
@@ -803,7 +803,7 @@ def test_full_observability_subsystem_turn_lifecycle(monkeypatch):
     mock_root_span.end.assert_called_once()
 ```
 
-- [ ] **Step 2: Run the end-to-end integration test**
+- [x] **Step 2: Run the end-to-end integration test**
 
 Run:
 ```powershell
@@ -811,7 +811,7 @@ Run:
 ```
 Expected: PASS
 
-- [ ] **Step 3: Run comprehensive test suite across observability and LLM modules**
+- [x] **Step 3: Run comprehensive test suite across observability and LLM modules**
 
 Run:
 ```powershell
@@ -819,14 +819,14 @@ Run:
 ```
 Expected: All tests PASS with zero regressions
 
-- [ ] **Step 4: Update `Task_Timeline.md` status**
+- [x] **Step 4: Update `Task_Timeline.md` status**
 
 In `Documentation/Plan/v3/Task_Timeline.md`:
 Mark tasks complete:
 - `- [x] **Task AK-3.3 (Groq Token Standardization - Akaash Samson):** ...`
 - `- [x] **Task AB-6.3 (Pipeline Tracer Dispatch Hook - Abhinav):** ...`
 
-- [ ] **Step 5: Commit complete subsystem on feature branch**
+- [x] **Step 5: Commit complete subsystem on feature branch**
 
 ```bash
 git add tests/unit/test_observability_subsystem_e2e.py Documentation/Plan/v3/Task_Timeline.md

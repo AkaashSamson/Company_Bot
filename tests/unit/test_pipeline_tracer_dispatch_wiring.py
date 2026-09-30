@@ -15,11 +15,13 @@ from app.infrastructure.observability.manager import (
 def clean_state():
     reset_observability_manager()
     tracer = get_pipeline_tracer()
+    tracer.enable_tracing = True
     tracer._traces.clear()
     tracer._current_trace = None
     tracer._observability_callback = None
     yield
     reset_observability_manager()
+    tracer.enable_tracing = True
     tracer._traces.clear()
     tracer._current_trace = None
     tracer._observability_callback = None
