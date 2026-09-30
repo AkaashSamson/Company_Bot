@@ -268,7 +268,7 @@ git commit -m "feat(llm): standardize Groq token parsing to LLMTokenUsage (AK-3.
   - `to_token_usage(usage_input: Any) -> Optional[TokenUsage]`
   - `ObservabilityManager.dispatch_trace(trace: PipelineTrace) -> None`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/unit/test_observability_manager_dispatch.py`:
 ```python
@@ -401,7 +401,7 @@ def test_dispatch_trace_handles_missing_end_time_gracefully():
     mock_provider.create_trace.assert_called_once()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 ```powershell
@@ -409,7 +409,7 @@ Run:
 ```
 Expected: FAIL with `ImportError: cannot import name 'to_token_usage' from 'app.infrastructure.observability.manager'`
 
-- [ ] **Step 3: Implement `to_token_usage` and `dispatch_trace` in `manager.py`**
+- [x] **Step 3: Implement `to_token_usage` and `dispatch_trace` in `manager.py`**
 
 In `app/infrastructure/observability/manager.py`:
 1. Add `to_token_usage` converter helper:
@@ -516,7 +516,7 @@ def to_token_usage(usage_input: Any) -> Optional[TokenUsage]:
             logger.warning("ObservabilityManager failed to dispatch trace %s: %s", getattr(trace, "trace_id", "unknown"), exc)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run:
 ```powershell
@@ -524,7 +524,7 @@ Run:
 ```
 Expected: PASS
 
-- [ ] **Step 5: Run full observability manager test suite**
+- [x] **Step 5: Run full observability manager test suite**
 
 Run:
 ```powershell
@@ -532,7 +532,7 @@ Run:
 ```
 Expected: All tests PASS
 
-- [ ] **Step 6: Commit changes**
+- [x] **Step 6: Commit changes**
 
 ```bash
 git add app/infrastructure/observability/manager.py tests/unit/test_observability_manager_dispatch.py
