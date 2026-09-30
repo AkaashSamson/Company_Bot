@@ -487,12 +487,18 @@ class PipelineTracer:
                 total_tokens=total_tokens,
             )
             
-            # Call observability callback if set
+            # Call observability callback or auto-dispatch to ObservabilityManager
             if self._observability_callback:
                 try:
                     self._observability_callback(trace)
                 except Exception as e:
                     logger.error("observability_callback_failed error=%s", e)
+            else:
+                try:
+                    from app.infrastructure.observability.manager import get_observability_manager
+                    get_observability_manager().dispatch_trace(trace)
+                except Exception as e:
+                    logger.warning("observability_autodispatch_failed error=%s", e)
             
             self._current_trace = None
             

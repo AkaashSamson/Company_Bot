@@ -551,7 +551,7 @@ git commit -m "feat(observability): add to_token_usage adapter and dispatch_trac
 - Consumes: `get_observability_manager` from `app.infrastructure.observability.manager`
 - Produces: Auto-dispatch on `PipelineTracer.end_trace()`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/unit/test_pipeline_tracer_dispatch_wiring.py`:
 ```python
@@ -628,7 +628,7 @@ def test_disabled_tracing_does_not_dispatch(monkeypatch):
     mock_dispatch.assert_not_called()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 ```powershell
@@ -636,7 +636,7 @@ Run:
 ```
 Expected: FAIL (mock_dispatch not called because auto-dispatch not wired in `end_trace()`).
 
-- [ ] **Step 3: Update `end_trace()` in `pipeline_tracer.py`**
+- [x] **Step 3: Update `end_trace()` in `pipeline_tracer.py`**
 
 In `app/infrastructure/observability/pipeline_tracer.py`, update `end_trace()` around lines 490-496:
 ```python
@@ -654,7 +654,7 @@ In `app/infrastructure/observability/pipeline_tracer.py`, update `end_trace()` a
                     logger.warning("observability_autodispatch_failed error=%s", e)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run:
 ```powershell
@@ -662,7 +662,7 @@ Run:
 ```
 Expected: PASS
 
-- [ ] **Step 5: Run existing pipeline tracer tests**
+- [x] **Step 5: Run existing pipeline tracer tests**
 
 Run:
 ```powershell
@@ -670,7 +670,7 @@ Run:
 ```
 Expected: All tests PASS
 
-- [ ] **Step 6: Commit changes**
+- [x] **Step 6: Commit changes**
 
 ```bash
 git add app/infrastructure/observability/pipeline_tracer.py tests/unit/test_pipeline_tracer_dispatch_wiring.py
