@@ -351,17 +351,21 @@ class ProviderHealthMonitor:
         return None
     
     def reset_provider(self, provider_name: str) -> None:
-        """Manually reset a provider's circuit breaker."""
+        """Manually reset a provider's circuit breaker and metrics."""
         breaker = self.get_circuit_breaker(provider_name)
         if breaker:
             breaker.reset()
+            with self._lock:
+                self._metrics[provider_name] = ProviderHealthMetrics()
             logger.info("provider_reset provider=%s", provider_name)
     
     def reset_all(self) -> None:
-        """Reset all providers to healthy state."""
+        """Reset all providers to healthy state and reset metrics."""
         with self._lock:
             for breaker in self._circuit_breakers.values():
                 breaker.reset()
+            for provider_name in self._circuit_breakers:
+                self._metrics[provider_name] = ProviderHealthMetrics()
             logger.info("all_providers_reset")
 
 
