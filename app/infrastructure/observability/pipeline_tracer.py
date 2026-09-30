@@ -277,10 +277,9 @@ class PipelineTrace:
         self.exit_reason = exit_reason
         self.total_tokens = total_tokens
         
-        # Sum tokens from all spans
-        self.total_tokens = sum(
-            s.tokens_used for s in self.spans
-        )
+        # Sum tokens from all spans, falling back to passed total_tokens
+        span_tokens = sum(s.tokens_used for s in self.spans)
+        self.total_tokens = span_tokens if span_tokens > 0 else total_tokens
     
     def get_stage_duration(self, stage: PipelineStage) -> float:
         """Get duration of a specific stage."""

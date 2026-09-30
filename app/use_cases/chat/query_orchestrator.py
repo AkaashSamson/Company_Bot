@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import logging
 import re
@@ -166,10 +167,23 @@ class QueryOrchestrator:
             primary=OpenRouterClient(),
             fallback=GroqClient(),
         )
+        self.memory = memory or SessionMemoryService()
         self.query_resolver = query_resolver or ConversationQueryResolver(
             self.llm,
-            memory=memory or SessionMemoryService(),
+            memory=self.memory,
         )
+
+    @contextmanager
+    def _stage_ctx(self, stage: PipelineStage, input_metadata: Optional[dict[str, Any]] = None):
+        """Safely trace a pipeline stage if pipeline_tracer is configured (Task AB-6.2)."""
+        if self.pipeline_tracer:
+            try:
+                with self.pipeline_tracer.trace_stage(stage, input_metadata=input_metadata) as span:
+                    yield span
+                return
+            except Exception as e:
+                logger.warning("Failed to trace stage %s: %s", stage, e)
+        yield None
 
     def _safe_log_conversation(
         self,
@@ -216,6 +230,21 @@ class QueryOrchestrator:
         user_context: Optional[Any] = None,
         question_timestamp: Optional[str] = None,
     ):
+        # AB-6.2: Start pipeline trace
+        if self.pipeline_tracer:
+            try:
+                self.pipeline_tracer.start_trace(question)
+            except Exception as trace_err:
+                logger.warning("Failed to start pipeline trace: %s", trace_err)
+
+        # AK-1.3: Load history from SessionMemoryService if caller didn't provide it
+        if conversation_history is None and self.memory:
+            try:
+                conversation_history = self.memory.get_history(session_id)
+            except Exception as mem_err:
+                logger.warning("Failed to load session memory for %s: %s", session_id, mem_err)
+                conversation_history = []
+
         try:
             from langsmith.run_helpers import get_current_run_tree
             run_tree = get_current_run_tree()
@@ -239,6 +268,36 @@ class QueryOrchestrator:
                 user_context=user_context,
                 question_timestamp=question_timestamp,
             )
+
+            # AK-1.3: Record turn in SessionMemoryService
+            if self.memory and ans_text:
+                try:
+                    self.memory.add_turn(
+                        session_id,
+                        question,
+                        ans_text,
+                    )
+                except Exception as mem_err:
+                    logger.warning("Failed to append turn to session memory for %s: %s", session_id, mem_err)
+
+            # AB-6.2: Complete trace and trigger auto-dispatch to ObservabilityManager
+            if self.pipeline_tracer:
+                try:
+                    tokens_data = res.get("tokens") if isinstance(res, dict) else None
+                    total_tokens = 0
+                    if isinstance(tokens_data, dict):
+                        total_tokens = tokens_data.get("total_tokens", 0)
+                    elif hasattr(tokens_data, "total_tokens"):
+                        total_tokens = getattr(tokens_data, "total_tokens", 0)
+                    cache_hit = bool(res.get("cache_hit", False)) if isinstance(res, dict) else False
+
+                    self.pipeline_tracer.end_trace(
+                        cache_hit=cache_hit,
+                        total_tokens=total_tokens,
+                    )
+                except Exception as trace_err:
+                    logger.warning("Failed to end pipeline trace for session %s: %s", session_id, trace_err)
+
             try:
                 from langsmith.run_helpers import get_current_run_tree
                 run_tree = get_current_run_tree()
@@ -427,137 +486,142 @@ class QueryOrchestrator:
 
 
         # ── AB-3: Query Normalization Stage ─────────────────────────────
-        # Start pipeline trace with normalized query
-        normalized_result = self.query_normalizer.normalize(question)
-        processed_query = normalized_result.normalized_query
-        
-        # Use normalized query for cache lookup and retrieval
-        cache_key = normalized_result.cache_key
+        with self._stage_ctx(PipelineStage.NORMALIZATION):
+            normalized_result = self.query_normalizer.normalize(question)
+            processed_query = normalized_result.normalized_query
+            cache_key = normalized_result.cache_key
 
-        # ── AB-9: Semantic Cache Check (using normalized query) ─────────
-        if self.response_cache is not None:
-            # Check normalized cache_key first, fall back to raw question
-            cached_entry = self.response_cache.get(cache_key)
-            if cached_entry is None and cache_key != question:
-                cached_entry = self.response_cache.get(question)
-            if cached_entry is not None:
-                if isinstance(cached_entry, dict):
-                    ans = cached_entry.get("answer", "")
-                    cached_citations = cached_entry.get("citations", [])
-                elif hasattr(cached_entry, "response") and isinstance(cached_entry.response, str):
-                    ans = cached_entry.response
-                    cached_citations = getattr(cached_entry, "citations", [])
-                elif isinstance(cached_entry, str):
-                    ans = cached_entry
-                    cached_citations = []
-                else:
-                    ans = str(getattr(cached_entry, "response", cached_entry))
-                    cached_citations = []
+        # ── AB-9 / AB-6.2: Semantic Cache Check (using normalized query) ─────────
+        cache_hit_payload = None
+        with self._stage_ctx(PipelineStage.CACHE_LOOKUP):
+            if self.response_cache is not None:
+                # Check normalized cache_key first, fall back to raw question
+                cached_entry = self.response_cache.get(cache_key)
+                if cached_entry is None and cache_key != question:
+                    cached_entry = self.response_cache.get(question)
+                if cached_entry is not None:
+                    if isinstance(cached_entry, dict):
+                        ans = cached_entry.get("answer", "")
+                        cached_citations = cached_entry.get("citations", [])
+                    elif hasattr(cached_entry, "response") and isinstance(cached_entry.response, str):
+                        ans = cached_entry.response
+                        cached_citations = getattr(cached_entry, "citations", [])
+                    elif isinstance(cached_entry, str):
+                        ans = cached_entry
+                        cached_citations = []
+                    else:
+                        ans = str(getattr(cached_entry, "response", cached_entry))
+                        cached_citations = []
 
-                # Cache Read Quality Gate: Never return a cached negative response
-                if is_negative_response(ans):
-                    logger.info("Evicting/ignoring cached negative response for key '%s'", cache_key)
-                    if hasattr(self.response_cache, "delete"):
-                        try:
-                            self.response_cache.delete(cache_key)
-                            if cache_key != question:
-                                self.response_cache.delete(question)
-                        except Exception:
-                            pass
-                    cached_entry = None
-                else:
-                    if "Would you like to see the references for this?" in ans:
-                        ans = ans.replace("Would you like to see the references for this?", RELEVANCE_PROMPT)
-                    _pending_citations[session_id] = cached_citations
+                    # Cache Read Quality Gate: Never return a cached negative response
+                    if is_negative_response(ans):
+                        logger.info("Evicting/ignoring cached negative response for key '%s'", cache_key)
+                        if hasattr(self.response_cache, "delete"):
+                            try:
+                                self.response_cache.delete(cache_key)
+                                if cache_key != question:
+                                    self.response_cache.delete(question)
+                            except Exception:
+                                pass
+                        cached_entry = None
+                    else:
+                        if "Would you like to see the references for this?" in ans:
+                            ans = ans.replace("Would you like to see the references for this?", RELEVANCE_PROMPT)
+                        _pending_citations[session_id] = cached_citations
+                        _last_interaction[session_id] = {
+                            "question": question,
+                            "context": ans,
+                            "selected_evidence": [{"text": c.get("text", ""), "metadata": c} for c in cached_citations] if isinstance(cached_citations, list) else [],
+                            "answer": ans,
+                        }
+                        _alternative_answer_given[session_id] = False
+                        if defer_citations:
+                            cache_hit_payload = {
+                                "answer": ans,
+                                "citations": [],
+                                "cache_hit": True,
+                                "tokens": {
+                                    "prompt_tokens": 0,
+                                    "completion_tokens": 0,
+                                    "total_tokens": 0,
+                                    "cache_hit": True,
+                                },
+                            }
+                        else:
+                            cache_hit_payload = {
+                                "answer": ans,
+                                "citations": cached_citations,
+                                "cache_hit": True,
+                                "tokens": {
+                                    "prompt_tokens": 0,
+                                    "completion_tokens": 0,
+                                    "total_tokens": 0,
+                                    "cache_hit": True,
+                                },
+                            }
+
+            if cache_hit_payload is None:
+                # ── AB-8: FAQ Check with Normalized Query ─────────────────────────
+                cached = (
+                    self._faq_search(question)
+                    if (self.response_cache is None and authorized_project_ids is None and authorization_scope is None)
+                    else None
+                )
+                if cached is not None and is_negative_response(cached.get("answer", "")):
+                    logger.info("Ignoring negative response in FAQ match for '%s'", question)
+                    cached = None
+
+                if cached is not None:
+                    logger.info(
+                        "FAQ cache hit (similarity=%.4f): '%s' → '%s'",
+                        cached["similarity"],
+                        question,
+                        cached["question"],
+                    )
+                    faq_citation = {
+                        "source": cached.get("source", "HR Policy Handbook"),
+                        "section": cached.get("section", cached["question"]),
+                        "text": cached["answer"],
+                    }
+                    _pending_citations[session_id] = [faq_citation]
                     _last_interaction[session_id] = {
                         "question": question,
-                        "context": ans,
-                        "selected_evidence": [{"text": c.get("text", ""), "metadata": c} for c in cached_citations] if isinstance(cached_citations, list) else [],
-                        "answer": ans,
+                        "context": cached["answer"],
+                        "selected_evidence": [{"text": cached["answer"], "metadata": {"source": cached.get("source", "HR Policy Handbook"), "section": cached.get("section", cached["question"])}}],
+                        "answer": cached["answer"],
                     }
                     _alternative_answer_given[session_id] = False
                     if defer_citations:
-                        return _finish({
-                            "answer": ans,
+                        cache_hit_payload = {
+                            "answer": cached["answer"] + f"\n\n{RELEVANCE_PROMPT}",
                             "citations": [],
                             "cache_hit": True,
+                            "matched_faq": cached["question"],
+                            "similarity": cached["similarity"],
                             "tokens": {
                                 "prompt_tokens": 0,
                                 "completion_tokens": 0,
                                 "total_tokens": 0,
                                 "cache_hit": True,
                             },
-                        })
-                    return _finish({
-                        "answer": ans,
-                        "citations": cached_citations,
-                        "cache_hit": True,
-                        "tokens": {
-                            "prompt_tokens": 0,
-                            "completion_tokens": 0,
-                            "total_tokens": 0,
+                        }
+                    else:
+                        cache_hit_payload = {
+                            "answer": cached["answer"] + f"\n\n{RELEVANCE_PROMPT}",
+                            "citations": [faq_citation],
                             "cache_hit": True,
-                        },
-                    })
+                            "matched_faq": cached["question"],
+                            "similarity": cached["similarity"],
+                            "tokens": {
+                                "prompt_tokens": 0,
+                                "completion_tokens": 0,
+                                "total_tokens": 0,
+                                "cache_hit": True,
+                            },
+                        }
 
-        # ── AB-8: FAQ Check with Normalized Query ─────────────────────────
-        cached = (
-            self._faq_search(question)
-            if (self.response_cache is None and authorized_project_ids is None and authorization_scope is None)
-            else None
-        )
-        if cached is not None and is_negative_response(cached.get("answer", "")):
-            logger.info("Ignoring negative response in FAQ match for '%s'", question)
-            cached = None
-
-        if cached is not None:
-            logger.info(
-                "FAQ cache hit (similarity=%.4f): '%s' → '%s'",
-                cached["similarity"],
-                question,
-                cached["question"],
-            )
-            faq_citation = {
-                "source": cached.get("source", "HR Policy Handbook"),
-                "section": cached.get("section", cached["question"]),
-                "text": cached["answer"],
-            }
-            _pending_citations[session_id] = [faq_citation]
-            _last_interaction[session_id] = {
-                "question": question,
-                "context": cached["answer"],
-                "selected_evidence": [{"text": cached["answer"], "metadata": {"source": cached.get("source", "HR Policy Handbook"), "section": cached.get("section", cached["question"])}}],
-                "answer": cached["answer"],
-            }
-            _alternative_answer_given[session_id] = False
-            if defer_citations:
-                return _finish({
-                    "answer": cached["answer"] + f"\n\n{RELEVANCE_PROMPT}",
-                    "citations": [],
-                    "cache_hit": True,
-                    "matched_faq": cached["question"],
-                    "similarity": cached["similarity"],
-                    "tokens": {
-                        "prompt_tokens": 0,
-                        "completion_tokens": 0,
-                        "total_tokens": 0,
-                        "cache_hit": True,
-                    },
-                })
-            else:
-                return _finish({
-                    "answer": cached["answer"] + f"\n\n{RELEVANCE_PROMPT}",
-                    "citations": [faq_citation],
-                    "cache_hit": True,
-                    "matched_faq": cached["question"],
-                    "similarity": cached["similarity"],
-                    "tokens": {
-                        "prompt_tokens": 0,
-                        "completion_tokens": 0,
-                        "total_tokens": 0,
-                        "cache_hit": True,
-                    },
-                })
+        if cache_hit_payload is not None:
+            return _finish(cache_hit_payload)
 
         # ── AB-8: Full RAG + LLM pipeline with Authorization Scoping ───
         # Use normalized/expanded query for retrieval (AB-8)
@@ -581,7 +645,9 @@ class QueryOrchestrator:
             scope_flags["authorized_project_ids"] = list(authorized_project_ids)
             retrieval_kwargs["authorized_project_ids"] = authorized_project_ids
 
-        selected_evidence = self._retrieve(retrieval_query, **retrieval_kwargs)
+        # AB-6.2: Retrieval Stage
+        with self._stage_ctx(PipelineStage.VECTOR_RETRIEVAL):
+            selected_evidence = self._retrieve(retrieval_query, **retrieval_kwargs)
 
         if not selected_evidence:
             denied = self._probe_unauthorized_relevance(
@@ -642,8 +708,10 @@ class QueryOrchestrator:
 
         citations = self.provenance.build_citations(selected_evidence)
 
+        # AB-6.2: LLM Generation Stage
         try:
-            answer = self._generate(messages, session_id=session_id)
+            with self._stage_ctx(PipelineStage.LLM_GENERATION):
+                answer = self._generate(messages, session_id=session_id)
         except (LLMProviderError, Exception) as llm_error:
             logger.warning(
                 "LLM generation failed: %s. Providing document references as a single paragraph response.",

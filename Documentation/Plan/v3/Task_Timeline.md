@@ -259,9 +259,9 @@ Step 4.1 (Akaash) -> Step 4.2 (Abhinav) -> Step 4.3 (Neha) -> Step 4.4 (Akaash)
 ```
 
 #### Step 4.1: Akaash Samson [Sequential Owner 1 - Session Memory & Outage Fallback]
-- [ ] **Task AK-1.3 (Session Memory Wiring):**
-  - [ ] In `QueryOrchestrator.answer()`, check if `conversation_history` is provided by caller; if absent, load history from `SessionMemoryService.get_history(session_id)`.
-  - [ ] On turn completion, append user query and assistant response via `SessionMemoryService.add_turn(session_id, question, answer)`.
+- [x] **Task AK-1.3 (Session Memory Wiring):**
+  - [x] In `QueryOrchestrator.answer()`, check if `conversation_history` is provided by caller; if absent, load history from `SessionMemoryService.get_history(session_id)`.
+  - [x] On turn completion, append user query and assistant response via `SessionMemoryService.add_turn(session_id, question, answer)`.
 - [x] **Task AK-4 (Resilient Outage Fallback [Implemented early in Phase 1/2 PR #22/#26]):**
   - [x] Wrap LLM generation in `try...except (LLMProviderError, Exception)`.
   - [x] If LLM call fails but `selected_evidence` exists from ChromaDB, preserve evidence, format citations immediately, and return response with outage advisory note.
