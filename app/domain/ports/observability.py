@@ -34,6 +34,10 @@ class TraceSpanPort(Protocol):
 class BaseObservabilityProvider(Protocol):
     """Vendor-neutral observability port for tracing and token/cost tracking."""
 
+    def export_pipeline_trace(self, trace: Any) -> None:
+        """Convert and export a complete domain PipelineTrace with child spans."""
+        ...
+
     def create_trace(
         self,
         name: str,

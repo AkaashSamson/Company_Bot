@@ -136,6 +136,10 @@ class ObservabilityManager(BaseObservabilityProvider):
             provider = self._active_provider
         provider.flush()
 
+    def export_pipeline_trace(self, trace: Any) -> None:
+        """Delegate pipeline trace export to active provider."""
+        self.dispatch_trace(trace)
+
     def dispatch_trace(self, trace: Any) -> None:
         """Dispatch a completed PipelineTrace execution record to the active observability provider.
 
@@ -148,6 +152,11 @@ class ObservabilityManager(BaseObservabilityProvider):
         try:
             with self._lock:
                 provider = self._active_provider
+
+            # Clean Architecture: If provider implements export_pipeline_trace (e.g. Langfuse), delegate directly
+            if isinstance(provider, LangfuseProvider) or (getattr(provider, "supports_pipeline_export", None) is True):
+                provider.export_pipeline_trace(trace)
+                return
 
             trace_metadata = {
                 "query": getattr(trace, "query", ""),

@@ -136,6 +136,10 @@ def test_answer_cache_hit_ends_trace(mock_dependencies):
     assert res["cache_hit"] is True
     assert res["answer"] == "Cached answer."
     mock_dependencies["pipeline_tracer"].start_trace.assert_called_once_with("What is PTO?")
-    mock_dependencies["pipeline_tracer"].end_trace.assert_called_once_with(cache_hit=True, total_tokens=0)
+    mock_dependencies["pipeline_tracer"].end_trace.assert_called_once_with(
+        cache_hit=True,
+        total_tokens=0,
+        final_response="Cached answer.",
+    )
     # Memory should record the turn even on cache hit
     mock_dependencies["memory"].add_turn.assert_called_once_with("session-cache-test", "What is PTO?", "Cached answer.")

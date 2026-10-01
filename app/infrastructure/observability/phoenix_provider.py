@@ -101,6 +101,19 @@ class PhoenixProvider(BaseObservabilityProvider):
             self._spans.append(record)
             self.total_spans_recorded += 1
 
+    def export_pipeline_trace(self, trace: Any) -> None:
+        """Convert and export domain PipelineTrace for Phoenix/OpenInference."""
+        if not self.enabled or trace is None:
+            return
+        # Basic trace recording for Phoenix
+        trace_id = getattr(trace, "trace_id", str(uuid.uuid4()))
+        meta = {
+            "total_duration_ms": getattr(trace, "total_duration_ms", 0.0),
+            "cache_hit": getattr(trace, "cache_hit", False),
+            "query": getattr(trace, "query", ""),
+        }
+        self.create_trace(name="QueryOrchestrator.answer", session_id=trace_id, metadata=meta)
+
     def create_trace(
         self,
         name: str,

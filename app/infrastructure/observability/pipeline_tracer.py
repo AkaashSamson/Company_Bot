@@ -89,6 +89,10 @@ class StageSpan:
         if output_metadata:
             self.output_metadata = output_metadata
 
+    def set_output(self, **kwargs) -> None:
+        """Set output metadata fields for this stage."""
+        self.output_metadata.update(kwargs)
+
     def record_tokens(
         self,
         prompt_tokens: int = 0,
@@ -267,6 +271,7 @@ class PipelineTrace:
         exit_stage: Optional[PipelineStage] = None,
         exit_reason: Optional[str] = None,
         total_tokens: int = 0,
+        final_response: Optional[str] = None,
     ) -> None:
         """Mark trace as finished and calculate totals."""
         self.end_time = time.time()
@@ -276,6 +281,8 @@ class PipelineTrace:
         self.exit_stage = exit_stage
         self.exit_reason = exit_reason
         self.total_tokens = total_tokens
+        if final_response is not None:
+            self.final_response = final_response
         
         # Sum tokens from all spans, falling back to passed total_tokens
         span_tokens = sum(s.tokens_used for s in self.spans)
@@ -461,6 +468,7 @@ class PipelineTracer:
         exit_stage: Optional[PipelineStage] = None,
         exit_reason: Optional[str] = None,
         total_tokens: int = 0,
+        final_response: Optional[str] = None,
     ) -> Optional[PipelineTrace]:
         """
         End the current or specified trace.
@@ -472,6 +480,7 @@ class PipelineTracer:
             exit_stage: Stage where early exit happened
             exit_reason: Reason for early exit
             total_tokens: Total tokens used
+            final_response: Final generated answer text
             
         Returns:
             Completed PipelineTrace
@@ -495,6 +504,7 @@ class PipelineTracer:
                 exit_stage=exit_stage,
                 exit_reason=exit_reason,
                 total_tokens=total_tokens,
+                final_response=final_response,
             )
             
             # Call observability callback or auto-dispatch to ObservabilityManager

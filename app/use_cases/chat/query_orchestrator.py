@@ -294,6 +294,7 @@ class QueryOrchestrator:
                     self.pipeline_tracer.end_trace(
                         cache_hit=cache_hit,
                         total_tokens=total_tokens,
+                        final_response=ans_text,
                     )
                 except Exception as trace_err:
                     logger.warning("Failed to end pipeline trace for session %s: %s", session_id, trace_err)
@@ -486,14 +487,20 @@ class QueryOrchestrator:
 
 
         # ── AB-3: Query Normalization Stage ─────────────────────────────
-        with self._stage_ctx(PipelineStage.NORMALIZATION):
+        with self._stage_ctx(PipelineStage.NORMALIZATION, input_metadata={"raw_query": question}) as norm_span:
             normalized_result = self.query_normalizer.normalize(question)
             processed_query = normalized_result.normalized_query
             cache_key = normalized_result.cache_key
+            if norm_span:
+                norm_span.set_output(
+                    normalized_query=processed_query,
+                    cache_key=cache_key,
+                    intent=getattr(normalized_result, "intent", None),
+                )
 
         # ── AB-9 / AB-6.2: Semantic Cache Check (using normalized query) ─────────
         cache_hit_payload = None
-        with self._stage_ctx(PipelineStage.CACHE_LOOKUP):
+        with self._stage_ctx(PipelineStage.CACHE_LOOKUP, input_metadata={"cache_key": cache_key, "query": question}) as cache_span:
             if self.response_cache is not None:
                 # Check normalized cache_key first, fall back to raw question
                 cached_entry = self.response_cache.get(cache_key)
@@ -619,6 +626,11 @@ class QueryOrchestrator:
                                 "cache_hit": True,
                             },
                         }
+            if cache_span:
+                cache_span.set_output(
+                    cache_hit=cache_hit_payload is not None,
+                    matched_faq=cache_hit_payload.get("matched_faq") if cache_hit_payload else None,
+                )
 
         if cache_hit_payload is not None:
             return _finish(cache_hit_payload)
@@ -646,8 +658,16 @@ class QueryOrchestrator:
             retrieval_kwargs["authorized_project_ids"] = authorized_project_ids
 
         # AB-6.2: Retrieval Stage
-        with self._stage_ctx(PipelineStage.VECTOR_RETRIEVAL):
+        with self._stage_ctx(
+            PipelineStage.VECTOR_RETRIEVAL,
+            input_metadata={"query": retrieval_query, "top_k": retrieval_kwargs.get("top_k")}
+        ) as ret_span:
             selected_evidence = self._retrieve(retrieval_query, **retrieval_kwargs)
+            if ret_span:
+                ret_span.set_output(
+                    chunks_count=len(selected_evidence) if selected_evidence else 0,
+                    sources=[e.get("metadata", {}).get("source") for e in selected_evidence[:3]] if selected_evidence else [],
+                )
 
         if not selected_evidence:
             denied = self._probe_unauthorized_relevance(
@@ -709,9 +729,18 @@ class QueryOrchestrator:
         citations = self.provenance.build_citations(selected_evidence)
 
         # AB-6.2: LLM Generation Stage
+        model_name = getattr(self.llm, "model_name", "unknown")
         try:
-            with self._stage_ctx(PipelineStage.LLM_GENERATION):
+            with self._stage_ctx(
+                PipelineStage.LLM_GENERATION,
+                input_metadata={"model": model_name, "messages_count": len(messages)}
+            ) as gen_span:
                 answer = self._generate(messages, session_id=session_id)
+                if gen_span:
+                    gen_span.set_output(
+                        finish_reason="stop",
+                        answer_preview=answer[:100] if answer else "",
+                    )
         except (LLMProviderError, Exception) as llm_error:
             logger.warning(
                 "LLM generation failed: %s. Providing document references as a single paragraph response.",
@@ -796,6 +825,17 @@ class QueryOrchestrator:
             raw = self.llm.primary.get_last_tokens()
             if isinstance(raw, dict):
                 tokens = raw
+
+        # Record tokens on tracer for LLM_GENERATION span if available
+        if self.pipeline_tracer and isinstance(tokens, dict):
+            try:
+                self.pipeline_tracer.record_tokens(
+                    stage=PipelineStage.LLM_GENERATION,
+                    prompt_tokens=tokens.get("prompt_tokens", 0),
+                    completion_tokens=tokens.get("completion_tokens", 0),
+                )
+            except Exception:
+                pass
 
         # Add tokens to LangSmith if available
         if isinstance(tokens, dict) and isinstance(tokens.get("total_tokens"), (int, float)) and tokens.get("total_tokens", 0) > 0:
