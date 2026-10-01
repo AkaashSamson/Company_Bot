@@ -193,26 +193,26 @@ This document defines the phase-by-phase execution timeline for KnowLayer V3. It
   - [ ] Apply sliding window overlap (Task `NE-6.1`) and dynamic structural headers (Task `NE-6.2`) cleanly across both regular text chunks and OCR-derived image text chunks.
 
 #### Subsystem 2: Contextual Retrieval & Evidence Quality Funnel (Neha + Abhinav + Akaash)
-- [ ] **Task NE-5.1 (Cross-Encoder Reranker Module - Neha [Originally Phase 2]):** Implement cross-encoder reranking helper in `app/use_cases/chat/retrieval_service.py`:
-  - [ ] Fetch top-15 nearest chunks from ChromaDB vector search.
-  - [ ] Pass candidate chunks and rewritten query through Reranker model (e.g. Cohere or local cross-encoder) to select the top 3-4 chunks with deep semantic relevance.
+- [x] **Task NE-5.1 (Cross-Encoder Reranker Module - Neha [Originally Phase 2]):** Implement cross-encoder reranking helper in `app/use_cases/chat/retrieval_service.py`:
+  - [x] Fetch top-15 nearest chunks from ChromaDB vector search.
+  - [x] Pass candidate chunks and rewritten query through Reranker model (e.g. Cohere or local cross-encoder) to select the top 3-4 chunks with deep semantic relevance.
 - **Top Dependency:** `[Dependency: Task NE-4.1 & NE-5.1 - Query Resolver & Cross-Encoder Reranker (Neha)]`
-- [ ] **Task NE-5.2 (Reranker Pipeline Hook - Neha [Sequential Step 1]):**
-  - [ ] Deprecate hardcoded `_query_parts` regex in `app/use_cases/chat/retrieval_service.py`.
-  - [ ] Connect Cross-Encoder Reranker to filter ChromaDB top-15 candidates down to top-4 semantic chunks.
+- [x] **Task NE-5.2 (Reranker Pipeline Hook - Neha [Sequential Step 1]):**
+  - [x] Deprecate hardcoded `_query_parts` regex in `app/use_cases/chat/retrieval_service.py`.
+  - [x] Connect Cross-Encoder Reranker to filter ChromaDB top-15 candidates down to top-4 semantic chunks.
 - [x] **Task AB-3.3 (POS Noun Filtering, Lemmatization & Vector Synonym Clustering - Abhinav [Originally Phase 2]):** Implement `app/use_cases/chat/synonym_clustering.py`:
   - [x] Extract and filter all noun-type unique words (`NN`, `NNS`, `NNP`, `NNPS`) from documents/queries using Part-of-Speech (POS) tagging.
   - [x] Apply lemmatization to reduce extracted noun tokens to their canonical lemma base form.
   - [x] Group and cluster canonical nouns based on embedding vector similarity (cosine threshold).
   - [x] Integrate generated synonym clusters into `QueryNormalizer` domain synonym map to enhance lexical grounding in retrieval and caching.
 - **Top Dependency:** `[Dependency: Task AB-5.1 - RetrievalQualityGate Engine (Abhinav)]`
-- [ ] **Task AB-5.2 (Quality Gate Integration - Abhinav [Sequential Step 2 - Depends on Neha's Reranked Chunks]):**
-  - [ ] In `app/use_cases/chat/retrieval_service.py`, pass reranked top-4 chunks through `RetrievalQualityGate.evaluate()`.
-  - [ ] Attach evidence quality metrics (`level`, `grounding_score`, `confidence`) to candidate evidence.
+- [x] **Task AB-5.2 (Quality Gate Integration - Abhinav [Sequential Step 2 - Depends on Neha's Reranked Chunks]):**
+  - [x] In `app/use_cases/chat/retrieval_service.py`, pass reranked top-4 chunks through `RetrievalQualityGate.evaluate()`.
+  - [x] Attach evidence quality metrics (`level`, `grounding_score`, `confidence`) to candidate evidence.
 - **Top Dependency:** `[Dependency: Task AK-5.1 - Pre-LLM Distance Cutoff Specification (Akaash)]`
-- [ ] **Task AK-5.1 (Distance Cutoff Gate Hook - Akaash Samson [Sequential Step 3 - Depends on Abhinav's Quality Gate]):**
-  - [ ] Hook distance threshold check (`RAG_DISTANCE_THRESHOLD`) into `RetrievalService` output.
-  - [ ] If top chunk distance exceeds threshold or quality is `INVALID`, return empty evidence list to trigger early negative exit.
+- [x] **Task AK-5.1 (Distance Cutoff Gate Hook - Akaash Samson [Sequential Step 3 - Depends on Abhinav's Quality Gate]):**
+  - [x] Hook distance threshold check (`RAG_DISTANCE_THRESHOLD`) into `RetrievalService` output.
+  - [x] If top chunk distance exceeds threshold or quality is `INVALID`, return empty evidence list to trigger early negative exit.
 
 #### Subsystem 3: Observability Bridge (Akaash + Abhinav)
 - **Top Dependency:** `[Dependency: Task AK-3.2 - ObservabilityManager & LangfuseProvider (Akaash)]`
