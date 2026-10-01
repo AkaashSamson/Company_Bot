@@ -13,8 +13,12 @@ from app.core.settings import (
     RAG_MIN_DISTANCE_GAP,
     RAG_MAX_CONTEXT_CHARS,
     RAG_MAX_EVIDENCE,
+    RAG_FINAL_K,
+    RAG_RERANKER_MODEL,
 )
 from app.infrastructure.vector.chroma_client import ChromaVectorStore
+from app.domain.ports.reranker import RerankerPort
+from app.infrastructure.vector.bge_reranker import BgeReranker
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +37,14 @@ class RetrievalService:
         collection_name: str = COLLECTION_NAME,
         persist_directory: str | None = None,
         quality_gate: RetrievalQualityGate | None = None,
-        reranker: Any | None = None,
+        reranker: RerankerPort | None = None,
     ):
         self.store = ChromaVectorStore(
             collection_name=collection_name,
             persist_directory=persist_directory or str(BASE_DIR / ".chroma"),
         )
         self.quality_gate = quality_gate or RetrievalQualityGate()
-        self.reranker = reranker
+        self.reranker = reranker or BgeReranker(model_name=RAG_RERANKER_MODEL)
         self.last_quality_result: QualityGateResult | None = None
 
     def retrieve(
@@ -81,41 +85,21 @@ class RetrievalService:
             
         for candidate in self.store.query(query_text, **query_kwargs):
             candidates.append({**candidate, "_query_part_index": 0})
+            
+        if self.reranker:
+            candidates = self.reranker.rerank(query_text, candidates, top_k=RAG_FINAL_K)
+            
         logger.info(
             "retrieval collected %d raw candidates for query %r (authorized_projects=%s documents=%s)",
             len(candidates), query_text, authorized_project_ids, authorized_document_ids,
         )
-        if self.reranker is not None:
-            try:
-                if hasattr(self.reranker, "rerank"):
-                    selected = self.reranker.rerank(query_text, candidates, top_k=max_evidence)
-                elif callable(self.reranker):
-                    selected = self.reranker(query_text, candidates, top_k=max_evidence)
-                else:
-                    selected = self.select_relevant(
-                        query_text,
-                        candidates,
-                        max_evidence=max_evidence,
-                        distance_threshold=RAG_DISTANCE_THRESHOLD,
-                        max_context_chars=RAG_MAX_CONTEXT_CHARS,
-                    )
-            except Exception as exc:
-                logger.warning("Reranker failed, falling back to similarity: %s", exc)
-                selected = self.select_relevant(
-                    query_text,
-                    candidates,
-                    max_evidence=max_evidence,
-                    distance_threshold=RAG_DISTANCE_THRESHOLD,
-                    max_context_chars=RAG_MAX_CONTEXT_CHARS,
-                )
-        else:
-            selected = self.select_relevant(
-                query_text,
-                candidates,
-                max_evidence=max_evidence,
-                distance_threshold=RAG_DISTANCE_THRESHOLD,
-                max_context_chars=RAG_MAX_CONTEXT_CHARS,
-            )
+        selected = self.select_relevant(
+            query_text,
+            candidates,
+            max_evidence=max_evidence,
+            distance_threshold=RAG_DISTANCE_THRESHOLD,
+            max_context_chars=RAG_MAX_CONTEXT_CHARS,
+        )
 
         gate_result = None
         if getattr(self, "quality_gate", None) is not None:
@@ -242,7 +226,7 @@ class RetrievalService:
             if isinstance(candidate.get("distance"), (int, float))
             and math.isfinite(candidate["distance"])
         ]
-        ranked.sort(key=lambda candidate: candidate["distance"])
+        ranked.sort(key=lambda candidate: candidate.get("_new_rank", candidate["distance"]))
 
         accepted = []
         for index, candidate in enumerate(ranked):

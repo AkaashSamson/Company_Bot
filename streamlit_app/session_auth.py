@@ -32,6 +32,8 @@ def bootstrap_cookies() -> CookieController:
 
 
 def restore_auth(cookies: CookieController) -> dict | None:
+    if st.session_state.get("logged_out"):
+        return None
     if "auth" not in st.session_state:
         st.session_state.auth = None
     if st.session_state.auth is None:

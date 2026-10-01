@@ -46,7 +46,7 @@ class ChromaVectorStore:
         metadatas = [doc.get("metadata", {}) for doc in documents]
         embeddings = self.embedding_model.encode(texts, convert_to_numpy=True).tolist()
 
-        self.collection.add(
+        self.collection.upsert(
             ids=ids,
             documents=texts,
             metadatas=metadatas,

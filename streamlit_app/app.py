@@ -46,6 +46,7 @@ if st.session_state.get("auth") is None:
         try:
             auth = AuthenticationService().login(login_username, login_password)
             st.session_state.auth = auth
+            st.session_state.logged_out = False
             st.rerun()
         except requests.exceptions.HTTPError as error:
             status_code = error.response.status_code if error.response is not None else None
@@ -64,6 +65,7 @@ persist_auth(cookies)
 
 def _logout():
     st.session_state.auth = None
+    st.session_state.logged_out = True
     st.session_state.messages = []
     st.session_state.last_response = None
     st.session_state.session_id = str(uuid.uuid4())
