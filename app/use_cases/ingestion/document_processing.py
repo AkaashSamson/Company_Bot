@@ -45,6 +45,18 @@ def build_chunk_records_from_processed(
         metadata.update(entry.as_legacy())
         metadata["file_type"] = resolved_file_type
         metadata["version"] = version or "1.0"
+        for key, value in chunk.metadata.items():
+            if key not in {
+                "document_id",
+                "project_id",
+                "source_filename",
+                "page_number",
+                "section_heading",
+                "hierarchy_path",
+                "chunk_index",
+                "content_type",
+            }:
+                metadata[key] = value
         hierarchy_text = entry.hierarchy_text
         text_with_context = f"{hierarchy_text}\n\n{chunk.text}" if hierarchy_text else chunk.text
         

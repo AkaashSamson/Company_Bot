@@ -13,6 +13,24 @@ DOCUMENTS_DIR = os.getenv("DOCUMENTS_DIR", str(BASE_DIR / "input"))
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "hr_policy_docs")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 DOCLING_ENABLED = os.getenv("DOCLING_ENABLED", "false").lower() == "true"
+DOCLING_VISUAL_ENRICHMENT_ENABLED = os.getenv(
+    "DOCLING_VISUAL_ENRICHMENT_ENABLED", "false"
+).lower() == "true"
+DOCLING_VLM_MODEL = os.getenv(
+    "DOCLING_VLM_MODEL", "HuggingFaceTB/SmolVLM-256M-Instruct"
+)
+DOCLING_VLM_MAX_NEW_TOKENS = int(os.getenv("DOCLING_VLM_MAX_NEW_TOKENS", "180"))
+DOCLING_OCR_MIN_CONFIDENCE = float(os.getenv("DOCLING_OCR_MIN_CONFIDENCE", "0.35"))
+DOCLING_SKIP_DECORATIVE_OCR = os.getenv(
+    "DOCLING_SKIP_DECORATIVE_OCR", "true"
+).lower() == "true"
+DOCLING_CITATION_PDF_ENABLED = os.getenv(
+    "DOCLING_CITATION_PDF_ENABLED", "false"
+).lower() == "true"
+DOCLING_CITATION_PDF_DIR = os.getenv(
+    "DOCLING_CITATION_PDF_DIR", str(BASE_DIR / "data" / "citation_pdfs")
+)
+DOCLING_LIBREOFFICE_PATH = os.getenv("DOCLING_LIBREOFFICE_PATH", "")
 # Chunk budget in tokens. Kept at the embedding model's sequence limit
 # (sentence-transformers/all-MiniLM-L6-v2 truncates beyond 256) so chunks are
 # never silently truncated at embedding time.
