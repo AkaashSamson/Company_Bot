@@ -12,8 +12,12 @@ from app.core.settings import (
     RAG_MIN_DISTANCE_GAP,
     RAG_MAX_CONTEXT_CHARS,
     RAG_MAX_EVIDENCE,
+    RAG_FINAL_K,
+    RAG_RERANKER_MODEL,
 )
 from app.infrastructure.vector.chroma_client import ChromaVectorStore
+from app.domain.ports.reranker import RerankerPort
+from app.infrastructure.vector.bge_reranker import BgeReranker
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +26,12 @@ logger = logging.getLogger("knowlayer.retrieval")
 
 
 class RetrievalService:
-    def __init__(self, collection_name: str = COLLECTION_NAME, persist_directory: str | None = None):
+    def __init__(self, collection_name: str = COLLECTION_NAME, persist_directory: str | None = None, reranker: RerankerPort | None = None):
         self.store = ChromaVectorStore(
             collection_name=collection_name,
             persist_directory=persist_directory or str(BASE_DIR / ".chroma"),
         )
+        self.reranker = reranker or BgeReranker(model_name=RAG_RERANKER_MODEL)
 
     def retrieve(
         self,
@@ -66,6 +71,10 @@ class RetrievalService:
             
         for candidate in self.store.query(query_text, **query_kwargs):
             candidates.append({**candidate, "_query_part_index": 0})
+            
+        if self.reranker:
+            candidates = self.reranker.rerank(query_text, candidates, top_k=RAG_FINAL_K)
+            
         logger.info(
             "retrieval collected %d raw candidates for query %r (authorized_projects=%s documents=%s)",
             len(candidates), query_text, authorized_project_ids, authorized_document_ids,
@@ -188,7 +197,7 @@ class RetrievalService:
             if isinstance(candidate.get("distance"), (int, float))
             and math.isfinite(candidate["distance"])
         ]
-        ranked.sort(key=lambda candidate: candidate["distance"])
+        ranked.sort(key=lambda candidate: candidate.get("_new_rank", candidate["distance"]))
 
         accepted = []
         for index, candidate in enumerate(ranked):
