@@ -6,7 +6,7 @@ from typing import List
 from docx import Document
 
 
-SUPPORTED_EXTENSIONS = {".docx", ".txt", ".md", ".rst"}
+SUPPORTED_EXTENSIONS = {".docx", ".txt", ".md", ".rst", ".csv", ".tsv", ".json"}
 
 
 def _clean_text(text: str) -> str:
@@ -94,9 +94,14 @@ def extract_text_from_bytes(content: bytes, file_name: str) -> str:
     if suffix == ".docx":
         document = Document(BytesIO(content))
         paragraphs = [paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip()]
+        for table in document.tables:
+            for row in table.rows:
+                row_text = " | ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
+                if row_text:
+                    paragraphs.append(row_text)
         return "\n\n".join(paragraphs)
 
-    if suffix in {".txt", ".md", ".rst"}:
+    if suffix in {".txt", ".md", ".rst", ".csv", ".tsv", ".json"}:
         return content.decode("utf-8", errors="ignore")
 
     raise ValueError(f"Unsupported document type: {suffix}")

@@ -2,7 +2,6 @@
 Enhanced Query Normalizer with Advanced NLP Features
 
 Implements comprehensive query normalization for chatbots:
-- Unicode normalization (NFKD, accent removal)
 - Case normalization (lowercase)
 - Whitespace normalization
 - Punctuation & symbol handling
@@ -18,6 +17,7 @@ Based on best practices for chatbot query normalization.
 """
 
 import logging
+import math
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -355,6 +355,53 @@ class QueryNormalizer:
             reverse=True,
         )
 
+    def register_synonyms(self, synonym_map: dict[str, str]) -> int:
+        """Dynamically register synonyms mapping to canonical domain terms."""
+        registered_count = 0
+        new_keywords = set()
+        for syn, canonical in synonym_map.items():
+            clean_syn = syn.lower().strip()
+            clean_canon = canonical.lower().strip()
+            if not clean_syn or not clean_canon or clean_syn == clean_canon:
+                continue
+            DOMAIN_VOCABULARY[clean_syn] = clean_canon
+            for word_part in clean_syn.split():
+                if len(word_part) >= 3 and word_part.isalpha():
+                    new_keywords.add(word_part)
+                    self._domain_keywords.add(word_part)
+            registered_count += 1
+
+        if self._spell and new_keywords:
+            try:
+                self._spell.word_frequency.load_words(new_keywords)
+            except Exception as e:
+                logger.debug("Could not load words into spellchecker: %s", e)
+
+        # Re-sort vocabulary by length (longest first)
+        self._sorted_vocab = sorted(
+            DOMAIN_VOCABULARY.items(),
+            key=lambda x: len(x[0]),
+            reverse=True,
+        )
+        return registered_count
+
+    def register_synonym_clusters(self, clusters: Iterable[Any]) -> int:
+        """Register synonym clusters into domain vocabulary."""
+        syn_map = {}
+        for c in clusters:
+            canon = getattr(c, "canonical", None)
+            syns = getattr(c, "synonyms", None)
+            if canon and syns:
+                for s in syns:
+                    syn_map[s] = canon
+            elif isinstance(c, dict):
+                canon = c.get("canonical")
+                syns = c.get("synonyms", [])
+                if canon and syns:
+                    for s in syns:
+                        syn_map[s] = canon
+        return self.register_synonyms(syn_map)
+
     def learn_document(
         self,
         doc_input: Any,
@@ -513,11 +560,104 @@ class QueryNormalizer:
         removed = re.sub(r'[^\w\s]', ' ', query)
         return removed, ""
 
+    def _dp_split_word(self, token: str) -> list[str]:
+        """
+        Segment a conjoined/compound word into valid constituent words using Dynamic Programming.
+        Finds the segmentation that maximizes unigram log-probabilities.
+        Examples:
+        - "howareyou" -> ["how", "are", "you"]
+        - "leavesavailable" -> ["leaves", "available"]
+        - "whatisleavepolicy" -> ["what", "is", "leave", "policy"]
+        """
+        clean_w = token.lower().strip()
+        n = len(clean_w)
+        if n < 4 or not clean_w.isalpha():
+            return [token]
+
+        # Recognized compound single words that must NEVER be split
+        do_not_split = {
+            "handbook", "provident", "insurance", "harassment", "misconduct",
+            "disciplinary", "attendance", "performance", "compensation",
+            "bereavement", "maternity", "paternity", "parental", "entitlement",
+            "termination", "resignation", "gratuity", "guidelines", "reimbursement",
+            "allowance", "probation", "appraisal"
+        }
+        if clean_w in do_not_split or clean_w in PRESERVED_ENTITIES:
+            return [token]
+
+        spell = self._spell
+        total_words = (spell.word_frequency.total_words or 1_000_000) if spell else 1_000_000
+
+        def word_log_prob(w: str) -> float:
+            if w in self._domain_keywords or w in self._common_query_words:
+                return -2.0
+            if spell and w in spell:
+                freq = spell.word_frequency[w]
+                if freq > 0:
+                    return math.log(freq / total_words)
+            if w in self._known_words:
+                return -4.0
+            if len(w) == 1:
+                return -3.0 if w in ("a", "i") else -18.0
+            return -20.0
+
+        def is_valid_word(w: str) -> bool:
+            if w in self._known_words or w in self._domain_keywords or w in self._common_query_words:
+                return True
+            if spell and w in spell:
+                return True
+            if w in ("a", "i"):
+                return True
+            return False
+
+        # DP state: best[i] = (max_log_prob, word, prev_index)
+        best = [(0.0, "", 0)] + [(-float("inf"), "", 0)] * n
+        max_word_len = min(n, 25)
+
+        for i in range(1, n + 1):
+            for j in range(max(0, i - max_word_len), i):
+                sub = clean_w[j:i]
+                if is_valid_word(sub):
+                    score = best[j][0] + word_log_prob(sub)
+                    if score > best[i][0]:
+                        best[i] = (score, sub, j)
+
+        if best[n][0] == -float("inf") or not best[n][1]:
+            return [token]
+
+        segments = []
+        curr = n
+        while curr > 0:
+            _, word, prev = best[curr]
+            if not word:
+                return [token]
+            segments.append(word)
+            curr = prev
+
+        segments.reverse()
+
+        if len(segments) <= 1:
+            return [token]
+
+        # Prevent splitting into single letters
+        if any(len(s) == 1 and s not in ("a", "i") for s in segments):
+            return [token]
+
+        # If the whole token is already a very common English word, don't over-split
+        if spell and clean_w in spell and spell.word_frequency[clean_w] > 5000:
+            single_prob = math.log(spell.word_frequency[clean_w] / total_words)
+            if single_prob > best[n][0] - 2.0:
+                return [token]
+
+        return segments
+
     def _fix_word_boundaries(self, query: str) -> tuple[str, list[str]]:
         """
         Fix word boundary issues such as camelCase, alphanumeric glue, and joined words.
+        Uses Dynamic Programming to segment multi-word conjoined tokens.
         Examples:
         - "leavesavailable" -> "leaves available"
+        - "howareyou" -> "how are you"
         - "leavepolicy" -> "leave policy"
         - "leavePolicy" -> "leave Policy"
         - "leave2026" -> "leave 2026"
@@ -537,37 +677,22 @@ class QueryNormalizer:
             fixes.append(f"word_boundary: alphanumeric split")
             query = digit_split
 
-        # 3. Split conjoined known words (e.g. leavesavailable -> leaves available)
+        # 3. Dynamic Programming word segmentation for conjoined words
         words = query.split()
         corrected_words = []
-        
-        # Recognized compound single words that must NEVER be split
-        do_not_split = {
-            "handbook", "provident", "insurance", "harassment", "misconduct",
-            "disciplinary", "attendance", "performance", "compensation",
-            "bereavement", "maternity", "paternity", "parental", "entitlement",
-            "termination", "resignation"
-        }
 
         for word in words:
             clean_w = word.lower().strip()
-            # If word is short, or already recognized as an unbroken concept, preserve
-            if len(clean_w) < 6 or clean_w in do_not_split or clean_w in PRESERVED_ENTITIES:
+            if len(clean_w) < 4 or not clean_w.isalpha():
                 corrected_words.append(word)
                 continue
 
-            # Check if this token is a known conjoined term
-            split_found = False
-            for i in range(3, len(clean_w) - 2):
-                left = clean_w[:i]
-                right = clean_w[i:]
-                if left in self._known_words and right in self._known_words:
-                    fixes.append(f"word_boundary: {word} -> {left} {right}")
-                    corrected_words.append(f"{left} {right}")
-                    split_found = True
-                    break
-            
-            if not split_found:
+            segments = self._dp_split_word(clean_w)
+            if len(segments) > 1:
+                joined_segments = " ".join(segments)
+                fixes.append(f"word_boundary: {word} -> {joined_segments}")
+                corrected_words.append(joined_segments)
+            else:
                 corrected_words.append(word)
 
         return ' '.join(corrected_words), fixes
@@ -759,16 +884,20 @@ class QueryNormalizer:
         """
         Generate a deterministic cache key from normalized query.
         
-        Uses simple hashing for cache key generation.
+        Uses simple hashing for cache key generation with question prefix canonicalization.
         """
         if not normalized_query:
             return "empty_query"
         
         # Simple hash - just use the normalized query lowercased
-        # This is deterministic and readable for debugging
         key = normalized_query.lower().strip()
-        key = re.sub(r'[^a-z0-9\s]', '', key)  # Remove special chars
+        # Canonicalize leading question prefixes for policy/informational questions
+        key = re.sub(r'^(?:what|how)\s+is\s+(?:the\s+)?', 'what_is_the_', key)
+        key = re.sub(r'^(?:what|how)\s+are\s+(?:the\s+)?', 'what_are_the_', key)
+        key = re.sub(r'^(?:tell\s+me\s+about\s+(?:the\s+)?|explain\s+(?:the\s+)?)', 'what_is_the_', key)
+        key = re.sub(r'[^a-z0-9\s_]', '', key)  # Remove special chars
         key = re.sub(r'\s+', '_', key)  # Replace spaces with underscores
+        key = re.sub(r'_+', '_', key).strip('_')
         
         return key[:200]  # Limit key length
     

@@ -3,6 +3,7 @@ import math
 import logging
 import re
 
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from app.core.settings import (
     BASE_DIR,
     COLLECTION_NAME,
@@ -17,16 +18,30 @@ from app.infrastructure.vector.chroma_client import ChromaVectorStore
 
 logger = logging.getLogger(__name__)
 
+from app.use_cases.chat.retrieval_quality import (
+    RetrievalQualityGate,
+    QualityGateResult,
+    EvidenceQualityLevel,
+)
 
 logger = logging.getLogger("knowlayer.retrieval")
 
 
 class RetrievalService:
-    def __init__(self, collection_name: str = COLLECTION_NAME, persist_directory: str | None = None):
+    def __init__(
+        self,
+        collection_name: str = COLLECTION_NAME,
+        persist_directory: str | None = None,
+        quality_gate: RetrievalQualityGate | None = None,
+        reranker: Any | None = None,
+    ):
         self.store = ChromaVectorStore(
             collection_name=collection_name,
             persist_directory=persist_directory or str(BASE_DIR / ".chroma"),
         )
+        self.quality_gate = quality_gate or RetrievalQualityGate()
+        self.reranker = reranker
+        self.last_quality_result: QualityGateResult | None = None
 
     def retrieve(
         self,
@@ -70,17 +85,56 @@ class RetrievalService:
             "retrieval collected %d raw candidates for query %r (authorized_projects=%s documents=%s)",
             len(candidates), query_text, authorized_project_ids, authorized_document_ids,
         )
-        selected = self.select_relevant(
-            query_text,
-            candidates,
-            max_evidence=max_evidence,
-            distance_threshold=RAG_DISTANCE_THRESHOLD,
-            max_context_chars=RAG_MAX_CONTEXT_CHARS,
-        )
+        if self.reranker is not None:
+            try:
+                if hasattr(self.reranker, "rerank"):
+                    selected = self.reranker.rerank(query_text, candidates, top_k=max_evidence)
+                elif callable(self.reranker):
+                    selected = self.reranker(query_text, candidates, top_k=max_evidence)
+                else:
+                    selected = self.select_relevant(
+                        query_text,
+                        candidates,
+                        max_evidence=max_evidence,
+                        distance_threshold=RAG_DISTANCE_THRESHOLD,
+                        max_context_chars=RAG_MAX_CONTEXT_CHARS,
+                    )
+            except Exception as exc:
+                logger.warning("Reranker failed, falling back to similarity: %s", exc)
+                selected = self.select_relevant(
+                    query_text,
+                    candidates,
+                    max_evidence=max_evidence,
+                    distance_threshold=RAG_DISTANCE_THRESHOLD,
+                    max_context_chars=RAG_MAX_CONTEXT_CHARS,
+                )
+        else:
+            selected = self.select_relevant(
+                query_text,
+                candidates,
+                max_evidence=max_evidence,
+                distance_threshold=RAG_DISTANCE_THRESHOLD,
+                max_context_chars=RAG_MAX_CONTEXT_CHARS,
+            )
+
+        gate_result = None
+        if getattr(self, "quality_gate", None) is not None:
+            try:
+                gate_result = self.quality_gate.evaluate(query_text, selected)
+                self.last_quality_result = gate_result
+                for chunk in selected:
+                    chunk["quality_level"] = gate_result.quality_level.value
+                    chunk["grounding_score"] = gate_result.quality_score.grounding_score
+                    chunk["confidence"] = gate_result.confidence
+            except Exception as exc:
+                logger.warning("Quality gate evaluation failed: %s", exc)
+
         logger.info(
-            "retrieval accepted %d evidence chunks for query %r (distances=%s)",
+            "retrieval accepted %d evidence chunks for query %r (distances=%s, quality=%s, confidence=%s)",
             len(selected), query_text,
             [round(c["distance"], 4) for c in selected if isinstance(c.get("distance"), (int, float))],
+            gate_result.quality_level.value if gate_result else "n/a",
+            round(gate_result.confidence, 4) if gate_result else "n/a",
         )
         return selected
 

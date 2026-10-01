@@ -13,13 +13,36 @@ import logging
 import re
 import threading
 import time
+import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from datetime import datetime, timezone
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
+import numpy as np
 
 from app.core.cache_quality import is_negative_response
+from app.core.settings import SEMANTIC_CACHE_SIMILARITY_THRESHOLD
 
 logger = logging.getLogger(__name__)
+
+
+def _to_timestamp(val: Any) -> float:
+    """Convert datetime, int, float, or ISO string to UTC epoch float."""
+    if isinstance(val, (int, float)):
+        return float(val)
+    if isinstance(val, datetime):
+        if val.tzinfo is None:
+            return val.replace(tzinfo=timezone.utc).timestamp()
+        return val.timestamp()
+    if isinstance(val, str):
+        try:
+            return datetime.fromisoformat(val).timestamp()
+        except Exception:
+            try:
+                return float(val)
+            except Exception:
+                return 0.0
+    return 0.0
 
 
 class CacheEntrySource(Enum):
@@ -49,11 +72,18 @@ class QualityGateDecision(Enum):
 @dataclass
 class CacheEntryMetadata:
     """
-    Metadata tracking for quality-aware cache entries.
+    Metadata tracking for quality-aware cache entries with RBAC isolation and document freshness.
     
-    Tracks source, confidence score, evidence count, retrieval metrics,
-    evaluation decision, and access timestamps.
+    Tracks cache_id, assigned_role, document_ids, doc_last_updated, project_ids, source,
+    confidence score, evidence count, retrieval metrics, evaluation decision,
+    and access timestamps.
     """
+    cache_id: str = ""
+    assigned_role: Optional[str] = None
+    document_ids: list[str] = field(default_factory=list)
+    doc_last_updated: dict[str, float] = field(default_factory=dict)
+    project_ids: list[str] = field(default_factory=list)
+    is_public: bool = False
     source: CacheEntrySource = CacheEntrySource.SEMANTIC_CACHE
     confidence: float = 0.0
     evidence_count: int = 0
@@ -87,6 +117,12 @@ class CacheEntryMetadata:
 
     def to_dict(self) -> dict:
         return {
+            "cache_id": self.cache_id,
+            "assigned_role": self.assigned_role,
+            "document_ids": list(self.document_ids),
+            "doc_last_updated": dict(self.doc_last_updated),
+            "project_ids": list(self.project_ids),
+            "is_public": self.is_public,
             "source": self.source.value if isinstance(self.source, CacheEntrySource) else str(self.source),
             "confidence": self.confidence,
             "evidence_count": self.evidence_count,
@@ -107,6 +143,12 @@ class CacheEntryMetadata:
         decision_val = data.get("evaluation_decision", "PASS")
         decision = QualityGateDecision(decision_val) if isinstance(decision_val, str) else decision_val
         return cls(
+            cache_id=data.get("cache_id", ""),
+            assigned_role=data.get("assigned_role"),
+            document_ids=list(data.get("document_ids", [])),
+            doc_last_updated=dict(data.get("doc_last_updated", {})),
+            project_ids=list(data.get("project_ids", [])),
+            is_public=bool(data.get("is_public", False)),
             source=source,
             confidence=data.get("confidence", 0.0),
             evidence_count=data.get("evidence_count", 0),
@@ -124,7 +166,8 @@ class CacheEntryMetadata:
 @dataclass
 class QualityAwareCacheEntry:
     """
-    Rich cache entry with metadata for quality-aware caching.
+    Rich cache entry with metadata for quality-aware caching, RBAC document isolation,
+    and document last_updated freshness tracking.
     
     Compatible with existing CacheEntry structure while embedding
     CacheEntryMetadata.
@@ -151,6 +194,12 @@ class QualityAwareCacheEntry:
         access_count: int = 0,
         metadata: Optional[dict[str, Any]] = None,
         entry_metadata: Optional[CacheEntryMetadata] = None,
+        cache_id: str = "",
+        assigned_role: Optional[str] = None,
+        document_ids: Optional[Sequence[str]] = None,
+        project_ids: Optional[Sequence[str]] = None,
+        is_public: bool = False,
+        doc_last_updated: Optional[dict[str, float]] = None,
     ):
         self.cache_key = cache_key
         self.original_query = original_query
@@ -159,10 +208,29 @@ class QualityAwareCacheEntry:
 
         if entry_metadata is not None:
             self.metadata = entry_metadata
+            if cache_id and not self.metadata.cache_id:
+                self.metadata.cache_id = cache_id
+            if assigned_role is not None and self.metadata.assigned_role is None:
+                self.metadata.assigned_role = assigned_role
+            if document_ids and not self.metadata.document_ids:
+                self.metadata.document_ids = list(document_ids)
+            if doc_last_updated and not self.metadata.doc_last_updated:
+                self.metadata.doc_last_updated = dict(doc_last_updated)
+            if project_ids and not self.metadata.project_ids:
+                self.metadata.project_ids = list(project_ids)
+            if is_public:
+                self.metadata.is_public = is_public
         else:
             source_enum = CacheEntrySource(source) if isinstance(source, str) else source
             extra = metadata if isinstance(metadata, dict) else {}
+            effective_cache_id = cache_id or f"cch_{uuid.uuid4().hex[:12]}"
             self.metadata = CacheEntryMetadata(
+                cache_id=effective_cache_id,
+                assigned_role=assigned_role,
+                document_ids=list(document_ids) if document_ids else [],
+                doc_last_updated=dict(doc_last_updated) if doc_last_updated else {},
+                project_ids=list(project_ids) if project_ids else [],
+                is_public=is_public,
                 source=source_enum,
                 confidence=confidence,
                 evidence_count=evidence_count,
@@ -173,6 +241,54 @@ class QualityAwareCacheEntry:
                 access_count=access_count,
                 extra=extra,
             )
+
+    @property
+    def cache_id(self) -> str:
+        return self.metadata.cache_id
+
+    @cache_id.setter
+    def cache_id(self, val: str):
+        self.metadata.cache_id = val
+
+    @property
+    def assigned_role(self) -> Optional[str]:
+        return self.metadata.assigned_role
+
+    @assigned_role.setter
+    def assigned_role(self, val: Optional[str]):
+        self.metadata.assigned_role = val
+
+    @property
+    def document_ids(self) -> list[str]:
+        return self.metadata.document_ids
+
+    @document_ids.setter
+    def document_ids(self, val: list[str]):
+        self.metadata.document_ids = val
+
+    @property
+    def doc_last_updated(self) -> dict[str, float]:
+        return self.metadata.doc_last_updated
+
+    @doc_last_updated.setter
+    def doc_last_updated(self, val: dict[str, float]):
+        self.metadata.doc_last_updated = val
+
+    @property
+    def project_ids(self) -> list[str]:
+        return self.metadata.project_ids
+
+    @project_ids.setter
+    def project_ids(self, val: list[str]):
+        self.metadata.project_ids = val
+
+    @property
+    def is_public(self) -> bool:
+        return self.metadata.is_public
+
+    @is_public.setter
+    def is_public(self, val: bool):
+        self.metadata.is_public = val
 
     @property
     def confidence(self) -> float:
@@ -249,6 +365,12 @@ class QualityAwareCacheEntry:
             "cache_key": self.cache_key,
             "original_query": self.original_query,
             "response": self.response,
+            "cache_id": self.metadata.cache_id,
+            "assigned_role": self.metadata.assigned_role,
+            "document_ids": self.metadata.document_ids,
+            "doc_last_updated": self.metadata.doc_last_updated,
+            "project_ids": self.metadata.project_ids,
+            "is_public": self.metadata.is_public,
             "confidence": self.metadata.confidence,
             "source": self.metadata.source.value,
             "evidence_count": self.metadata.evidence_count,
@@ -282,6 +404,12 @@ class QualityAwareCacheEntry:
             last_accessed=data.get("last_accessed", time.time()),
             access_count=data.get("access_count", 0),
             metadata=data.get("metadata", {}),
+            cache_id=data.get("cache_id", ""),
+            assigned_role=data.get("assigned_role"),
+            document_ids=data.get("document_ids", []),
+            doc_last_updated=data.get("doc_last_updated", {}),
+            project_ids=data.get("project_ids", []),
+            is_public=data.get("is_public", False),
         )
 
 
@@ -442,32 +570,44 @@ class CacheQualityValidator:
 
 class InMemoryQualityAwareCache:
     """
-    Quality-aware semantic cache with thread-safe LRU eviction and TTL support.
+    Quality-aware semantic cache with thread-safe LRU eviction, TTL support,
+    unique Cache IDs, and RBAC document isolation.
     
     Features:
+    - Unique Cache ID (cch_<hex>) generated for every cached document response
+    - Role-based Access Control (RBAC): Only provides responses assigned to the requester's role
+    - Document-level scoping: Ensures requester has authorization to all cited documents
     - Only caches responses passing CacheQualityValidator criteria
     - LRU eviction when max_entries reached
     - TTL-based expiration
-    - Rich metadata tracking (source, confidence, evidence count, timestamps)
+    - Rich metadata tracking (source, confidence, evidence count, timestamps, RBAC)
     - Thread-safe operations with RLock
-    - Performance statistics and monitoring
+    - Cache ID index and role/document invalidation
     """
     
     def __init__(
         self,
         max_entries: int = 1000,
-        ttl_seconds: float = 3600.0,
+        ttl_seconds: float = 30 * 24 * 3600.0,  # 30 days (2,592,000s)
         min_confidence_threshold: float = 0.60,
+        semantic_similarity_threshold: float = SEMANTIC_CACHE_SIMILARITY_THRESHOLD,
         validator: Optional[CacheQualityValidator] = None,
         enable_stats: bool = True,
+        document_timestamp_lookup: Optional[Callable[[str], Optional[float]]] = None,
+        embedding_model: Optional[Any] = None,
     ):
         self.max_entries = max_entries
         self.ttl_seconds = ttl_seconds
         self.min_confidence_threshold = min_confidence_threshold
+        self.semantic_similarity_threshold = semantic_similarity_threshold
         self.validator = validator or CacheQualityValidator(min_confidence_threshold=min_confidence_threshold)
         self.enable_stats = enable_stats
+        self.document_timestamp_lookup = document_timestamp_lookup
+        self._embedding_model = embedding_model
         
         self._cache: dict[str, QualityAwareCacheEntry] = {}
+        self._cache_id_to_key: dict[str, str] = {}
+        self._key_embeddings: dict[str, np.ndarray] = {}
         self._access_order: list[str] = []
         self._lock = threading.RLock()
         
@@ -479,47 +619,263 @@ class InMemoryQualityAwareCache:
             "writes": 0,
             "rejected_low_confidence": 0,
             "rejected_quality_gate": 0,
+            "rbac_denials": 0,
+            "stale_document_evictions": 0,
+            "semantic_hits": 0,
         }
         
         logger.info(
-            "in_memory_quality_aware_cache initialized max_entries=%d ttl=%.0fs min_confidence=%.2f",
-            max_entries, ttl_seconds, min_confidence_threshold
+            "in_memory_quality_aware_cache initialized max_entries=%d ttl=%.0fs min_confidence=%.2f semantic_threshold=%.2f",
+            max_entries, ttl_seconds, min_confidence_threshold, semantic_similarity_threshold
         )
-    
-    def get(self, cache_key: str) -> Optional[QualityAwareCacheEntry]:
+
+    def _embed_text(self, text: str) -> Optional[np.ndarray]:
+        """Generate normalized vector embedding for query text or cache key."""
+        if not text or not str(text).strip():
+            return None
+        clean_text = str(text).replace("_", " ").strip()
+        if not clean_text:
+            return None
+        if self._embedding_model is None:
+            try:
+                from sentence_transformers import SentenceTransformer
+                from app.core.settings import EMBEDDING_MODEL
+                self._embedding_model = SentenceTransformer(EMBEDDING_MODEL)
+            except Exception as exc:
+                logger.debug("Failed loading embedding model for semantic cache: %s", exc)
+                return None
+        try:
+            emb = self._embedding_model.encode([clean_text], convert_to_numpy=True)[0]
+            norm = np.linalg.norm(emb)
+            if norm > 0:
+                emb = emb / norm
+            return emb
+        except Exception as exc:
+            logger.debug("Error generating embedding for semantic cache: %s", exc)
+            return None
+
+    def _check_rbac_access(
+        self,
+        entry: QualityAwareCacheEntry,
+        role: Optional[str] = None,
+        roles: Optional[Sequence[str]] = None,
+        project_ids: Optional[Sequence[str]] = None,
+        document_ids: Optional[Sequence[str]] = None,
+        is_admin: bool = False,
+    ) -> bool:
         """
-        Get entry from cache.
+        Validate RBAC access for a cache entry based on role, document_ids, and project_ids.
+        
+        Rules:
+        1. is_admin=True grants unrestricted access to all cached entries.
+        2. If entry has no assigned_role, no document_ids, and no project_ids, or is_public=True,
+           access is granted.
+        3. If entry.assigned_role is set:
+           - User must provide role/roles.
+           - If 'admin' is in user's roles, access is granted.
+           - User's role must match entry.assigned_role (case-insensitive).
+        4. If entry.document_ids is set and document_ids filter is provided:
+           - Every document in entry.document_ids must be authorized for requester.
+        5. If entry.project_ids is set and project_ids filter is provided:
+           - Requester's authorized projects must intersect with entry.project_ids.
+        """
+        if is_admin:
+            return True
+
+        entry_role = entry.assigned_role
+        entry_docs = entry.document_ids or []
+        entry_projs = entry.project_ids or []
+
+        # Open public entries with no role or doc restrictions
+        if entry.is_public and not entry_role and not entry_docs and not entry_projs:
+            return True
+
+        # Build set of caller roles (lowercase)
+        caller_roles: Set[str] = set()
+        if role:
+            caller_roles.add(str(role).strip().lower())
+        if roles:
+            for r in roles:
+                if r:
+                    caller_roles.add(str(r).strip().lower())
+
+        if "admin" in caller_roles:
+            return True
+
+        # 1. Role enforcement: Only provide responses assigned to each role
+        if entry_role:
+            target_role = entry_role.strip().lower()
+            if not caller_roles or target_role not in caller_roles:
+                return False
+
+        # 2. Project enforcement: Requester must be authorized for the project
+        if entry_projs and project_ids is not None:
+            caller_projs = {str(p).strip().lower() for p in project_ids if p}
+            entry_projs_set = {str(p).strip().lower() for p in entry_projs if p}
+            if not (entry_projs_set & caller_projs):
+                return False
+
+        # 3. Document enforcement: Requester must be authorized for all cited documents
+        if entry_docs and document_ids is not None:
+            caller_docs = {str(d).strip().lower() for d in document_ids if d}
+            for edoc in entry_docs:
+                if str(edoc).strip().lower() not in caller_docs:
+                    return False
+
+        return True
+    
+    def get(
+        self,
+        cache_key: str,
+        role: Optional[str] = None,
+        roles: Optional[Sequence[str]] = None,
+        project_ids: Optional[Sequence[str]] = None,
+        document_ids: Optional[Sequence[str]] = None,
+        is_admin: bool = False,
+        document_timestamp_lookup: Optional[Callable[[str], Optional[float]]] = None,
+        document_timestamps: Optional[dict[str, float]] = None,
+    ) -> Optional[QualityAwareCacheEntry]:
+        """
+        Get entry from cache with RBAC validation and document freshness check.
+        
+        If any document cited by this cached answer has been updated (Last_updated),
+        the cached response is considered stale, automatically evicted, and None is returned
+        so that an LLM-generated answer will be produced with the latest document content.
         
         Returns:
-            QualityAwareCacheEntry if found and unexpired, else None.
+            QualityAwareCacheEntry if found, unexpired, RBAC-authorized, and document is fresh, else None.
         """
         with self._lock:
             entry = self._cache.get(cache_key)
+            semantic_matched = False
+            best_sim = 0.0
+            matched_key = None
+            
+            # Semantic search across stored key embeddings if exact key is not found
+            if entry is None and self.semantic_similarity_threshold > 0 and self._key_embeddings:
+                query_emb = self._embed_text(cache_key)
+                if query_emb is not None:
+                    best_sim = -1.0
+                    for k, emb in list(self._key_embeddings.items()):
+                        if k not in self._cache:
+                            continue
+                        sim = float(np.dot(query_emb, emb))
+                        if sim > best_sim:
+                            best_sim = sim
+                            matched_key = k
+                    
+                    if matched_key is not None and best_sim >= self.semantic_similarity_threshold:
+                        entry = self._cache.get(matched_key)
+                        if entry is not None:
+                            semantic_matched = True
+                            logger.info(
+                                "semantic_cache_hit query=%s matched_key=%s confidence=%.2f%% (threshold=%.2f%%)",
+                                cache_key, matched_key, best_sim * 100.0, self.semantic_similarity_threshold * 100.0
+                            )
             
             if entry is None:
                 self._stats["misses"] += 1
                 logger.debug("cache_miss key=%s", cache_key)
                 return None
             
-            # Check TTL expiry
+            effective_key = matched_key if semantic_matched else cache_key
+
+            # 1. Check TTL expiry
             if entry.is_expired(self.ttl_seconds):
-                self._remove_entry(cache_key)
+                self._remove_entry(effective_key)
                 self._stats["misses"] += 1
                 self._stats["expirations"] += 1
-                logger.debug("cache_expired key=%s", cache_key)
+                logger.debug("cache_expired key=%s", effective_key)
                 return None
+
+            # 2. RBAC Validation Gate
+            if not self._check_rbac_access(
+                entry,
+                role=role,
+                roles=roles,
+                project_ids=project_ids,
+                document_ids=document_ids,
+                is_admin=is_admin,
+            ):
+                self._stats["misses"] += 1
+                self._stats["rbac_denials"] = self._stats.get("rbac_denials", 0) + 1
+                logger.debug(
+                    "cache_rbac_denied key=%s cache_id=%s assigned_role=%s req_role=%s",
+                    effective_key, entry.cache_id, entry.assigned_role, role
+                )
+                return None
+
+            # 3. Document Freshness / Last_Updated Validation Gate:
+            # If any cited document was updated after caching, evict and return None (cache miss -> use LLM)
+            if entry.document_ids:
+                lookup_fn = document_timestamp_lookup or self.document_timestamp_lookup
+                entry_created_at = entry.metadata.created_at
+                is_stale = False
+                stale_doc = None
+                latest_ts = 0.0
+
+                for doc_id in entry.document_ids:
+                    current_doc_updated_at = None
+                    if document_timestamps and doc_id in document_timestamps:
+                        current_doc_updated_at = _to_timestamp(document_timestamps[doc_id])
+                    elif lookup_fn:
+                        try:
+                            raw_ts = lookup_fn(doc_id)
+                            if raw_ts is not None:
+                                current_doc_updated_at = _to_timestamp(raw_ts)
+                        except Exception as exc:
+                            logger.debug("Failed looking up updated_at for doc %s: %s", doc_id, exc)
+
+                    if current_doc_updated_at is not None:
+                        cached_ts = entry.metadata.doc_last_updated.get(doc_id)
+                        if cached_ts is None:
+                            cached_ts = entry_created_at
+                        else:
+                            cached_ts = _to_timestamp(cached_ts)
+
+                        if current_doc_updated_at > cached_ts:
+                            is_stale = True
+                            stale_doc = doc_id
+                            latest_ts = current_doc_updated_at
+                            break
+
+                if is_stale:
+                    logger.info(
+                        "cache_stale_document_detected key=%s doc=%s (cached_ts=%.2f, current_updated_at=%.2f) - evicting stale cache to use LLM",
+                        effective_key, stale_doc, cached_ts, latest_ts
+                    )
+                    self._remove_entry(effective_key)
+                    self._stats["misses"] += 1
+                    self._stats["stale_document_evictions"] = self._stats.get("stale_document_evictions", 0) + 1
+                    return None
             
             # Update LRU and access stats
             entry.update_access()
-            self._update_access_order(cache_key)
+            if semantic_matched:
+                entry.metadata.extra["semantic_confidence"] = round(best_sim, 4)
+                entry.metadata.extra["semantic_match"] = True
+                self._stats["semantic_hits"] = self._stats.get("semantic_hits", 0) + 1
+            self._update_access_order(effective_key)
             
             self._stats["hits"] += 1
             logger.debug(
-                "cache_hit key=%s confidence=%.2f access_count=%d",
-                cache_key, entry.confidence, entry.access_count
+                "cache_hit key=%s cache_id=%s role=%s confidence=%.2f access_count=%d semantic=%s",
+                effective_key, entry.cache_id, entry.assigned_role, entry.confidence, entry.access_count, semantic_matched
             )
             return entry
-    
+
+    def set(
+        self,
+        cache_key: str,
+        original_query: Optional[str] = None,
+        response: str = "",
+        *args,
+        **kwargs,
+    ) -> bool:
+        """Alias for put() to support standard dictionary / cache set semantics."""
+        orig_q = original_query if original_query is not None else cache_key
+        return self.put(cache_key=cache_key, original_query=orig_q, response=response, *args, **kwargs)
+
     def put(
         self,
         cache_key: str,
@@ -534,9 +890,16 @@ class InMemoryQualityAwareCache:
         metadata: Optional[dict[str, Any]] = None,
         lexical_grounding: Optional[float] = None,
         separation_gap: Optional[float] = None,
+        cache_id: Optional[str] = None,
+        assigned_role: Optional[str] = None,
+        document_ids: Optional[Sequence[str]] = None,
+        project_ids: Optional[Sequence[str]] = None,
+        is_public: bool = False,
+        doc_last_updated: Optional[dict[str, float]] = None,
     ) -> bool:
         """
-        Put entry into cache (only if quality gate validator approves).
+        Put entry into cache with unique Cache ID, RBAC document metadata, and document last_updated timestamps.
+        (Only stores if CacheQualityValidator approves).
         """
         source_enum = CacheEntrySource(source) if isinstance(source, str) else source
 
@@ -564,11 +927,45 @@ class InMemoryQualityAwareCache:
             )
             return False
         
+        # Generate unique Cache ID if not provided
+        effective_cache_id = cache_id or f"cch_{uuid.uuid4().hex[:12]}"
+
+        # Auto-extract document references from citations if document_ids not explicitly passed
+        docs_list = list(document_ids) if document_ids else []
+        if not docs_list and citations:
+            extracted_docs = []
+            for c in citations:
+                src = c.get("source") or c.get("document_id")
+                if src and src not in extracted_docs:
+                    extracted_docs.append(str(src))
+            docs_list = extracted_docs
+
+        projs_list = list(project_ids) if project_ids else []
+
+        # Resolve document last_updated timestamps if not provided
+        effective_doc_last_updated = dict(doc_last_updated) if doc_last_updated else {}
+        if not effective_doc_last_updated and docs_list:
+            now_ts = time.time()
+            for doc_id in docs_list:
+                ts = None
+                if self.document_timestamp_lookup:
+                    try:
+                        ts = self.document_timestamp_lookup(doc_id)
+                    except Exception:
+                        ts = None
+                effective_doc_last_updated[doc_id] = _to_timestamp(ts) if ts is not None else now_ts
+
         with self._lock:
             if len(self._cache) >= self.max_entries and cache_key not in self._cache:
                 self._evict_lru()
             
             entry_metadata = CacheEntryMetadata(
+                cache_id=effective_cache_id,
+                assigned_role=assigned_role,
+                document_ids=docs_list,
+                doc_last_updated=effective_doc_last_updated,
+                project_ids=projs_list,
+                is_public=is_public,
                 source=source_enum,
                 confidence=confidence,
                 evidence_count=evidence_count,
@@ -591,14 +988,109 @@ class InMemoryQualityAwareCache:
             )
             
             self._cache[cache_key] = entry
+            self._cache_id_to_key[effective_cache_id] = cache_key
             self._update_access_order(cache_key)
             self._stats["writes"] += 1
             
+            # Index normalized key and original query embeddings for semantic caching with 89% confidence
+            key_emb = self._embed_text(cache_key)
+            if key_emb is not None:
+                self._key_embeddings[cache_key] = key_emb
+            if original_query and original_query != cache_key:
+                orig_emb = self._embed_text(original_query)
+                if orig_emb is not None:
+                    self._key_embeddings[original_query] = orig_emb
+            
+            # Timestamp right after embedding so model load latency does not consume entry TTL
+            entry.metadata.created_at = time.time()
+            entry.metadata.last_accessed = time.time()
+            
             logger.debug(
-                "cache_write key=%s confidence=%.2f source=%s decision=%s",
-                cache_key, confidence, source_enum.value, validation.decision.value
+                "cache_write key=%s cache_id=%s role=%s docs=%s confidence=%.2f source=%s decision=%s",
+                cache_key, effective_cache_id, assigned_role, docs_list, confidence, source_enum.value, validation.decision.value
             )
             return True
+
+    def get_by_cache_id(
+        self,
+        cache_id: str,
+        role: Optional[str] = None,
+        roles: Optional[Sequence[str]] = None,
+        project_ids: Optional[Sequence[str]] = None,
+        document_ids: Optional[Sequence[str]] = None,
+        is_admin: bool = False,
+        document_timestamp_lookup: Optional[Callable[[str], Optional[float]]] = None,
+        document_timestamps: Optional[dict[str, float]] = None,
+    ) -> Optional[QualityAwareCacheEntry]:
+        """Retrieve a cached entry by its unique Cache ID with RBAC and document freshness enforcement."""
+        with self._lock:
+            cache_key = self._cache_id_to_key.get(cache_id)
+            if not cache_key:
+                return None
+            return self.get(
+                cache_key,
+                role=role,
+                roles=roles,
+                project_ids=project_ids,
+                document_ids=document_ids,
+                is_admin=is_admin,
+                document_timestamp_lookup=document_timestamp_lookup,
+                document_timestamps=document_timestamps,
+            )
+
+    def delete_by_cache_id(self, cache_id: str) -> bool:
+        """Delete a cache entry by its unique Cache ID."""
+        with self._lock:
+            cache_key = self._cache_id_to_key.get(cache_id)
+            if not cache_key:
+                return False
+            return self.invalidate(cache_key)
+
+    def get_entries_by_role(self, role: str) -> list[QualityAwareCacheEntry]:
+        """List all cache entries assigned to a specific role."""
+        with self._lock:
+            target = role.strip().lower()
+            return [
+                entry for entry in self._cache.values()
+                if entry.assigned_role and entry.assigned_role.strip().lower() == target
+            ]
+
+    def get_entries_by_document(self, document_id: str) -> list[QualityAwareCacheEntry]:
+        """List all cache entries referencing a specific document."""
+        with self._lock:
+            target = document_id.strip().lower()
+            return [
+                entry for entry in self._cache.values()
+                if any(doc.strip().lower() == target for doc in entry.document_ids)
+            ]
+
+    def invalidate_document(self, document_id: str) -> int:
+        """Invalidate all cache entries generated with a specific document."""
+        with self._lock:
+            target = document_id.strip().lower()
+            keys_to_remove = [
+                key for key, entry in self._cache.items()
+                if any(doc.strip().lower() == target for doc in entry.document_ids)
+            ]
+            for key in keys_to_remove:
+                self._remove_entry(key)
+            if keys_to_remove:
+                logger.info("cache_invalidated_by_document doc=%s count=%d", document_id, len(keys_to_remove))
+            return len(keys_to_remove)
+
+    def invalidate_role(self, role: str) -> int:
+        """Invalidate all cache entries assigned to a specific role."""
+        with self._lock:
+            target = role.strip().lower()
+            keys_to_remove = [
+                key for key, entry in self._cache.items()
+                if entry.assigned_role and entry.assigned_role.strip().lower() == target
+            ]
+            for key in keys_to_remove:
+                self._remove_entry(key)
+            if keys_to_remove:
+                logger.info("cache_invalidated_by_role role=%s count=%d", role, len(keys_to_remove))
+            return len(keys_to_remove)
     
     def _evict_lru(self) -> None:
         """Evict least recently used entry."""
@@ -606,14 +1098,22 @@ class InMemoryQualityAwareCache:
             return
         oldest_key = self._access_order.pop(0)
         if oldest_key in self._cache:
+            entry = self._cache[oldest_key]
+            if entry.cache_id in self._cache_id_to_key:
+                del self._cache_id_to_key[entry.cache_id]
             del self._cache[oldest_key]
+            self._key_embeddings.pop(oldest_key, None)
             self._stats["evictions"] += 1
             logger.debug("cache_evicted key=%s reason=lru", oldest_key)
     
     def _remove_entry(self, cache_key: str) -> None:
         """Remove entry from cache."""
         if cache_key in self._cache:
+            entry = self._cache[cache_key]
+            if entry.cache_id in self._cache_id_to_key:
+                del self._cache_id_to_key[entry.cache_id]
             del self._cache[cache_key]
+        self._key_embeddings.pop(cache_key, None)
         if cache_key in self._access_order:
             self._access_order.remove(cache_key)
     
@@ -631,11 +1131,17 @@ class InMemoryQualityAwareCache:
                 logger.info("cache_invalidated key=%s", cache_key)
                 return True
             return False
+
+    def delete(self, cache_key: str) -> bool:
+        """Alias for invalidate (satisfies SemanticCachePort)."""
+        return self.invalidate(cache_key)
     
     def clear(self) -> None:
         """Clear all cache entries."""
         with self._lock:
             self._cache.clear()
+            self._cache_id_to_key.clear()
+            self._key_embeddings.clear()
             self._access_order.clear()
             logger.info("cache_cleared")
     
@@ -656,6 +1162,9 @@ class InMemoryQualityAwareCache:
                 "writes": self._stats["writes"],
                 "rejected_low_confidence": self._stats["rejected_low_confidence"],
                 "rejected_quality_gate": self._stats.get("rejected_quality_gate", 0),
+                "rbac_denials": self._stats.get("rbac_denials", 0),
+                "stale_document_evictions": self._stats.get("stale_document_evictions", 0),
+                "semantic_hits": self._stats.get("semantic_hits", 0),
                 "current_entries": len(self._cache),
                 "max_entries": self.max_entries,
                 "utilization": (len(self._cache) / self.max_entries * 100) if self.max_entries > 0 else 0,
@@ -690,7 +1199,9 @@ _quality_cache: Optional[InMemoryQualityAwareCache] = None
 
 def get_quality_cache(
     max_entries: int = 1000,
-    ttl_seconds: float = 3600.0,
+    ttl_seconds: float = 30 * 24 * 3600.0,  # 30 days (2,592,000s)
+    semantic_similarity_threshold: float = SEMANTIC_CACHE_SIMILARITY_THRESHOLD,
+    document_timestamp_lookup: Optional[Callable[[str], Optional[float]]] = None,
 ) -> InMemoryQualityAwareCache:
     """Get the global quality-aware cache instance."""
     global _quality_cache
@@ -698,5 +1209,9 @@ def get_quality_cache(
         _quality_cache = InMemoryQualityAwareCache(
             max_entries=max_entries,
             ttl_seconds=ttl_seconds,
+            semantic_similarity_threshold=semantic_similarity_threshold,
+            document_timestamp_lookup=document_timestamp_lookup,
         )
+    elif document_timestamp_lookup is not None:
+        _quality_cache.document_timestamp_lookup = document_timestamp_lookup
     return _quality_cache

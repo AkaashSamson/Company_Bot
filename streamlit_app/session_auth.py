@@ -2,7 +2,22 @@ import json
 
 import streamlit as st
 
-from streamlit_cookies_controller import CookieController
+try:
+    from streamlit_cookies_controller import CookieController
+except ImportError:
+    class CookieController:
+        """In-memory session fallback when streamlit_cookies_controller is not installed."""
+        def __init__(self, key: str | None = None) -> None:
+            self.key = key
+
+        def get(self, name: str) -> dict | str | None:
+            return st.session_state.get(f"_cookie_{name}")
+
+        def set(self, name: str, val: dict | str) -> None:
+            st.session_state[f"_cookie_{name}"] = val
+
+        def remove(self, name: str) -> None:
+            st.session_state.pop(f"_cookie_{name}", None)
 
 AUTH_COOKIE = "knowlayer_auth"
 _COOKIE_KEY = "knowlayer_cookies"

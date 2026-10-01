@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import asyncio
 from contextlib import asynccontextmanager
@@ -60,8 +61,8 @@ async def lifespan(app: FastAPI):
         logger.error("Startup conversation log cleanup failed: %s", exc)
 
     initialize_persistence(get_session_factory)
-    logger.info("Lifespan: warming up orchestrator…")
-    init_orchestrator()
+    logger.info("Lifespan: warming up orchestrator in background thread…")
+    await asyncio.to_thread(init_orchestrator)
     try:
         from app.infrastructure.channels.registry import register_channel_adapter
         from app.infrastructure.channels.teams.adapter import TeamsChannelAdapter

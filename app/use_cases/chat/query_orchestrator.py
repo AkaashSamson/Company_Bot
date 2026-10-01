@@ -2,12 +2,14 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 import logging
 import re
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
-from app.core.settings import RAG_CANDIDATE_COUNT
+from app.core.settings import FAQ_SIMILARITY_CACHE_ENABLED, RAG_CANDIDATE_COUNT
 from app.domain.services.llm_provider import LLMProviderError
 from app.infrastructure.faq.faq_similarity_cache import FAQSimilarityCache
 from app.infrastructure.faq.mongo_faq_store import MongoFAQStore
+
+_UNSET = object()
 from app.infrastructure.llm.fallback_llm_provider import FallbackLLMProvider
 from app.infrastructure.llm.groq_client import GroqClient
 from app.infrastructure.llm.openrouter_client import OpenRouterClient
@@ -34,6 +36,7 @@ from app.infrastructure.observability.pipeline_tracer import (
 logger = logging.getLogger(__name__)
 
 RELEVANCE_PROMPT = "Was this response relevant to your question?"
+REFERENCES_CONFIRM_PROMPT = "Would you like to see the source references?"
 
 # Words/phrases that count as a positive response / relevant
 _POSITIVE_REPLY = re.compile(
@@ -54,7 +57,7 @@ _NEGATIVE_REPLY = re.compile(
 )
 
 _NOT_RELEVANT_FEEDBACK = re.compile(
-    r"\b(not relevant|irrelevant|not helpful|incorrect|wrong|unrelated|off topic|bad answer|not really|not accurate)\b",
+    r"\b(not relevant|irrelevant|not helpful|incorrect|wrong|unrelated|off topic|bad answer|not really|not accurate|not satisfied|unsatisfied|dissatisfied|displeased|unhelpful|poor answer|not good|dissatisfaction)\b",
     re.IGNORECASE,
 )
 
@@ -67,6 +70,8 @@ _pending_citations: dict[str, list] = {}
 _last_interaction: dict[str, dict] = {}
 # Tracks whether an alternative answer has already been given for the current question
 _alternative_answer_given: dict[str, bool] = {}
+# Tracks sessions where the bot asked "Would you like to see the source references?"
+_asked_references_confirm: dict[str, bool] = {}
 
 
 def _is_feedback_candidate(text: str) -> bool:
@@ -119,6 +124,36 @@ def _last_assistant_offered_references(history: list[dict]) -> bool:
     return False
 
 
+def _last_assistant_asked_references_confirm(history: list[dict]) -> bool:
+    """Return True if the most recent assistant message asked whether the user wants to see references."""
+    for msg in reversed(history or []):
+        if msg.get("role") == "assistant":
+            content = msg.get("content", "").lower()
+            return "would you like to see the source references" in content
+    return False
+
+
+
+def _default_doc_timestamp_lookup(doc_id_or_name: str) -> Optional[float]:
+    """Lookup updated_at timestamp for a document by ID, name, or filename from SQLite."""
+    try:
+        from app.infrastructure.persistence.sqlalchemy.session import create_unit_of_work
+        with create_unit_of_work() as uow:
+            doc = uow.documents.get(doc_id_or_name)
+            if doc is None:
+                for d in uow.documents.list():
+                    if d.document_name == doc_id_or_name or d.original_filename == doc_id_or_name:
+                        doc = d
+                        break
+            if doc is not None and getattr(doc, "updated_at", None):
+                ts = doc.updated_at
+                if hasattr(ts, "timestamp"):
+                    return float(ts.timestamp())
+                return float(ts)
+    except Exception:
+        pass
+    return None
+
 
 class QueryOrchestrator:
     def __init__(
@@ -129,7 +164,7 @@ class QueryOrchestrator:
         query_resolver=None,
         memory=None,
         faq_store=None,
-        faq_cache=None,
+        faq_cache=_UNSET,
         context_builder=None,
         project_contact_lookup=None,
         response_cache=None,
@@ -137,15 +172,24 @@ class QueryOrchestrator:
         employee_id_provider=None,
         query_normalizer=None,
         pipeline_tracer=None,
+        document_timestamp_lookup: Optional[Callable[[str], Optional[float]]] = None,
     ):
         self.retrieval = retrieval or RetrievalService()
         self.provenance = provenance or ProvenanceService()
         self.faq_store = faq_store or MongoFAQStore()
-        self.faq_cache = faq_cache or FAQSimilarityCache()
+        if faq_cache is _UNSET:
+            self.faq_cache = FAQSimilarityCache() if FAQ_SIMILARITY_CACHE_ENABLED else None
+        else:
+            self.faq_cache = faq_cache
         self.context_builder = context_builder or RAGContextBuilder()
         self.project_contact_lookup = project_contact_lookup
         self.response_cache = response_cache
         self.employee_id_provider = employee_id_provider
+        self.document_timestamp_lookup = document_timestamp_lookup or _default_doc_timestamp_lookup
+
+        if self.response_cache is not None and hasattr(self.response_cache, "document_timestamp_lookup"):
+            if getattr(self.response_cache, "document_timestamp_lookup", None) is None:
+                self.response_cache.document_timestamp_lookup = self.document_timestamp_lookup
 
         # AB-3: Initialize Query Normalizer
         self.query_normalizer = query_normalizer or get_query_normalizer()
@@ -258,7 +302,13 @@ class QueryOrchestrator:
         except Exception:
             pass
 
+        query_corrections = []
+
         def _finish(res):
+            if isinstance(res, dict):
+                res.setdefault("is_latest", True)
+                if "corrections" not in res:
+                    res["corrections"] = list(query_corrections)
             ans_text = res.get("answer", "") if isinstance(res, dict) else str(res)
             self._safe_log_conversation(
                 session_id=session_id,
@@ -321,20 +371,92 @@ class QueryOrchestrator:
         )
         asked_references = _last_assistant_offered_references(conversation_history)
 
-        if asked_relevance and session_id in _last_interaction:
+        # Allow user dissatisfaction feedback even if the relevance prompt was omitted/truncated
+        is_feedback_turn = (
+            asked_relevance
+            or (
+                session_id in _last_interaction
+                and (_is_not_relevant(question) or _is_relevant(question))
+            )
+        )
+
+        # ── 0-pre. Did the bot ask "Would you like to see the source references?" ──
+        asked_refs_confirm = (
+            _asked_references_confirm.get(session_id, False)
+            or _last_assistant_asked_references_confirm(conversation_history)
+        )
+        if asked_refs_confirm:
+            _asked_references_confirm.pop(session_id, None)
+            if _is_positive(question):
+                # User confirmed they want to see references
+                prev_evidence = _last_interaction.get(session_id, {}).get("selected_evidence", [])
+                citations = _pending_citations.pop(session_id, [])
+                if not citations and prev_evidence:
+                    citations = self.provenance.build_citations(prev_evidence)
+                if citations:
+                    return _finish({
+                        "answer": "Here are the references from the documents:",
+                        "citations": citations,
+                        "cache_hit": False,
+                        "show_citations": True,
+                        "is_latest": True,
+                        "tokens": None,
+                    })
+                return _finish({
+                    "answer": "No specific document references are available for that answer.",
+                    "citations": [],
+                    "cache_hit": False,
+                    "is_latest": True,
+                    "tokens": None,
+                })
+            elif _is_negative(question):
+                # User declined references
+                _pending_citations.pop(session_id, None)
+                return _finish({
+                    "answer": "No problem! Let me know if you have any other questions.",
+                    "citations": [],
+                    "cache_hit": False,
+                    "is_latest": True,
+                    "tokens": None,
+                })
+
+        if is_feedback_turn and session_id in _last_interaction:
             prev_data = _last_interaction[session_id]
-            prev_q = prev_data.get("question", "")
-            prev_ans = prev_data.get("answer", "")
-            prev_context = prev_data.get("context", "")
             prev_evidence = prev_data.get("selected_evidence", [])
 
-            # 0a. User indicates the response was NOT relevant
+            # 0a. User indicates the response was NOT relevant or not satisfied → evict from cache & give new LLM response
             if _is_not_relevant(question):
                 logger.info(
-                    "User indicated response was not relevant for session %s. Clearing cache and providing alternative response.",
+                    "User indicated response was not relevant/satisfactory for session %s. "
+                    "Evicting stale cache and generating alternative LLM response.",
                     session_id,
                 )
-                # Clear backend caches
+                # Clear backend caches so this query won't be served from stale cache
+                prev_q = prev_data.get("question")
+                if self.response_cache and prev_q:
+                    if hasattr(self.response_cache, "delete"):
+                        try:
+                            self.response_cache.delete(prev_q)
+                        except Exception:
+                            pass
+                    if hasattr(self.response_cache, "invalidate"):
+                        try:
+                            self.response_cache.invalidate(prev_q)
+                        except Exception:
+                            pass
+                    # If normalizer is present, also delete normalized cache key
+                    if hasattr(self, "query_normalizer") and self.query_normalizer:
+                        try:
+                            norm_res = self.query_normalizer.normalize(prev_q)
+                            norm_key = getattr(norm_res, "cache_key", None)
+                            if norm_key and norm_key != prev_q:
+                                if hasattr(self.response_cache, "delete"):
+                                    self.response_cache.delete(norm_key)
+                                if hasattr(self.response_cache, "invalidate"):
+                                    self.response_cache.invalidate(norm_key)
+                        except Exception:
+                            pass
+
                 if self.response_cache and hasattr(self.response_cache, "clear"):
                     try:
                         self.response_cache.clear()
@@ -346,72 +468,21 @@ class QueryOrchestrator:
                     except Exception as exc:
                         logger.warning("Failed to clear llm cache: %s", exc)
 
-                if not _alternative_answer_given.get(session_id, False):
-                    # Give them one more LLM generated Answer
-                    _alternative_answer_given[session_id] = True
+                # Evict from FAQ similarity cache if the rejected answer came from FAQ cache
+                matched_faq = prev_data.get("matched_faq")
+                matched_faq_id = prev_data.get("matched_faq_id")
+                if (matched_faq or matched_faq_id) and hasattr(self.faq_cache, "delete_entry"):
+                    target = matched_faq_id or matched_faq
+                    try:
+                        self.faq_cache.delete_entry(target)
+                        logger.info("Evicted rejected FAQ '%s' from FAQ cache.", target)
+                    except Exception as exc:
+                        logger.warning("Failed to evict FAQ entry from cache: %s", exc)
 
-                    # If previous evidence was empty, try a broader retrieval
-                    if not prev_evidence and prev_q:
-                        try:
-                            prev_evidence = self._retrieve(prev_q, top_k=RAG_CANDIDATE_COUNT)
-                            if prev_evidence:
-                                prev_context = "\n\n".join(e.get("text", "") for e in prev_evidence)
-                        except Exception as exc:
-                            logger.warning("Broader retrieval attempt failed: %s", exc)
-
-                    if prev_context.strip():
-                        alt_messages = [
-                            {
-                                "role": "system",
-                                "content": (
-                                    "You are a helpful HR assistant. The user stated that the previous response was NOT relevant "
-                                    "to their question. Provide an alternative, different, and more comprehensive response to the user's "
-                                    "question using ONLY the provided document context. Do not repeat the previous response.\n\n"
-                                    f"End with: '{RELEVANCE_PROMPT}'"
-                                ),
-                            },
-                            {
-                                "role": "user",
-                                "content": (
-                                    f"Document context:\n\n{prev_context}\n\n"
-                                    f"Question: {prev_q}\n\n"
-                                    f"Previous unsatisfied response: {prev_ans}\n\n"
-                                    f"Please provide an alternative, more relevant answer to the question:"
-                                ),
-                            },
-                        ]
-                        try:
-                            alt_answer = self._generate(alt_messages, session_id=session_id)
-                        except Exception as exc:
-                            logger.warning("Alternative generation failed: %s", exc)
-                            alt_answer = (
-                                "I reviewed the documents again but could not find additional details "
-                                f"beyond the previous response for: '{prev_q}'."
-                            )
-                    else:
-                        alt_answer = (
-                            f"I searched across the available HR policy documents again, but could not find specific policies or "
-                            f"procedures regarding '{prev_q}'. For further guidance, please consult with your HR representative directly."
-                        )
-
-                    # Ensure ending with RELEVANCE_PROMPT
-                    if RELEVANCE_PROMPT not in alt_answer:
-                        alt_answer = alt_answer.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
-
-                    citations = self.provenance.build_citations(prev_evidence) if prev_evidence else []
-                    _pending_citations[session_id] = citations
-                    _last_interaction[session_id]["answer"] = alt_answer
-                    _last_interaction[session_id]["selected_evidence"] = prev_evidence
-                    _last_interaction[session_id]["context"] = prev_context
-
-                    return _finish({
-                        "answer": alt_answer,
-                        "citations": [],
-                        "cache_hit": False,
-                        "tokens": None,
-                    })
-                else:
-                    # Alternative already given; user still says not relevant -> give formatted references
+                # Check if alternative answer has already been given:
+                # If alternative answer was already provided, second 'not relevant' provides document references directly
+                if _alternative_answer_given.get(session_id, False):
+                    _alternative_answer_given[session_id] = False
                     citations = _pending_citations.pop(session_id, [])
                     if not citations and prev_evidence:
                         citations = self.provenance.build_citations(prev_evidence)
@@ -424,13 +495,111 @@ class QueryOrchestrator:
                             "tokens": None,
                         })
                     return _finish({
-                        "answer": "No specific document references are available for that query.",
+                        "answer": (
+                            "I'm sorry the response wasn't helpful. No additional document references are "
+                            "available for that query. Please consult your HR representative directly."
+                        ),
                         "citations": [],
                         "cache_hit": False,
                         "tokens": None,
                     })
 
-            # 0b. User indicates the response WAS relevant (or says yes) -> give formatted references
+                # If no evidence was available initially, we cannot generate a grounded alternative
+                if not prev_evidence:
+                    no_ev_ans = (
+                        "I'm sorry the response wasn't helpful. I searched the available documents but could not find "
+                        f"additional information for your query. Please consult your HR representative directly.\n\n{RELEVANCE_PROMPT}"
+                    )
+                    return _finish({
+                        "answer": no_ev_ans,
+                        "citations": [],
+                        "cache_hit": False,
+                        "tokens": None,
+                    })
+
+                # First rejection: Generate a new alternative answer from LLM
+                context_text = prev_data.get("context", "")
+                if not context_text and prev_evidence:
+                    context_text = "\n\n".join(e.get("text", "") for e in prev_evidence if isinstance(e, dict))
+
+                if hasattr(self.context_builder, "build_messages"):
+                    alt_messages = self.context_builder.build_messages(
+                        question=f"Please provide an alternative and clearer answer to: {prev_q}",
+                        context_chunks=prev_evidence,
+                        include_system_prompt=True,
+                    )
+                else:
+                    alt_messages = [
+                        {
+                            "role": "system",
+                            "content": (
+                                "You answer questions using only the provided document context. "
+                                "The user indicated the previous answer was not relevant or satisfactory. "
+                                "Provide a different, more detailed or alternative answer to directly address their question. "
+                                f"End with: '{RELEVANCE_PROMPT}'"
+                            ),
+                        },
+                        {
+                            "role": "user",
+                            "content": (
+                                f"Document context:\n\n{context_text}\n\n"
+                                f"Question: {prev_q}"
+                            ),
+                        },
+                    ]
+
+                try:
+                    alt_answer = self._generate(alt_messages, session_id=session_id)
+                except Exception as exc:
+                    logger.warning("Alternative LLM generation failed: %s", exc)
+                    alt_answer = None
+
+                if alt_answer:
+                    if RELEVANCE_PROMPT not in alt_answer:
+                        alt_answer = alt_answer.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
+
+                    citations = self.provenance.build_citations(prev_evidence)
+                    _pending_citations[session_id] = citations
+                    _last_interaction[session_id] = {
+                        "question": prev_q,
+                        "context": context_text,
+                        "selected_evidence": prev_evidence,
+                        "answer": alt_answer,
+                    }
+                    _alternative_answer_given[session_id] = True
+
+                    return _finish({
+                        "answer": alt_answer,
+                        "citations": [],
+                        "context": context_text,
+                        "cache_hit": False,
+                        "is_latest": True,
+                        "tokens": None,
+                    })
+
+                # If LLM generation failed or returned empty, fall back to formatted references
+                citations = _pending_citations.pop(session_id, [])
+                if not citations and prev_evidence:
+                    citations = self.provenance.build_citations(prev_evidence)
+                if citations:
+                    return _finish({
+                        "answer": "Here are the references from the documents for your review:",
+                        "citations": citations,
+                        "cache_hit": False,
+                        "show_citations": True,
+                        "tokens": None,
+                    })
+                return _finish({
+                    "answer": (
+                        "I'm sorry the response wasn't helpful. No additional document references are "
+                        "available for that query. Please consult your HR representative directly."
+                    ),
+                    "citations": [],
+                    "cache_hit": False,
+                    "tokens": None,
+                })
+
+            # 0b. User indicates the response WAS relevant → return formatted references
             elif _is_relevant(question):
                 citations = _pending_citations.pop(session_id, [])
                 if not citations and prev_evidence:
@@ -444,7 +613,7 @@ class QueryOrchestrator:
                         "tokens": None,
                     })
                 return _finish({
-                    "answer": "No specific document references are available for that answer.",
+                    "answer": "I'm glad the answer was helpful! No additional document references are available.",
                     "citations": [],
                     "cache_hit": False,
                     "tokens": None,
@@ -491,6 +660,7 @@ class QueryOrchestrator:
             normalized_result = self.query_normalizer.normalize(question)
             processed_query = normalized_result.normalized_query
             cache_key = normalized_result.cache_key
+            query_corrections.extend(getattr(normalized_result, "corrections_made", []))
             if norm_span:
                 norm_span.set_output(
                     normalized_query=processed_query,
@@ -498,27 +668,79 @@ class QueryOrchestrator:
                     intent=getattr(normalized_result, "intent", None),
                 )
 
-        # ── AB-9 / AB-6.2: Semantic Cache Check (using normalized query) ─────────
+        # ── AB-9 / AB-6.2: Semantic Cache Check with RBAC Isolation & Cache ID ───
+        # Resolve caller authorization & role for RBAC cache checking
+        caller_role = None
+        caller_roles = []
+        is_admin_flag = False
+        caller_project_ids = None
+        caller_document_ids = None
+
+        if authorization_scope is not None:
+            is_admin_flag = getattr(authorization_scope, "is_admin", False)
+            caller_project_ids = getattr(authorization_scope, "project_ids", None)
+            caller_document_ids = getattr(authorization_scope, "document_ids", None)
+        elif authorized_project_ids is not None:
+            caller_project_ids = list(authorized_project_ids)
+
+        if user_context is not None:
+            if isinstance(user_context, dict):
+                caller_role = user_context.get("role")
+                if "roles" in user_context:
+                    caller_roles = list(user_context["roles"])
+                if user_context.get("is_admin"):
+                    is_admin_flag = True
+            else:
+                caller_role = getattr(user_context, "role", None)
+                if hasattr(user_context, "roles"):
+                    caller_roles = list(getattr(user_context, "roles"))
+                if getattr(user_context, "is_admin", False):
+                    is_admin_flag = True
+
+        if is_admin_flag and not caller_role:
+            caller_role = "admin"
+
         cache_hit_payload = None
         with self._stage_ctx(PipelineStage.CACHE_LOOKUP, input_metadata={"cache_key": cache_key, "query": question}) as cache_span:
             if self.response_cache is not None:
-                # Check normalized cache_key first, fall back to raw question
-                cached_entry = self.response_cache.get(cache_key)
-                if cached_entry is None and cache_key != question:
-                    cached_entry = self.response_cache.get(question)
+                cache_get_kwargs = {
+                    "role": caller_role,
+                    "roles": caller_roles,
+                    "project_ids": caller_project_ids,
+                    "document_ids": caller_document_ids,
+                    "is_admin": is_admin_flag,
+                    "document_timestamp_lookup": self.document_timestamp_lookup,
+                }
+                try:
+                    cached_entry = self.response_cache.get(cache_key, **cache_get_kwargs)
+                    if cached_entry is None and cache_key != question:
+                        cached_entry = self.response_cache.get(question, **cache_get_kwargs)
+                except TypeError:
+                    cached_entry = self.response_cache.get(cache_key)
+                    if cached_entry is None and cache_key != question:
+                        cached_entry = self.response_cache.get(question)
+
                 if cached_entry is not None:
                     if isinstance(cached_entry, dict):
                         ans = cached_entry.get("answer", "")
                         cached_citations = cached_entry.get("citations", [])
+                        cached_cache_id = cached_entry.get("cache_id")
+                        cached_assigned_role = cached_entry.get("assigned_role")
                     elif hasattr(cached_entry, "response") and isinstance(cached_entry.response, str):
                         ans = cached_entry.response
                         cached_citations = getattr(cached_entry, "citations", [])
+                        cached_cache_id = getattr(cached_entry, "cache_id", None)
+                        cached_assigned_role = getattr(cached_entry, "assigned_role", None)
                     elif isinstance(cached_entry, str):
                         ans = cached_entry
                         cached_citations = []
+                        cached_cache_id = None
+                        cached_assigned_role = None
                     else:
                         ans = str(getattr(cached_entry, "response", cached_entry))
                         cached_citations = []
+                        cached_cache_id = getattr(cached_entry, "cache_id", None)
+                        cached_assigned_role = getattr(cached_entry, "assigned_role", None)
 
                     # Cache Read Quality Gate: Never return a cached negative response
                     if is_negative_response(ans):
@@ -534,6 +756,9 @@ class QueryOrchestrator:
                     else:
                         if "Would you like to see the references for this?" in ans:
                             ans = ans.replace("Would you like to see the references for this?", RELEVANCE_PROMPT)
+                        if defer_citations and RELEVANCE_PROMPT not in ans and REFERENCES_CONFIRM_PROMPT not in ans:
+                            ans = ans.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
+
                         _pending_citations[session_id] = cached_citations
                         _last_interaction[session_id] = {
                             "question": question,
@@ -542,36 +767,25 @@ class QueryOrchestrator:
                             "answer": ans,
                         }
                         _alternative_answer_given[session_id] = False
-                        if defer_citations:
-                            cache_hit_payload = {
-                                "answer": ans,
-                                "citations": [],
+                        cache_hit_payload = {
+                            "answer": ans,
+                            "citations": [] if defer_citations else cached_citations,
+                            "cache_hit": True,
+                            "cache_id": cached_cache_id,
+                            "assigned_role": cached_assigned_role,
+                            "tokens": {
+                                "prompt_tokens": 0,
+                                "completion_tokens": 0,
+                                "total_tokens": 0,
                                 "cache_hit": True,
-                                "tokens": {
-                                    "prompt_tokens": 0,
-                                    "completion_tokens": 0,
-                                    "total_tokens": 0,
-                                    "cache_hit": True,
-                                },
-                            }
-                        else:
-                            cache_hit_payload = {
-                                "answer": ans,
-                                "citations": cached_citations,
-                                "cache_hit": True,
-                                "tokens": {
-                                    "prompt_tokens": 0,
-                                    "completion_tokens": 0,
-                                    "total_tokens": 0,
-                                    "cache_hit": True,
-                                },
-                            }
+                            },
+                        }
 
             if cache_hit_payload is None:
                 # ── AB-8: FAQ Check with Normalized Query ─────────────────────────
                 cached = (
-                    self._faq_search(question)
-                    if (self.response_cache is None and authorized_project_ids is None and authorization_scope is None)
+                    (self._faq_search(processed_query) or self._faq_search(question))
+                    if authorized_project_ids is None
                     else None
                 )
                 if cached is not None and is_negative_response(cached.get("answer", "")):
@@ -596,40 +810,30 @@ class QueryOrchestrator:
                         "context": cached["answer"],
                         "selected_evidence": [{"text": cached["answer"], "metadata": {"source": cached.get("source", "HR Policy Handbook"), "section": cached.get("section", cached["question"])}}],
                         "answer": cached["answer"],
+                        "matched_faq": cached.get("question", question),
+                        "matched_faq_id": cached.get("id"),
                     }
                     _alternative_answer_given[session_id] = False
-                    if defer_citations:
-                        cache_hit_payload = {
-                            "answer": cached["answer"] + f"\n\n{RELEVANCE_PROMPT}",
-                            "citations": [],
+                    cache_hit_payload = {
+                        "answer": cached["answer"] + f"\n\n{RELEVANCE_PROMPT}",
+                        "citations": [] if defer_citations else [faq_citation],
+                        "cache_hit": True,
+                        "matched_faq": cached["question"],
+                        "matched_faq_id": cached.get("id"),
+                        "similarity": cached["similarity"],
+                        "tokens": {
+                            "prompt_tokens": 0,
+                            "completion_tokens": 0,
+                            "total_tokens": 0,
                             "cache_hit": True,
-                            "matched_faq": cached["question"],
-                            "similarity": cached["similarity"],
-                            "tokens": {
-                                "prompt_tokens": 0,
-                                "completion_tokens": 0,
-                                "total_tokens": 0,
-                                "cache_hit": True,
-                            },
-                        }
-                    else:
-                        cache_hit_payload = {
-                            "answer": cached["answer"] + f"\n\n{RELEVANCE_PROMPT}",
-                            "citations": [faq_citation],
-                            "cache_hit": True,
-                            "matched_faq": cached["question"],
-                            "similarity": cached["similarity"],
-                            "tokens": {
-                                "prompt_tokens": 0,
-                                "completion_tokens": 0,
-                                "total_tokens": 0,
-                                "cache_hit": True,
-                            },
-                        }
+                        },
+                    }
+
             if cache_span:
                 cache_span.set_output(
                     cache_hit=cache_hit_payload is not None,
                     matched_faq=cache_hit_payload.get("matched_faq") if cache_hit_payload else None,
+                    cache_id=cache_hit_payload.get("cache_id") if cache_hit_payload else None,
                 )
 
         if cache_hit_payload is not None:
@@ -811,19 +1015,93 @@ class QueryOrchestrator:
             except Exception:
                 pass
 
+        # Generate Cache ID and extract documents for RBAC cache storage
+        cache_id = None
+        assigned_role_to_cache = caller_role
         if self.response_cache is not None and not is_negative:
             try:
-                payload = {"answer": answer, "citations": citations}
+                # Extract referenced documents and projects from selected_evidence and citations
+                doc_ids_set = set()
+                proj_ids_set = set()
+                for ev in (selected_evidence or []):
+                    meta = ev.get("metadata", {}) if isinstance(ev, dict) else {}
+                    doc_id = meta.get("document_id")
+                    if doc_id:
+                        doc_ids_set.add(str(doc_id))
+                    elif meta.get("source"):
+                        doc_ids_set.add(str(meta.get("source")))
+                    proj_id = meta.get("project_id")
+                    if proj_id:
+                        proj_ids_set.add(str(proj_id))
+                if not doc_ids_set:
+                    for c in (citations or []):
+                        src = c.get("document_id") or c.get("source")
+                        if src:
+                            doc_ids_set.add(str(src))
+
+                import uuid
+                cache_id = f"cch_{uuid.uuid4().hex[:12]}"
+
+                # Resolve current updated_at timestamps for all cited documents
+                doc_last_updated = {}
+                if self.document_timestamp_lookup:
+                    for did in doc_ids_set:
+                        try:
+                            ts = self.document_timestamp_lookup(did)
+                            if ts is not None:
+                                if hasattr(ts, "timestamp"):
+                                    doc_last_updated[did] = float(ts.timestamp())
+                                else:
+                                    doc_last_updated[did] = float(ts)
+                        except Exception as exc:
+                            logger.debug("Failed resolving timestamp for document %s: %s", did, exc)
+
+                payload = {
+                    "answer": answer,
+                    "citations": citations,
+                    "cache_id": cache_id,
+                    "assigned_role": assigned_role_to_cache,
+                    "document_ids": list(doc_ids_set),
+                    "doc_last_updated": doc_last_updated,
+                    "project_ids": list(proj_ids_set),
+                }
                 if hasattr(self.response_cache, "put"):
-                    self.response_cache.put(cache_key, payload)
-                    if cache_key != question:
-                        self.response_cache.put(question, payload)
+                    try:
+                        self.response_cache.put(
+                            cache_key=cache_key,
+                            original_query=question,
+                            response=answer,
+                            citations=citations,
+                            confidence=1.0,
+                            cache_id=cache_id,
+                            assigned_role=assigned_role_to_cache,
+                            document_ids=list(doc_ids_set),
+                            doc_last_updated=doc_last_updated,
+                            project_ids=list(proj_ids_set),
+                        )
+                        if cache_key != question:
+                            self.response_cache.put(
+                                cache_key=question,
+                                original_query=question,
+                                response=answer,
+                                citations=citations,
+                                confidence=1.0,
+                                cache_id=cache_id,
+                                assigned_role=assigned_role_to_cache,
+                                document_ids=list(doc_ids_set),
+                                doc_last_updated=doc_last_updated,
+                                project_ids=list(proj_ids_set),
+                            )
+                    except TypeError:
+                        self.response_cache.put(cache_key, payload)
+                        if cache_key != question:
+                            self.response_cache.put(question, payload)
                 elif hasattr(self.response_cache, "set"):
                     self.response_cache.set(cache_key, payload)
                     if cache_key != question:
                         self.response_cache.set(question, payload)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to store in response_cache: %s", exc)
 
         # Extract token usage from LLM provider
         tokens = None
@@ -858,9 +1136,11 @@ class QueryOrchestrator:
             except Exception:
                 pass
 
-        # Ensure answer ends with RELEVANCE_PROMPT if reference prompt is present
+        # Ensure answer ends with RELEVANCE_PROMPT so feedback buttons always render
         if "Would you like to see the references for this?" in answer:
             answer = answer.replace("Would you like to see the references for this?", RELEVANCE_PROMPT)
+        if defer_citations and RELEVANCE_PROMPT not in answer and REFERENCES_CONFIRM_PROMPT not in answer:
+            answer = answer.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
 
 
         # Store interaction state for feedback
@@ -879,6 +1159,8 @@ class QueryOrchestrator:
                 "citations": [],
                 "context": context,
                 "cache_hit": False,
+                "cache_id": cache_id,
+                "assigned_role": assigned_role_to_cache,
                 "tokens": tokens,
             })
 
@@ -887,6 +1169,8 @@ class QueryOrchestrator:
             "citations": citations,
             "context": context,
             "cache_hit": False,
+            "cache_id": cache_id,
+            "assigned_role": assigned_role_to_cache,
             "tokens": tokens,
         })
 

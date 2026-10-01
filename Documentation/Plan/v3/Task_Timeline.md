@@ -200,11 +200,11 @@ This document defines the phase-by-phase execution timeline for KnowLayer V3. It
 - [ ] **Task NE-5.2 (Reranker Pipeline Hook - Neha [Sequential Step 1]):**
   - [ ] Deprecate hardcoded `_query_parts` regex in `app/use_cases/chat/retrieval_service.py`.
   - [ ] Connect Cross-Encoder Reranker to filter ChromaDB top-15 candidates down to top-4 semantic chunks.
-- [ ] **Task AB-3.3 (POS Noun Filtering, Lemmatization & Vector Synonym Clustering - Abhinav [Originally Phase 2]):** Implement `app/use_cases/chat/synonym_clustering.py`:
-  - [ ] Extract and filter all noun-type unique words (`NN`, `NNS`, `NNP`, `NNPS`) from documents/queries using Part-of-Speech (POS) tagging.
-  - [ ] Apply lemmatization to reduce extracted noun tokens to their canonical lemma base form.
-  - [ ] Group and cluster canonical nouns based on embedding vector similarity (cosine threshold).
-  - [ ] Integrate generated synonym clusters into `QueryNormalizer` domain synonym map to enhance lexical grounding in retrieval and caching.
+- [x] **Task AB-3.3 (POS Noun Filtering, Lemmatization & Vector Synonym Clustering - Abhinav [Originally Phase 2]):** Implement `app/use_cases/chat/synonym_clustering.py`:
+  - [x] Extract and filter all noun-type unique words (`NN`, `NNS`, `NNP`, `NNPS`) from documents/queries using Part-of-Speech (POS) tagging.
+  - [x] Apply lemmatization to reduce extracted noun tokens to their canonical lemma base form.
+  - [x] Group and cluster canonical nouns based on embedding vector similarity (cosine threshold).
+  - [x] Integrate generated synonym clusters into `QueryNormalizer` domain synonym map to enhance lexical grounding in retrieval and caching.
 - **Top Dependency:** `[Dependency: Task AB-5.1 - RetrievalQualityGate Engine (Abhinav)]`
 - [ ] **Task AB-5.2 (Quality Gate Integration - Abhinav [Sequential Step 2 - Depends on Neha's Reranked Chunks]):**
   - [ ] In `app/use_cases/chat/retrieval_service.py`, pass reranked top-4 chunks through `RetrievalQualityGate.evaluate()`.
@@ -405,7 +405,7 @@ If scope needs adjustment during execution:
 | **AB-5.1** | Abhinav | Phase 2 | Completed [Phase 2] | Parallel | `app/use_cases/chat/retrieval_quality.py` |
 | **AB-6.1** | Abhinav | Phase 2 | Completed [Phase 2] | Parallel | `app/infrastructure/observability/pipeline_tracer.py` |
 | **AB-1.2** | Abhinav | Phase 2 | Completed [Phase 2] | Parallel | `app/infrastructure/llm/openrouter_client.py`, `groq_client.py` |
-| **AB-3.3** | Abhinav | Phase 3 [Originally Phase 2] | Pending | Parallel | `app/use_cases/chat/synonym_clustering.py` |
+| **AB-3.3** | Abhinav | Phase 3 [Originally Phase 2] | Completed [Phase 3] | Parallel | `app/use_cases/chat/synonym_clustering.py` |
 | **AB-3.4** | Abhinav | Phase 2 | Completed [Phase 2] | Parallel | `app/use_cases/chat/query_intent_classifier.py` |
 | **NE-4.1** | Neha | Phase 2 | Completed [Phase 2] | Parallel | `app/use_cases/chat/conversation_query_resolver.py` |
 | **NE-5.1** | Neha | Phase 3 [Originally Phase 2] | Pending | Parallel | `app/use_cases/chat/retrieval_service.py` |

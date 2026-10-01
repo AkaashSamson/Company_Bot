@@ -36,9 +36,13 @@ class ChatResponse(BaseModel):
     answer: str
     citations: List[Citation] = []
     cache_hit: bool = False
+    cache_id: Optional[str] = None
+    assigned_role: Optional[str] = None
     matched_faq: Optional[str] = None
     similarity: Optional[float] = None
     tokens: Optional[TokenUsageInfo] = None
+    is_latest: bool = Field(default=True, description="Indicates if the response is based on the latest version of the documents")
+    corrections: List[str] = Field(default_factory=list, description="Spelling or typo corrections applied to the query")
 
 
 class FAQResponse(BaseModel):

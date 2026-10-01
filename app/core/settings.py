@@ -23,7 +23,10 @@ FAQ_SIMILARITY_CACHE_ENABLED = os.getenv("FAQ_SIMILARITY_CACHE_ENABLED", "true")
 FAQ_SIMILARITY_THRESHOLD = float(os.getenv("FAQ_SIMILARITY_THRESHOLD", "0.92"))
 FAQ_JSON_PATH = os.getenv("FAQ_JSON_PATH", str(BASE_DIR / "data" / "faqs.json"))
 LLM_CACHE_SIMILARITY_THRESHOLD = float(
-    os.getenv("LLM_CACHE_SIMILARITY_THRESHOLD", "0.92")
+    os.getenv("LLM_CACHE_SIMILARITY_THRESHOLD", "0.85")
+)
+SEMANTIC_CACHE_SIMILARITY_THRESHOLD = float(
+    os.getenv("SEMANTIC_CACHE_SIMILARITY_THRESHOLD", "0.89")
 )
 RESPONSE_CACHE_FILE = os.getenv(
     "RESPONSE_CACHE_FILE",
@@ -156,7 +159,8 @@ QUALITY_GATE_GROUNDING_THRESHOLD = float(os.getenv("QUALITY_GATE_GROUNDING_THRES
 # Quality-Aware Cache (AB-4)
 SEMANTIC_CACHE_ENABLED = os.getenv("SEMANTIC_CACHE_ENABLED", "true").lower() == "true"
 SEMANTIC_CACHE_MAX_ENTRIES = int(os.getenv("SEMANTIC_CACHE_MAX_ENTRIES", "1000"))
-SEMANTIC_CACHE_TTL_SECONDS = float(os.getenv("SEMANTIC_CACHE_TTL_SECONDS", "3600"))
+# 30 days = 30 * 24 * 3600 = 2,592,000 seconds
+SEMANTIC_CACHE_TTL_SECONDS = float(os.getenv("SEMANTIC_CACHE_TTL_SECONDS", str(30 * 24 * 3600)))
 SEMANTIC_CACHE_MIN_CONFIDENCE = float(os.getenv("SEMANTIC_CACHE_MIN_CONFIDENCE", "0.6"))
 
 
@@ -189,14 +193,24 @@ LANGCACHE_ENABLED = os.getenv("LANGCACHE_ENABLED", "true").lower() == "true"
 LANGCACHE_SERVER_URL = os.getenv("LANGCACHE_SERVER_URL", "https://aws-us-east-1.langcache.redis.io")
 LANGCACHE_CACHE_ID = os.getenv("LANGCACHE_CACHE_ID", "")
 LANGCACHE_API_KEY = os.getenv("LANGCACHE_API_KEY", "")
+LANGCACHE_TIMEOUT_SECONDS = float(os.getenv("LANGCACHE_TIMEOUT_SECONDS", "3.0"))
+LANGCACHE_SIMILARITY_THRESHOLD = float(
+    os.getenv("LANGCACHE_SIMILARITY_THRESHOLD", str(SEMANTIC_CACHE_SIMILARITY_THRESHOLD))
+)
 
-# Dual Cache: JSON Fallback when LangCache unavailable
-DUAL_CACHE_JSON_FALLBACK_ENABLED = os.getenv("DUAL_CACHE_JSON_FALLBACK_ENABLED", "true").lower() == "true"
+# Dual Cache: Local Fallback when LangCache unavailable
+DUAL_CACHE_JSON_FALLBACK_ENABLED = (
+    os.getenv("DUAL_CACHE_JSON_FALLBACK_ENABLED", os.getenv("LANGCACHE_FALLBACK_ENABLED", "true")).lower() == "true"
+)
+_default_cache_dir = os.getenv("LANGCACHE_CACHE_DIR", str(BASE_DIR / "data"))
 DUAL_CACHE_JSON_FILE_PATH = os.getenv(
     "DUAL_CACHE_JSON_FILE_PATH",
-    str(BASE_DIR / "data" / "semantic_cache.json")
+    str(Path(_default_cache_dir) / "semantic_cache.json")
 )
 
 # Cache sync settings
-DUAL_CACHE_SYNC_INTERVAL_SECONDS = float(os.getenv("DUAL_CACHE_SYNC_INTERVAL_SECONDS", "60.0"))
+DUAL_CACHE_SYNC_INTERVAL_SECONDS = float(
+    os.getenv("DUAL_CACHE_SYNC_INTERVAL_SECONDS", os.getenv("LANGCACHE_SYNC_INTERVAL_SECONDS", "60.0"))
+)
 DUAL_CACHE_SYNC_ON_WRITE = os.getenv("DUAL_CACHE_SYNC_ON_WRITE", "true").lower() == "true"
+
