@@ -218,10 +218,10 @@ This document defines the phase-by-phase execution timeline for KnowLayer V3. It
 - **Top Dependency:** `[Dependency: Task AK-3.2 - ObservabilityManager & LangfuseProvider (Akaash)]`
 - [x] **Task AK-3.4 (Observability Manager Singleton - Akaash Samson [Sequential Step 1]):**
   - [x] Expose singleton `get_observability_manager()` in `app/infrastructure/observability/manager.py`.
-- [ ] **Task AK-3.3 (Groq Token Standardization - Akaash Samson [Originally Phase 2]):** Update `app/infrastructure/llm/groq_client.py` to parse OpenAI-compatible `usage` blocks (`prompt_tokens`, `completion_tokens`, `total_tokens`) and populate `TokenUsage`.
+- [x] **Task AK-3.3 (Groq Token Standardization - Akaash Samson [Originally Phase 2]):** Update `app/infrastructure/llm/groq_client.py` to parse OpenAI-compatible `usage` blocks (`prompt_tokens`, `completion_tokens`, `total_tokens`) and populate `TokenUsage`.
 - **Top Dependency:** `[Dependency: Task AB-6.1 - PipelineTracer Engine (Abhinav)]`
-- [ ] **Task AB-6.3 (Pipeline Tracer Dispatch Hook - Abhinav [Sequential Step 2 - Depends on Akaash's ObservabilityManager]):**
-  - [ ] In `app/infrastructure/observability/pipeline_tracer.py`, bind completed `PipelineTrace` execution records and stage spans to `ObservabilityManager.dispatch_trace()`.
+- [x] **Task AB-6.3 (Pipeline Tracer Dispatch Hook - Abhinav [Sequential Step 2 - Depends on Akaash's ObservabilityManager]):**
+  - [x] In `app/infrastructure/observability/pipeline_tracer.py`, bind completed `PipelineTrace` execution records and stage spans to `ObservabilityManager.dispatch_trace()`.
 
 #### Subsystem 4: Document Governance & Auto-ID Handshake (Roshan)
 - [ ] **Task RO-4.1 (Document Update Schema - Roshan [Originally Phase 1]):** Add `DocumentUpdate` Pydantic model (`document_name`, `description`, `version`, `file_type`, `project_id`) in `app/api/schemas/documents.py`.
@@ -259,9 +259,9 @@ Step 4.1 (Akaash) -> Step 4.2 (Abhinav) -> Step 4.3 (Neha) -> Step 4.4 (Akaash)
 ```
 
 #### Step 4.1: Akaash Samson [Sequential Owner 1 - Session Memory & Outage Fallback]
-- [ ] **Task AK-1.3 (Session Memory Wiring):**
-  - [ ] In `QueryOrchestrator.answer()`, check if `conversation_history` is provided by caller; if absent, load history from `SessionMemoryService.get_history(session_id)`.
-  - [ ] On turn completion, append user query and assistant response via `SessionMemoryService.add_turn(session_id, question, answer)`.
+- [x] **Task AK-1.3 (Session Memory Wiring):**
+  - [x] In `QueryOrchestrator.answer()`, check if `conversation_history` is provided by caller; if absent, load history from `SessionMemoryService.get_history(session_id)`.
+  - [x] On turn completion, append user query and assistant response via `SessionMemoryService.add_turn(session_id, question, answer)`.
 - [x] **Task AK-4 (Resilient Outage Fallback [Implemented early in Phase 1/2 PR #22/#26]):**
   - [x] Wrap LLM generation in `try...except (LLMProviderError, Exception)`.
   - [x] If LLM call fails but `selected_evidence` exists from ChromaDB, preserve evidence, format citations immediately, and return response with outage advisory note.
@@ -279,8 +279,8 @@ Step 4.1 (Akaash) -> Step 4.2 (Abhinav) -> Step 4.3 (Neha) -> Step 4.4 (Akaash)
 
 #### Step 4.3: Neha [Sequential Owner 3 - Contextual Rewriting & Append Logging]
 - **[Dependency: Step 4.2 completed by Abhinav (Query normalization and cache hooks active)]**
-- [ ] **Task NE-4.2 (Contextual Query Rewriting Integration):**
-  - [ ] In `QueryOrchestrator.answer()`, invoke `ConversationQueryResolver` *before* normalization when multi-turn session history exists, rewriting pronouns into standalone query terms.
+- [x] **Task NE-4.2 (Contextual Query Rewriting Integration):**
+  - [x] In `QueryOrchestrator.answer()`, invoke `ConversationQueryResolver` *before* normalization when multi-turn session history exists, rewriting pronouns into standalone query terms.
 - [x] **Task NE-1.3 (Single-Turn Append Logging Hook [Implemented early in Phase 1/2 PR #23]):**
   - [x] Update `_safe_log_conversation()` in `QueryOrchestrator`: pass only active turn (user question and assistant answer) to `ConversationLogger`, using session ID to append to active file.
 
@@ -380,7 +380,7 @@ If scope needs adjustment during execution:
 | **AK-1.1** | Akaash | Phase 1 | Completed [Phase 1] | Parallel | `app/domain/services/session_memory_service.py` |
 | **AK-1.2** | Akaash | Phase 1 | Completed [Phase 1] | Parallel | `app/core/settings.py` |
 | **AK-3.1** | Akaash | Phase 1 | Completed [Phase 1] | Parallel | `app/infrastructure/observability/provider.py` |
-| **AK-2.1** | Akaash | Phase 3 [Originally Phase 1] | Pending | Parallel | `app/infrastructure/channels/base.py` |
+| **AK-2.1** | Akaash | Phase 3 [Originally Phase 1] | Completed [Phase 3] | Parallel | `app/infrastructure/channels/base.py` |
 | **AB-2** | Abhinav | Phase 1 | Completed [Phase 1] | Parallel | `app/infrastructure/llm/llm_response.py` |
 | **AB-1.1** | Abhinav | Phase 1 | Completed [Phase 1] | Parallel | `app/infrastructure/llm/provider_health.py`, `provider_error_tracker.py` |
 | **AB-3.1** | Abhinav | Phase 1 | Completed [Phase 1] | Parallel | `app/use_cases/chat/query_normalizer.py` |
@@ -396,11 +396,11 @@ If scope needs adjustment during execution:
 | **RO-4.1** | Roshan | Phase 3 [Originally Phase 1] | Pending | Parallel | `app/api/schemas/documents.py` |
 | **RO-7.1a** | Roshan | Phase 1 | Completed [Phase 1] | Parallel | `requirements.txt` |
 | **RO-7.1b** | Roshan | Phase 3 [Originally Phase 1] | Pending | Parallel | `app/core/settings.py`, `.env.example` |
-| **AK-2.2** | Akaash | Phase 3 [Originally Phase 2] | Pending | Parallel | `app/infrastructure/channels/identity_bridge.py` |
-| **AK-2.3** | Akaash | Phase 3 [Originally Phase 2] | Pending | Parallel | `app/infrastructure/channels/teams/adapter.py`, `formatter.py` |
-| **AK-2.4** | Akaash | Phase 3 [Originally Phase 2] | Pending | Parallel | `app/infrastructure/channels/registry.py` |
+| **AK-2.2** | Akaash | Phase 3 [Originally Phase 2] | Completed [Phase 3] | Parallel | `app/infrastructure/channels/identity_bridge.py` |
+| **AK-2.3** | Akaash | Phase 3 [Originally Phase 2] | Completed [Phase 3] | Parallel | `app/infrastructure/channels/teams/adapter.py`, `formatter.py` |
+| **AK-2.4** | Akaash | Phase 3 [Originally Phase 2] | Completed [Phase 3] | Parallel | `app/infrastructure/channels/registry.py` |
 | **AK-3.2** | Akaash | Phase 2 | Completed [Phase 2] | Parallel | `app/infrastructure/observability/langfuse_provider.py`, `manager.py` |
-| **AK-3.3** | Akaash | Phase 3 [Originally Phase 2] | Pending | Parallel | `app/infrastructure/llm/groq_client.py` |
+| **AK-3.3** | Akaash | Phase 3 [Originally Phase 2] | Completed [Phase 3] | Parallel | `app/infrastructure/llm/groq_client.py` |
 | **AB-4** | Abhinav | Phase 2 | Completed [Phase 2] | Parallel | `app/infrastructure/cache/quality_aware_cache.py` |
 | **AB-5.1** | Abhinav | Phase 2 | Completed [Phase 2] | Parallel | `app/use_cases/chat/retrieval_quality.py` |
 | **AB-6.1** | Abhinav | Phase 2 | Completed [Phase 2] | Parallel | `app/infrastructure/observability/pipeline_tracer.py` |
@@ -424,13 +424,13 @@ If scope needs adjustment during execution:
 | **AB-5.2** | Abhinav | Phase 3 | Pending | Dependent [Neha] | `app/use_cases/chat/retrieval_service.py` |
 | **AK-5.1** | Akaash | Phase 3 | Pending | Dependent [Abhinav] | `app/use_cases/chat/retrieval_service.py` |
 | **AK-3.4** | Akaash | Phase 3 | Completed [Phase 2/3 PR #26] | Sequential (Lead) | `app/infrastructure/observability/manager.py` |
-| **AB-6.3** | Abhinav | Phase 3 | Pending | Dependent [Akaash] | `app/infrastructure/observability/pipeline_tracer.py` |
-| **AK-1.3** | Akaash | Phase 4 | Pending | Sequential (Step 4.1) | `app/use_cases/chat/query_orchestrator.py` |
+| **AB-6.3** | Abhinav | Phase 3 | Completed [Phase 3] | Dependent [Akaash] | `app/infrastructure/observability/pipeline_tracer.py` |
+| **AK-1.3** | Akaash | Phase 4 | Completed [Phase 4] | Sequential (Step 4.1) | `app/use_cases/chat/query_orchestrator.py` |
 | **AK-4** | Akaash | Phase 4 | Completed early [Phase 1/2 PR #22/#26] | Sequential (Step 4.1) | `app/use_cases/chat/query_orchestrator.py` |
 | **AB-3.2** | Abhinav | Phase 4 | Completed early [Phase 1/2 PR #22] | Sequential (Step 4.2) [Akaash] | `app/use_cases/chat/query_orchestrator.py` |
 | **AB-4.2** | Abhinav | Phase 4 | Completed early [Phase 1/2 PR #22] | Sequential (Step 4.2) [Akaash] | `app/use_cases/chat/query_orchestrator.py` |
 | **AB-6.2** | Abhinav | Phase 4 | Completed early [Phase 1/2 PR #22] | Sequential (Step 4.2) [Akaash] | `app/use_cases/chat/query_orchestrator.py` |
-| **NE-4.2** | Neha | Phase 4 | Pending | Sequential (Step 4.3) [Abhinav] | `app/use_cases/chat/query_orchestrator.py` |
+| **NE-4.2** | Neha | Phase 4 | Completed [Phase 4] | Sequential (Step 4.3) [Abhinav] | `app/use_cases/chat/query_orchestrator.py` |
 | **NE-1.3** | Neha | Phase 4 | Completed early [Phase 1/2 PR #23] | Sequential (Step 4.3) [Abhinav] | `app/use_cases/chat/query_orchestrator.py` |
 | **AK-5.2** | Akaash | Phase 4 | Pending | Sequential (Step 4.4) [Neha] | `app/use_cases/chat/query_orchestrator.py` |
 | **RO-1.3** | Roshan | Phase 5 | Completed early [Phase 1/2 PR #25] | Parallel | `streamlit_app/pages/explorer.py` |
@@ -443,7 +443,7 @@ If scope needs adjustment during execution:
 | **RO-7.4** | Roshan | Phase 5 | Pending | Parallel | `streamlit_app/pages/documents.py` |
 | **NE-1.4** | Neha | Phase 5 | Completed early [Phase 1/2 PR #23] | Parallel | `streamlit_app/app.py` |
 | **NE-2.2** | Neha | Phase 5 | Completed early [Phase 1/2 PR #23] | Parallel | `app/main.py` |
-| **AK-2.5** | Akaash | Phase 5 | Pending | Parallel | `app/main.py` |
+| **AK-2.5** | Akaash | Phase 5 | Completed [Phase 3/5] | Parallel | `app/main.py` |
 | **AK-6.1** | Akaash | Phase 5 | Pending | Parallel | `streamlit_app/app.py` |
 | **AK-6.2** | Akaash | Phase 5 | Pending | Parallel | `app/api/routes/chat.py` |
 | **AK-7.1** | Akaash | Phase 5 | Pending | Parallel | `Dockerfile`, `.dockerignore` |
