@@ -16,6 +16,31 @@ from app.infrastructure.observability.phoenix_provider import PhoenixProvider
 logger = logging.getLogger(__name__)
 
 
+def to_token_usage(usage_input: Any) -> Optional[TokenUsage]:
+    """Boundary converter: safely translates LLMTokenUsage, dict, or TokenUsage into domain TokenUsage."""
+    if usage_input is None:
+        return None
+
+    if isinstance(usage_input, TokenUsage):
+        return usage_input
+
+    # Duck-typed handling for LLMTokenUsage or any object with token attributes
+    if hasattr(usage_input, "prompt_tokens"):
+        p = getattr(usage_input, "prompt_tokens", 0)
+        c = getattr(usage_input, "completion_tokens", 0)
+        t = getattr(usage_input, "total_tokens", 0) or (p + c)
+        return TokenUsage(prompt_tokens=p, completion_tokens=c, total_tokens=t)
+
+    # Dict handling
+    if isinstance(usage_input, dict):
+        p = usage_input.get("prompt_tokens", 0)
+        c = usage_input.get("completion_tokens", 0)
+        t = usage_input.get("total_tokens", 0) or (p + c)
+        return TokenUsage(prompt_tokens=p, completion_tokens=c, total_tokens=t)
+
+    return None
+
+
 class ObservabilityManager(BaseObservabilityProvider):
     """Central router and dispatcher for application observability.
     
@@ -110,6 +135,91 @@ class ObservabilityManager(BaseObservabilityProvider):
         with self._lock:
             provider = self._active_provider
         provider.flush()
+
+    def export_pipeline_trace(self, trace: Any) -> None:
+        """Delegate pipeline trace export to active provider."""
+        self.dispatch_trace(trace)
+
+    def dispatch_trace(self, trace: Any) -> None:
+        """Dispatch a completed PipelineTrace execution record to the active observability provider.
+
+        Binds root trace, individual stage spans, and LLM token usage (Task AB-6.3).
+        Fails safe with logging: telemetry dispatch errors never raise exceptions to caller.
+        """
+        if trace is None:
+            return
+
+        try:
+            with self._lock:
+                provider = self._active_provider
+
+            # Clean Architecture: If provider implements export_pipeline_trace (e.g. Langfuse), delegate directly
+            if isinstance(provider, LangfuseProvider) or (getattr(provider, "supports_pipeline_export", None) is True):
+                provider.export_pipeline_trace(trace)
+                return
+
+            trace_metadata = {
+                "query": getattr(trace, "query", ""),
+                "total_duration_ms": getattr(trace, "total_duration_ms", 0.0),
+                "cache_hit": getattr(trace, "cache_hit", False),
+                "early_exit": getattr(trace, "early_exit", False),
+                "exit_stage": getattr(trace.exit_stage, "value", None) if getattr(trace, "exit_stage", None) else None,
+                "exit_reason": getattr(trace, "exit_reason", None),
+                "total_tokens": getattr(trace, "total_tokens", 0),
+            }
+
+            session_id = getattr(trace, "trace_id", None)
+            root_span = provider.create_trace(
+                name="QueryOrchestrator.answer",
+                session_id=session_id,
+                user_id=getattr(trace, "metadata", {}).get("user_id"),
+                metadata=trace_metadata,
+            )
+
+            # Process individual stage spans
+            spans = getattr(trace, "spans", []) or []
+            for span in spans:
+                stage_val = getattr(span.stage, "value", str(span.stage)) if hasattr(span, "stage") else "unknown"
+
+                # Calculate duration safely without TypeError if end_time is None
+                duration_ms = getattr(span, "duration_ms", 0.0)
+                if not duration_ms:
+                    start_t = getattr(span, "start_time", 0.0)
+                    end_t = getattr(span, "end_time", None)
+                    if end_t is not None and start_t:
+                        duration_ms = (end_t - start_t) * 1000.0
+
+
+                if stage_val == "llm_generation":
+                    # Check for explicit token object in metadata or span attributes
+                    out_meta = getattr(span, "output_metadata", {}) or {}
+                    raw_usage = out_meta.get("tokens") or out_meta.get("token_usage")
+                    if raw_usage is None and (getattr(span, "prompt_tokens", 0) or getattr(span, "completion_tokens", 0)):
+                        raw_usage = {
+                            "prompt_tokens": getattr(span, "prompt_tokens", 0),
+                            "completion_tokens": getattr(span, "completion_tokens", 0),
+                            "total_tokens": getattr(span, "tokens_used", 0),
+                        }
+
+                    token_vo = to_token_usage(raw_usage)
+                    if token_vo is not None:
+                        model_name = getattr(span, "input_metadata", {}).get("model", "unknown")
+                        provider.record_llm_call(
+                            model=model_name,
+                            token_usage=token_vo,
+                            latency_ms=duration_ms,
+                            metadata=out_meta,
+                        )
+
+            if root_span:
+                output_payload = {"final_response": getattr(trace, "final_response", None)}
+                root_span.end(outputs=output_payload)
+
+            provider.flush()
+
+        except Exception as exc:
+            logger.warning("ObservabilityManager failed to dispatch trace %s: %s", getattr(trace, "trace_id", "unknown"), exc)
+
 
 
 # Global Singleton & Accessors

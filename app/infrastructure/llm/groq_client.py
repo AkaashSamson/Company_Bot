@@ -42,6 +42,7 @@ class GroqClient(LLMProvider):
         self.max_tokens = max_tokens
         self.health_monitor = health_monitor or get_provider_health_monitor()
         self._last_tokens: Optional[dict] = None
+        self._last_token_usage: Optional[LLMTokenUsage] = None
 
         # Persistent client — reuses TCP/TLS connection across calls.
         self._client = httpx.Client(
@@ -95,18 +96,33 @@ class GroqClient(LLMProvider):
             # Track tokens if present in response
             usage = data.get("usage", {})
             if usage:
+                prompt_tok = usage.get("prompt_tokens", 0)
+                comp_tok = usage.get("completion_tokens", 0)
+                tot_tok = usage.get("total_tokens", prompt_tok + comp_tok)
                 self._last_tokens = {
-                    "prompt_tokens": usage.get("prompt_tokens", 0),
-                    "completion_tokens": usage.get("completion_tokens", 0),
-                    "total_tokens": usage.get("total_tokens", 0),
+                    "prompt_tokens": prompt_tok,
+                    "completion_tokens": comp_tok,
+                    "total_tokens": tot_tok,
                     "model": self.model,
                 }
+                self._last_token_usage = LLMTokenUsage(
+                    prompt_tokens=prompt_tok,
+                    completion_tokens=comp_tok,
+                    total_tokens=tot_tok,
+                )
+            else:
+                self._last_tokens = None
+                self._last_token_usage = None
 
             return content
 
         except LLMProviderError:
+            self._last_tokens = None
+            self._last_token_usage = None
             raise
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
+            self._last_tokens = None
+            self._last_token_usage = None
             if self.health_monitor:
                 self.health_monitor.record_request_failure(ProviderType.GROQ.value)
             raise LLMProviderError(f"Groq request failed: {error}") from error
@@ -118,6 +134,8 @@ class GroqClient(LLMProvider):
             self.health_monitor.record_request_start(ProviderType.GROQ.value)
 
         if not self.api_key:
+            self._last_tokens = None
+            self._last_token_usage = None
             if self.health_monitor:
                 self.health_monitor.record_request_failure(ProviderType.GROQ.value)
             return LLMResponseBuilder.error(
@@ -137,6 +155,8 @@ class GroqClient(LLMProvider):
             latency_ms = (time.perf_counter() - start_time) * 1000.0
 
             if response.status_code == 429:
+                self._last_tokens = None
+                self._last_token_usage = None
                 if self.health_monitor:
                     self.health_monitor.record_request_failure(ProviderType.GROQ.value)
                 return LLMResponseBuilder.error(
@@ -146,6 +166,8 @@ class GroqClient(LLMProvider):
                 )
 
             if response.is_error:
+                self._last_tokens = None
+                self._last_token_usage = None
                 if self.health_monitor:
                     self.health_monitor.record_request_failure(ProviderType.GROQ.value)
                 return LLMResponseBuilder.error(
@@ -158,6 +180,8 @@ class GroqClient(LLMProvider):
             content = data["choices"][0]["message"]["content"]
 
             if not content:
+                self._last_tokens = None
+                self._last_token_usage = None
                 if self.health_monitor:
                     self.health_monitor.record_request_failure(ProviderType.GROQ.value)
                 return LLMResponseBuilder.error(
@@ -170,30 +194,43 @@ class GroqClient(LLMProvider):
                 self.health_monitor.record_request_success(ProviderType.GROQ.value, latency_ms)
 
             usage = data.get("usage", {})
-            tokens = LLMTokenUsage(
-                prompt_tokens=usage.get("prompt_tokens", 0),
-                completion_tokens=usage.get("completion_tokens", 0),
-                total_tokens=usage.get("total_tokens", 0),
-            )
-            self._last_tokens = {
-                "prompt_tokens": tokens.prompt_tokens,
-                "completion_tokens": tokens.completion_tokens,
-                "total_tokens": tokens.total_tokens,
-                "model": self.model,
-            }
+            if usage:
+                prompt_tok = usage.get("prompt_tokens", 0)
+                comp_tok = usage.get("completion_tokens", 0)
+                tot_tok = usage.get("total_tokens", prompt_tok + comp_tok)
+                tokens = LLMTokenUsage(
+                    prompt_tokens=prompt_tok,
+                    completion_tokens=comp_tok,
+                    total_tokens=tot_tok,
+                )
+                self._last_token_usage = tokens
+                self._last_tokens = {
+                    "prompt_tokens": tokens.prompt_tokens,
+                    "completion_tokens": tokens.completion_tokens,
+                    "total_tokens": tokens.total_tokens,
+                    "model": self.model,
+                }
+            else:
+                tokens = None
+                self._last_token_usage = None
+                self._last_tokens = None
 
-            return (
+            builder = (
                 LLMResponseBuilder()
                 .with_content(content)
                 .with_status(LLMResponseStatus.SUCCESS)
                 .with_provider(LLMProviderName.GROQ)
                 .with_model(self.model)
-                .with_tokens(tokens=tokens)
                 .with_latency(latency_ms)
-                .build()
             )
+            if tokens is not None:
+                builder = builder.with_tokens(tokens=tokens)
+
+            return builder.build()
 
         except Exception as error:
+            self._last_tokens = None
+            self._last_token_usage = None
             if self.health_monitor:
                 self.health_monitor.record_request_failure(ProviderType.GROQ.value)
             return LLMResponseBuilder.error(
@@ -205,3 +242,7 @@ class GroqClient(LLMProvider):
     def get_last_tokens(self) -> Optional[dict]:
         """Get token usage from the last generate call."""
         return self._last_tokens
+
+    def get_last_token_usage(self) -> Optional[LLMTokenUsage]:
+        """Get standardized LLMTokenUsage from the last generate call (Task AK-3.3)."""
+        return self._last_token_usage
