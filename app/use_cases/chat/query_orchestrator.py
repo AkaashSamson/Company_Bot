@@ -672,7 +672,8 @@ class QueryOrchestrator:
                             "content": e.get("text", "").strip(),
                             "source": e.get("metadata", {}).get("source", "unknown"),
                             "score": e.get("score"),
-                            "chunk_id": e.get("id") or e.get("metadata", {}).get("chunk_id"),
+                            "distance": e.get("distance"),
+                            "chunk_id": e.get("id"),
                         }
                         for e in selected_evidence
                     ] if selected_evidence else [],
