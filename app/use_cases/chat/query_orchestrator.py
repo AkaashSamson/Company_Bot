@@ -667,6 +667,15 @@ class QueryOrchestrator:
                 ret_span.set_output(
                     chunks_count=len(selected_evidence) if selected_evidence else 0,
                     sources=[e.get("metadata", {}).get("source") for e in selected_evidence[:3]] if selected_evidence else [],
+                    documents=[
+                        {
+                            "content": e.get("text", "").strip(),
+                            "source": e.get("metadata", {}).get("source", "unknown"),
+                            "score": e.get("score"),
+                            "chunk_id": e.get("id") or e.get("metadata", {}).get("chunk_id"),
+                        }
+                        for e in selected_evidence
+                    ] if selected_evidence else [],
                 )
 
         if not selected_evidence:

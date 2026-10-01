@@ -34,7 +34,18 @@ def sample_pipeline_trace():
         end_time=t_start + 0.35,
         duration_ms=300.0,
         input_metadata={"query": "how many sick leaves i have"},
-        output_metadata={"chunks_count": 3},
+        output_metadata={
+            "chunks_count": 3,
+            "sources": ["leave_policy.pdf"],
+            "documents": [
+                {
+                    "content": "Employees get 12 sick leaves annually.",
+                    "source": "leave_policy.pdf",
+                    "score": 0.15,
+                    "chunk_id": "chunk-1",
+                }
+            ],
+        },
     )
     trace.add_span(span_retrieval)
 
@@ -127,6 +138,9 @@ def test_langfuse_provider_exports_root_and_child_spans_with_timestamps(sample_p
     assert child_calls[1][1]["name"] == "VECTOR_RETRIEVAL"
     assert child_calls[1][1]["as_type"] == "retriever"
     assert child_calls[1][1]["input"] == {"query": "how many sick leaves i have"}
+    assert child_calls[1][1]["output"]["chunks_count"] == 3
+    assert len(child_calls[1][1]["output"]["documents"]) == 1
+    assert child_calls[1][1]["output"]["documents"][0]["content"] == "Employees get 12 sick leaves annually."
 
     # Child 3: LLM Generation
     assert child_calls[2][1]["name"] == "LLM_GENERATION"
