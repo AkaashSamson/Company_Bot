@@ -1,0 +1,54 @@
+{
+  "Employee_Onboarding_Test.docx": [
+    {
+      "source_document": "Employee_Onboarding_Test.docx",
+      "picture_ref": "#/pictures/0",
+      "page": null,
+      "section": "",
+      "engine": "easyocr (via docling)",
+      "lines": [
+        {
+          "text": "NEW EMPLOYEE FIRST 30 DAYS",
+          "confidence": -1.0
+        },
+        {
+          "text": "1 Day",
+          "confidence": -1.0
+        },
+        {
+          "text": "Complete HR documentation, collect laptop and access credentials, review security guidelines, meet the manager and immediate team_",
+          "confidence": -1.0
+        },
+        {
+          "text": "Week 1",
+          "confidence": -1.0
+        },
+        {
+          "text": "Complete mandatory training, understand team processes, review the employee handbook, configure development tools, and attend project orientation.",
+          "confidence": -1.0
+        },
+        {
+          "text": "Weeks 2-3",
+          "confidence": -1.0
+        },
+        {
+          "text": "Shadow team members, understand assigned responsibilities, review relevant project documentation, and complete a small starter task:",
+          "confidence": -1.0
+        },
+        {
+          "text": "Week 4",
+          "confidence": -1.0
+        },
+        {
+          "text": "Discuss progress with the manager; identify learning gaps, confirm responsibilities, and agree on goals for the next 60 days.",
+          "confidence": -1.0
+        }
+      ],
+      "text": "NEW EMPLOYEE FIRST 30 DAYS\n1 Day\nComplete HR documentation, collect laptop and access credentials, review security guidelines, meet the manager and immediate team_\nWeek 1\nComplete mandatory training, understand team processes, review the employee handbook, configure development tools, and attend project orientation.\nWeeks 2-3\nShadow team members, understand assigned responsibilities, review relevant project documentation, and complete a small starter task:\nWeek 4\nDiscuss progress with the manager; identify learning gaps, confirm responsibilities, and agree on goals for the next 60 days.",
+      "character_count": 585,
+      "mean_confidence": -1.0,
+      "duration_seconds": 25.37,
+      "error": null
+    }
+  ]
+}

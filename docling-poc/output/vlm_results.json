@@ -1,0 +1,15 @@
+{
+  "Employee_Onboarding_Test.docx": [
+    {
+      "source_document": "Employee_Onboarding_Test.docx",
+      "picture_ref": "#/pictures/0",
+      "page": null,
+      "section": "",
+      "model": "HuggingFaceTB/SmolVLM-256M-Instruct",
+      "backend": "local",
+      "description": "The figure shows a document search index. It includes the labels and components that appear, the relationships between components, and the direction of any arrows or flows.",
+      "duration_seconds": 50.52,
+      "error": null
+    }
+  ]
+}

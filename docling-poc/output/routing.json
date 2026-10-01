@@ -1,0 +1,15 @@
+{
+  "Employee_Onboarding_Test.docx": [
+    {
+      "source_document": "Employee_Onboarding_Test.docx",
+      "picture_ref": "#/pictures/0",
+      "page": null,
+      "section": "",
+      "route": "OCR+VLM",
+      "reason": "docling classified it as table; keep OCR text and VLM visual validation",
+      "docling_class": "table",
+      "docling_confidence": 0.39899060130119324,
+      "ocr_characters": 585
+    }
+  ]
+}

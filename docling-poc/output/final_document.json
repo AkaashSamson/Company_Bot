@@ -1,0 +1,132 @@
+[
+  {
+    "source_document": "Employee_Onboarding_Test.docx",
+    "file_type": "docx",
+    "page_count": null,
+    "status": "ConversionStatus.SUCCESS",
+    "element_count": 11,
+    "elements": [
+      {
+        "index": 0,
+        "content_type": "paragraph",
+        "content": "NEW EMPLOYEE ONBOARDING GUIDE — TEST DOCUMENT",
+        "source_document": "Employee_Onboarding_Test.docx",
+        "produced_by": "docling",
+        "docling_label": "text",
+        "verified": true
+      },
+      {
+        "index": 1,
+        "content_type": "paragraph",
+        "content": "Employee onboarding begins before the first working day and continues through the employee's first month.",
+        "source_document": "Employee_Onboarding_Test.docx",
+        "produced_by": "docling",
+        "docling_label": "text",
+        "verified": true
+      },
+      {
+        "index": 2,
+        "content_type": "paragraph",
+        "content": "The manager, HR, IT, and the employee share responsibility for completing the onboarding activities and ensuring the employee has the information and access needed to work effectively.",
+        "source_document": "Employee_Onboarding_Test.docx",
+        "produced_by": "docling",
+        "docling_label": "text",
+        "verified": true
+      },
+      {
+        "index": 3,
+        "content_type": "paragraph",
+        "content": "Onboarding Objective:",
+        "source_document": "Employee_Onboarding_Test.docx",
+        "produced_by": "docling",
+        "docling_label": "text",
+        "verified": true
+      },
+      {
+        "index": 4,
+        "content_type": "paragraph",
+        "content": "Help a new employee understand the organization, team, role, workplace expectations, security responsibilities, and the systems required to perform their work.",
+        "source_document": "Employee_Onboarding_Test.docx",
+        "produced_by": "docling",
+        "docling_label": "text",
+        "verified": true
+      },
+      {
+        "index": 5,
+        "content_type": "paragraph",
+        "content": "Key Responsibilities:",
+        "source_document": "Employee_Onboarding_Test.docx",
+        "produced_by": "docling",
+        "docling_label": "text",
+        "verified": true
+      },
+      {
+        "index": 6,
+        "content_type": "paragraph",
+        "content": "HR handles employment documentation and policy orientation. IT provisions approved devices and accounts. The manager provides role context, introduces the team, assigns initial work, and schedules progress discussions.",
+        "source_document": "Employee_Onboarding_Test.docx",
+        "produced_by": "docling",
+        "docling_label": "text",
+        "verified": true
+      },
+      {
+        "index": 7,
+        "content_type": "paragraph",
+        "content": "Access Principle:",
+        "source_document": "Employee_Onboarding_Test.docx",
+        "produced_by": "docling",
+        "docling_label": "text",
+        "verified": true
+      },
+      {
+        "index": 8,
+        "content_type": "paragraph",
+        "content": "Employees should receive only the systems and project resources required for their role. Access requests should follow the organization's approval process.",
+        "source_document": "Employee_Onboarding_Test.docx",
+        "produced_by": "docling",
+        "docling_label": "text",
+        "verified": true
+      },
+      {
+        "index": 9,
+        "content_type": "image_ocr",
+        "content": "NEW EMPLOYEE FIRST 30 DAYS\n1 Day\nComplete HR documentation, collect laptop and access credentials, review security guidelines, meet the manager and immediate team_\nWeek 1\nComplete mandatory training, understand team processes, review the employee handbook, configure development tools, and attend project orientation.\nWeeks 2-3\nShadow team members, understand assigned responsibilities, review relevant project documentation, and complete a small starter task:\nWeek 4\nDiscuss progress with the manager; identify learning gaps, confirm responsibilities, and agree on goals for the next 60 days.",
+        "source_document": "Employee_Onboarding_Test.docx",
+        "produced_by": "docling+easyocr",
+        "docling_label": "picture",
+        "picture_ref": "#/pictures/0",
+        "routing": "OCR+VLM",
+        "confidence": -1.0,
+        "verified": true,
+        "note": "docling classified this picture as table"
+      },
+      {
+        "index": 10,
+        "content_type": "image_description",
+        "content": "The figure shows a document search index. It includes the labels and components that appear, the relationships between components, and the direction of any arrows or flows.",
+        "source_document": "Employee_Onboarding_Test.docx",
+        "produced_by": "vlm",
+        "docling_label": "picture",
+        "picture_ref": "#/pictures/0",
+        "routing": "OCR+VLM",
+        "model": "HuggingFaceTB/SmolVLM-256M-Instruct",
+        "verified": false,
+        "note": "written by a model, not read from the document"
+      }
+    ],
+    "routing": [
+      {
+        "source_document": "Employee_Onboarding_Test.docx",
+        "picture_ref": "#/pictures/0",
+        "page": null,
+        "section": "",
+        "route": "OCR+VLM",
+        "reason": "docling classified it as table; keep OCR text and VLM visual validation",
+        "docling_class": "table",
+        "docling_confidence": 0.39899060130119324,
+        "ocr_characters": 585
+      }
+    ],
+    "warnings": []
+  }
+]

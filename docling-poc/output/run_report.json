@@ -1,0 +1,38 @@
+{
+  "generated_at": "2026-10-01 12:08:47",
+  "total_duration_seconds": 80.25,
+  "environment": {
+    "python": "3.14.7",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "docling": "2.130.0",
+    "docling_core": "unknown",
+    "ocr_engine": "easyocr",
+    "ocr_languages": [
+      "en"
+    ],
+    "vlm_backend": "local",
+    "vlm_model": "HuggingFaceTB/SmolVLM-256M-Instruct",
+    "gemini_key_present": false
+  },
+  "missing_inputs": [],
+  "documents": [
+    {
+      "name": "Employee_Onboarding_Test.docx",
+      "status": "ConversionStatus.SUCCESS",
+      "page_count": null,
+      "docling_seconds": 0.13,
+      "label_counts": {
+        "text": 9,
+        "picture": 1
+      },
+      "pictures": 1,
+      "error": null
+    }
+  ],
+  "element_counts": {
+    "paragraph": 9,
+    "image_ocr": 1,
+    "image_description": 1
+  },
+  "warnings": []
+}

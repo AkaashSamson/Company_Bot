@@ -1,0 +1,133 @@
+{
+  "schema_name": "DoclingDocument",
+  "version": "1.10.0",
+  "name": "policy_scanned",
+  "origin": {
+    "mimetype": "application/pdf",
+    "binary_hash": 16987391126483202355,
+    "filename": "policy_scanned.pdf"
+  },
+  "furniture": {
+    "self_ref": "#/furniture",
+    "children": [],
+    "content_layer": "furniture",
+    "name": "_root_",
+    "label": "unspecified"
+  },
+  "body": {
+    "self_ref": "#/body",
+    "children": [
+      {
+        "$ref": "#/texts/0"
+      },
+      {
+        "$ref": "#/texts/1"
+      },
+      {
+        "$ref": "#/texts/2"
+      }
+    ],
+    "content_layer": "body",
+    "name": "_root_",
+    "label": "unspecified"
+  },
+  "groups": [],
+  "texts": [
+    {
+      "self_ref": "#/texts/0",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [],
+      "content_layer": "body",
+      "label": "section_header",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 54.0,
+            "t": 777.92,
+            "r": 327.5,
+            "b": 741.42,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            21
+          ]
+        }
+      ],
+      "orig": "Scanned Travel Policy",
+      "text": "Scanned Travel Policy",
+      "level": 1
+    },
+    {
+      "self_ref": "#/texts/1",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [],
+      "content_layer": "body",
+      "label": "section_header",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 55.0,
+            "t": 724.42,
+            "r": 222.5,
+            "b": 698.92,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            17
+          ]
+        }
+      ],
+      "orig": "Section 1 Booking",
+      "text": "Section 1 Booking",
+      "level": 1
+    },
+    {
+      "self_ref": "#/texts/2",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [],
+      "content_layer": "body",
+      "label": "text",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 55.5,
+            "t": 689.42,
+            "r": 458.5,
+            "b": 613.92,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            156
+          ]
+        }
+      ],
+      "orig": "AIl travel must be booked through the internal portal. Flights are booked in economy for journeys under 6 hours. Hotel spend is capped at 450 USD per night.",
+      "text": "AIl travel must be booked through the internal portal. Flights are booked in economy for journeys under 6 hours. Hotel spend is capped at 450 USD per night."
+    }
+  ],
+  "pictures": [],
+  "tables": [],
+  "key_value_items": [],
+  "form_items": [],
+  "pages": {
+    "1": {
+      "size": {
+        "width": 595.2,
+        "height": 841.92
+      },
+      "page_no": 1
+    }
+  }
+}

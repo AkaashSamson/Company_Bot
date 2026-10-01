@@ -1,0 +1,31 @@
+# Docling ingestion POC -- standalone, independent of Company_Bot / KnowLayer.
+#
+# Docling is the only document parser. There is no PDFPlumber, no Marker,
+# no python-docx, no Tika, and no DOCX->PDF conversion anywhere in this project
+# (not even in the test-data generator, which writes OOXML by hand).
+#
+# Install into a fresh virtual environment:
+#     python -m venv .venv
+#     .venv\Scripts\activate        # Windows
+#     source .venv/bin/activate     # macOS / Linux
+#     pip install -r requirements.txt
+
+docling>=2.130.0
+docling-core>=2.99.0
+
+# Docling's OCR integration targets EasyOCR through its own engine registry.
+easyocr>=1.7.2
+opencv-python>=4.9
+pillow>=10.0
+python-bidi>=0.4
+scikit-image>=0.22
+imageio>=2.30
+
+# Local lightweight VLM backend. torch/transformers are already Docling
+# dependencies; they are listed so a clean install is unambiguous.
+transformers>=4.49
+torch>=2.2
+
+# Used by config.py for .env loading, and by the Gemini backend for HTTP.
+python-dotenv>=1.0
+requests>=2.31
