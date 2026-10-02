@@ -239,17 +239,20 @@ class LangfuseProvider(BaseObservabilityProvider):
                 if child_obs is not None:
                     # Inject child start timestamp
                     child_start = getattr(span, "start_time", None)
-                    if hasattr(child_obs, "_otel_span") and child_start:
+                    child_start_ns = int(child_start * 1e9) if child_start else None
+                    if hasattr(child_obs, "_otel_span") and child_start_ns:
                         try:
-                            child_obs._otel_span._start_time = int(child_start * 1e9)
+                            child_obs._otel_span._start_time = child_start_ns
                         except Exception:
                             pass
 
                     if getattr(span, "error", None):
                         child_obs.update(level="ERROR", status_message=str(span.error))
 
-                    child_end = getattr(span, "end_time", None)
-                    child_end_ns = int(child_end * 1e9) if child_end else None
+                    dur_ms = getattr(span, "duration_ms", 0.0) or 0.0
+                    # Ensure at least 0.1ms (100,000 ns) so span is visible and strictly monotonic
+                    dur_ns = max(int(dur_ms * 1_000_000), 100_000)
+                    child_end_ns = (child_start_ns + dur_ns) if child_start_ns else None
                     child_obs.end(end_time=child_end_ns)
 
             # 3. End Root Observation with recorded end_time

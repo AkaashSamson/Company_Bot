@@ -73,6 +73,7 @@ class StageSpan:
     """
     stage: PipelineStage
     start_time: float
+    start_perf: float = field(default_factory=time.perf_counter)
     end_time: Optional[float] = None
     duration_ms: float = 0.0
     input_metadata: dict[str, Any] = field(default_factory=dict)
@@ -85,7 +86,7 @@ class StageSpan:
     def finish(self, output_metadata: Optional[dict[str, Any]] = None) -> None:
         """Mark span as finished and calculate duration."""
         self.end_time = time.time()
-        self.duration_ms = (self.end_time - self.start_time) * 1000
+        self.duration_ms = (time.perf_counter() - self.start_perf) * 1000.0
         if output_metadata:
             self.output_metadata = output_metadata
 
@@ -156,6 +157,7 @@ class TraceContext:
 
     def __enter__(self) -> 'TraceContext':
         self.start_time = time.time()
+        self.start_perf = time.perf_counter()
         tracer = self.tracer
         if tracer is None:
             try:
@@ -168,6 +170,7 @@ class TraceContext:
             self.span = StageSpan(
                 stage=self.stage,
                 start_time=self.start_time,
+            start_perf=self.start_perf,
                 input_metadata=dict(self.input_metadata),
             )
             with tracer._lock:
@@ -179,7 +182,7 @@ class TraceContext:
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.end_time = time.time()
-        self.duration_ms = (self.end_time - self.start_time) * 1000.0
+        self.duration_ms = (time.perf_counter() - self.start_perf) * 1000.0
 
         if exc_val is not None:
             self.error = str(exc_val)
