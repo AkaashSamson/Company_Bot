@@ -3,7 +3,7 @@ import math
 import logging
 import re
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Iterable, Sequence, Tuple
 from app.core.settings import (
     BASE_DIR,
     COLLECTION_NAME,
@@ -47,9 +47,50 @@ class RetrievalService:
         self.reranker = reranker or BgeReranker(model_name=RAG_RERANKER_MODEL)
         self.last_quality_result: QualityGateResult | None = None
 
+
+    def retrieve_raw_candidates(
+        self,
+        query_text: str,
+        top_k: int = RAG_CANDIDATE_COUNT,
+        authorized_project_ids: Optional[Iterable[str]] = None,
+        authorized_document_ids: Optional[Iterable[str]] = None,
+        include_unassigned: bool = True,
+    ) -> list[dict]:
+        """Fetch raw vector candidates from store without applying cross-encoder reranker."""
+        project_ids_for_filter = None
+        if authorized_project_ids is not None:
+            project_ids_for_filter = list(authorized_project_ids)
+            if include_unassigned and "unassigned" not in project_ids_for_filter:
+                project_ids_for_filter.append("unassigned")
+
+        where_filter = None
+        if authorized_document_ids is not None:
+            document_filter = {"document_id": {"$in": list(authorized_document_ids)}}
+            if project_ids_for_filter is not None:
+                where_filter = {
+                    "$or": [
+                        {"project_id": {"$in": project_ids_for_filter}},
+                        document_filter,
+                    ]
+                }
+            else:
+                where_filter = document_filter
+
+        query_kwargs = {"top_k": top_k}
+        if where_filter is not None:
+            query_kwargs["where"] = where_filter
+        elif project_ids_for_filter is not None:
+            query_kwargs["project_ids"] = project_ids_for_filter
+
+        candidates = []
+        for candidate in self.store.query(query_text, **query_kwargs):
+            candidates.append({**candidate, "_query_part_index": 0})
+        return candidates
+
     def retrieve(
         self,
         query_text: str,
+        rerank: bool = True,
         top_k: int = RAG_CANDIDATE_COUNT,
         max_evidence: int = RAG_MAX_EVIDENCE,
         authorized_project_ids: list[str] | None = None,

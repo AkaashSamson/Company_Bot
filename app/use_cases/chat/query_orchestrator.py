@@ -4,7 +4,7 @@ import logging
 import re
 from typing import Any, Callable, Optional
 
-from app.core.settings import FAQ_SIMILARITY_CACHE_ENABLED, RAG_CANDIDATE_COUNT
+from app.core.settings import FAQ_SIMILARITY_CACHE_ENABLED, RAG_CANDIDATE_COUNT, RAG_FINAL_K, RAG_DISTANCE_THRESHOLD, RAG_MAX_CONTEXT_CHARS
 from app.domain.services.llm_provider import LLMProviderError
 from app.infrastructure.faq.faq_similarity_cache import FAQSimilarityCache
 from app.infrastructure.faq.mongo_faq_store import MongoFAQStore
@@ -158,6 +158,7 @@ def _default_doc_timestamp_lookup(doc_id_or_name: str) -> Optional[float]:
 class QueryOrchestrator:
     def __init__(
         self,
+        reranker=None,
         retrieval=None,
         provenance=None,
         llm=None,
@@ -175,6 +176,7 @@ class QueryOrchestrator:
         document_timestamp_lookup: Optional[Callable[[str], Optional[float]]] = None,
     ):
         self.retrieval = retrieval or RetrievalService()
+        self.reranker = reranker or getattr(self.retrieval, "reranker", None)
         self.provenance = provenance or ProvenanceService()
         self.faq_store = faq_store or MongoFAQStore()
         if faq_cache is _UNSET:
@@ -861,27 +863,63 @@ class QueryOrchestrator:
             scope_flags["authorized_project_ids"] = list(authorized_project_ids)
             retrieval_kwargs["authorized_project_ids"] = authorized_project_ids
 
-        # AB-6.2: Retrieval Stage
+        # AB-6.2: Vector Retrieval Stage (Fetch 13 raw candidates)
+        retrieval_kwargs["top_k"] = RAG_CANDIDATE_COUNT  # 13
         with self._stage_ctx(
             PipelineStage.VECTOR_RETRIEVAL,
-            input_metadata={"query": retrieval_query, "top_k": retrieval_kwargs.get("top_k")}
+            input_metadata={"query": retrieval_query, "top_k": RAG_CANDIDATE_COUNT}
         ) as ret_span:
-            selected_evidence = self._retrieve(retrieval_query, **retrieval_kwargs)
+            if hasattr(self.retrieval, "retrieve_raw_candidates"):
+                raw_candidates = self.retrieval.retrieve_raw_candidates(retrieval_query, **retrieval_kwargs)
+            else:
+                raw_candidates = self.retrieval.retrieve(retrieval_query, rerank=False, **retrieval_kwargs)
+
             if ret_span:
                 ret_span.set_output(
-                    chunks_count=len(selected_evidence) if selected_evidence else 0,
-                    sources=[e.get("metadata", {}).get("source") for e in selected_evidence[:3]] if selected_evidence else [],
+                    chunks_count=len(raw_candidates) if raw_candidates else 0,
+                    sources=[e.get("metadata", {}).get("source") for e in raw_candidates[:5]] if raw_candidates else [],
                     documents=[
                         {
-                            "content": e.get("text", "").strip(),
+                            "content": e.get("text", "")[:300].strip(),
                             "source": e.get("metadata", {}).get("source", "unknown"),
-                            "score": e.get("score"),
                             "distance": e.get("distance"),
+                            "score": e.get("score"),
                             "chunk_id": e.get("id"),
                         }
-                        for e in selected_evidence
-                    ] if selected_evidence else [],
+                        for e in (raw_candidates or [])
+                    ],
                 )
+
+        # Dedicated Reranking Stage (Narrows 13 candidates to 4 top chunks)
+        if self.reranker and raw_candidates:
+            with self._stage_ctx(
+                PipelineStage.RERANKING,
+                input_metadata={"candidates_in": len(raw_candidates), "top_k": RAG_FINAL_K}
+            ) as rerank_span:
+                reranked_candidates = self.reranker.rerank(retrieval_query, raw_candidates, top_k=RAG_FINAL_K)
+                if rerank_span:
+                    rerank_span.set_output(
+                        candidates_out=len(reranked_candidates),
+                        documents=[
+                            {
+                                "content": e.get("text", "")[:300].strip(),
+                                "source": e.get("metadata", {}).get("source", "unknown"),
+                                "rerank_score": e.get("rerank_score") or e.get("score"),
+                                "chunk_id": e.get("id"),
+                            }
+                            for e in reranked_candidates
+                        ],
+                    )
+        else:
+            reranked_candidates = raw_candidates[:RAG_FINAL_K] if raw_candidates else []
+
+        selected_evidence = self.retrieval.select_relevant(
+            retrieval_query,
+            reranked_candidates,
+            max_evidence=RAG_FINAL_K,
+            distance_threshold=RAG_DISTANCE_THRESHOLD,
+            max_context_chars=RAG_MAX_CONTEXT_CHARS,
+        )
 
         if not selected_evidence:
             denied = self._probe_unauthorized_relevance(
