@@ -929,7 +929,7 @@ class QueryOrchestrator:
             )
             if denied is not None:
                 return _finish(denied)
-            no_info_ans = f"I could not find that information in the available documents.\n\n{RELEVANCE_PROMPT}"
+            no_info_ans = "I could not find that information in the available documents."
             _pending_citations[session_id] = []
             _last_interaction[session_id] = {
                 "question": question,
@@ -1046,6 +1046,10 @@ class QueryOrchestrator:
             })
 
         is_negative = is_negative_response(answer)
+        if is_negative:
+            citations = []
+            _pending_citations[session_id] = []
+            answer = answer.replace(RELEVANCE_PROMPT, "").strip()
 
         if hasattr(self.faq_store, "save") and not is_negative:
             try:
