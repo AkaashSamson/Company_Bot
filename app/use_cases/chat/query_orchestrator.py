@@ -1,3 +1,4 @@
+import os
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import logging
@@ -209,10 +210,15 @@ class QueryOrchestrator:
                 prov = employee_id_provider or DatabaseEmployeeIdProvider()
             self.conversation_logger = ConversationLogger(employee_id_provider=prov)
 
-        self.llm = llm or FallbackLLMProvider(
-            primary=OpenRouterClient(),
-            fallback=GroqClient(),
-        )
+        if os.getenv("OLLAMA_ENABLED", "false").lower() == "true":
+            ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434/v1/chat/completions")
+            ollama_model = os.getenv("OLLAMA_MODEL", "llama3.1")
+            self.llm = llm or OpenRouterClient(base_url=ollama_url, model=ollama_model, api_key="ollama")
+        else:
+            self.llm = llm or FallbackLLMProvider(
+                primary=OpenRouterClient(),
+                fallback=GroqClient(),
+            )
         self.memory = memory or SessionMemoryService()
         self.query_resolver = query_resolver or ConversationQueryResolver(
             self.llm,
@@ -894,7 +900,21 @@ class QueryOrchestrator:
         if self.reranker and raw_candidates:
             with self._stage_ctx(
                 PipelineStage.RERANKING,
-                input_metadata={"candidates_in": len(raw_candidates), "top_k": RAG_FINAL_K}
+                input_metadata={
+                    "candidates_in": len(raw_candidates),
+                    "top_k": RAG_FINAL_K,
+                    "query": retrieval_query,
+                    "documents": [
+                        {
+                            "content": e.get("text", "")[:300].strip(),
+                            "source": e.get("metadata", {}).get("source", "unknown"),
+                            "distance": e.get("distance"),
+                            "score": e.get("score"),
+                            "chunk_id": e.get("id"),
+                        }
+                        for e in (raw_candidates or [])
+                    ],
+                }
             ) as rerank_span:
                 reranked_candidates = self.reranker.rerank(retrieval_query, raw_candidates, top_k=RAG_FINAL_K)
                 if rerank_span:

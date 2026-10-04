@@ -83,7 +83,9 @@ class OpenRouterClient(LLMProvider):
         max_tokens: int = 1024,
         session_id: Optional[str] = None,
         health_monitor: Optional[Any] = None,
+        **kwargs
     ):
+        self.base_url = kwargs.get("base_url") or "https://openrouter.ai/api/v1/chat/completions"
         self.api_key = api_key
         self.model = model
         self.max_tokens = max_tokens
@@ -116,7 +118,7 @@ class OpenRouterClient(LLMProvider):
         }
 
         try:
-            response = self._client.post(self.BASE_URL, json=payload)
+            response = self._client.post(self.base_url, json=payload)
             latency_ms = (time.perf_counter() - start_time) * 1000.0
 
             if response.is_error:
@@ -143,7 +145,7 @@ class OpenRouterClient(LLMProvider):
                 payload["messages"] = [
                     {"role": "user", "content": payload["messages"][-1]["content"]}
                 ]
-                response = self._client.post(self.BASE_URL, json=payload)
+                response = self._client.post(self.base_url, json=payload)
                 if response.is_error:
                     if self.health_monitor:
                         self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
@@ -199,7 +201,7 @@ class OpenRouterClient(LLMProvider):
         }
 
         try:
-            response = self._client.post(self.BASE_URL, json=payload)
+            response = self._client.post(self.base_url, json=payload)
             latency_ms = (time.perf_counter() - start_time) * 1000.0
 
             if response.status_code == 429:
@@ -237,7 +239,7 @@ class OpenRouterClient(LLMProvider):
                 payload["messages"] = [
                     {"role": "user", "content": payload["messages"][-1]["content"]}
                 ]
-                response = self._client.post(self.BASE_URL, json=payload)
+                response = self._client.post(self.base_url, json=payload)
                 if response.is_error:
                     if self.health_monitor:
                         self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
