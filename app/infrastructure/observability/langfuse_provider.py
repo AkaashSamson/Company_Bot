@@ -114,6 +114,8 @@ class LangfuseProvider(BaseObservabilityProvider):
     - Fails safe with zero crashes if Langfuse is unreachable.
     """
 
+    supports_pipeline_export: bool = True
+
     def __init__(
         self,
         public_key: Optional[str] = None,
@@ -157,6 +159,112 @@ class LangfuseProvider(BaseObservabilityProvider):
                 _HAS_LANGFUSE,
                 bool(self.public_key and self.secret_key),
             )
+
+    def export_pipeline_trace(self, trace: Any) -> None:
+        """Convert domain PipelineTrace and StageSpans into Langfuse hierarchical observations."""
+        if not self.enabled or self._client is None or trace is None:
+            return
+
+        try:
+            query = getattr(trace, "query", "")
+            final_response = getattr(trace, "final_response", None)
+            trace_id = getattr(trace, "trace_id", None)
+            meta = {
+                "total_duration_ms": getattr(trace, "total_duration_ms", 0.0),
+                "cache_hit": getattr(trace, "cache_hit", False),
+                "early_exit": getattr(trace, "early_exit", False),
+                "exit_stage": getattr(trace.exit_stage, "value", None) if getattr(trace, "exit_stage", None) else None,
+                "exit_reason": getattr(trace, "exit_reason", None),
+                "total_tokens": getattr(trace, "total_tokens", 0),
+            }
+            user_id = getattr(trace, "metadata", {}).get("user_id") if hasattr(trace, "metadata") else None
+            session_id = getattr(trace, "metadata", {}).get("session_id", trace_id)
+
+            # 1. Start Root Observation
+            root_obs = self._client.start_observation(
+                name="QueryOrchestrator.answer",
+                as_type="chain",
+                input=query,
+                output={"final_response": final_response} if final_response is not None else None,
+                metadata={**meta, "session_id": session_id, "user_id": user_id},
+            )
+
+            # Inject pre-recorded root start timestamp into OpenTelemetry span
+            t_start = getattr(trace, "start_time", None)
+            if root_obs is not None and hasattr(root_obs, "_otel_span") and t_start:
+                try:
+                    root_obs._otel_span._start_time = int(t_start * 1e9)
+                except Exception:
+                    pass
+
+            # 2. Iterate and attach Child Stage Spans (nested under root_obs)
+            spans = getattr(trace, "spans", []) or []
+            for span in spans:
+                raw_stage = getattr(span, "stage", "stage")
+                stage_val = getattr(raw_stage, "value", str(raw_stage)).upper()
+                obs_type = _resolve_observation_type(stage_val)
+
+                span_kwargs: Dict[str, Any] = {
+                    "name": stage_val,
+                    "as_type": obs_type,
+                    "input": getattr(span, "input_metadata", None),
+                    "output": getattr(span, "output_metadata", None),
+                    "metadata": {
+                        "duration_ms": getattr(span, "duration_ms", 0.0),
+                        "error": getattr(span, "error", None),
+                    },
+                }
+
+                # Attach generation model & token metrics for LLM stages
+                if obs_type == "generation" or "generation" in stage_val.lower():
+                    model_name = getattr(span, "input_metadata", {}).get("model", "unknown")
+                    span_kwargs["model"] = model_name
+                    p_tok = getattr(span, "prompt_tokens", 0)
+                    c_tok = getattr(span, "completion_tokens", 0)
+                    t_tok = getattr(span, "tokens_used", 0) or (p_tok + c_tok)
+                    if t_tok > 0 or p_tok > 0 or c_tok > 0:
+                        span_kwargs["usage_details"] = {
+                            "input": p_tok,
+                            "output": c_tok,
+                            "total": t_tok,
+                        }
+
+                # Nest under root_obs using root_obs.start_observation
+                child_obs = None
+                if root_obs is not None and hasattr(root_obs, "start_observation"):
+                    child_obs = root_obs.start_observation(**span_kwargs)
+                else:
+                    child_obs = self._client.start_observation(**span_kwargs)
+
+                if child_obs is not None:
+                    # Inject child start timestamp
+                    child_start = getattr(span, "start_time", None)
+                    child_start_ns = int(child_start * 1e9) if child_start else None
+                    if hasattr(child_obs, "_otel_span") and child_start_ns:
+                        try:
+                            child_obs._otel_span._start_time = child_start_ns
+                        except Exception:
+                            pass
+
+                    if getattr(span, "error", None):
+                        child_obs.update(level="ERROR", status_message=str(span.error))
+
+                    dur_ms = getattr(span, "duration_ms", 0.0) or 0.0
+                    # Ensure at least 0.1ms (100,000 ns) so span is visible and strictly monotonic
+                    dur_ns = max(int(dur_ms * 1_000_000), 100_000)
+                    child_end_ns = (child_start_ns + dur_ns) if child_start_ns else None
+                    child_obs.end(end_time=child_end_ns)
+
+            # 3. End Root Observation with recorded end_time
+            if root_obs is not None:
+                t_end = getattr(trace, "end_time", None)
+                root_end_ns = int(t_end * 1e9) if t_end else None
+                root_obs.end(end_time=root_end_ns)
+
+            self.flush()
+
+        except Exception as exc:
+            logger.warning("Langfuse export_pipeline_trace encountered error: %s", exc)
 
     def create_trace(
         self,

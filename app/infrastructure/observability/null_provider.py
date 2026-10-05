@@ -36,6 +36,10 @@ class NullObservabilityProvider(BaseObservabilityProvider):
     Guarantees zero network calls and zero crashes when telemetry is disabled or in unit tests.
     """
 
+    def export_pipeline_trace(self, trace: Any) -> None:
+        """No-op export for offline / null provider."""
+        pass
+
     def create_trace(
         self,
         name: str,

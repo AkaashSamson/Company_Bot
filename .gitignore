@@ -1,29 +1,46 @@
 # Environment variables
 .env
+.env.local
 
 # Virtual environment
 .venv/
+env/
+venv/
+ENV/
 
 # Python cache & test cache
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
 .pytest_cache/
+.coverage
+htmlcov/
 
-# Chroma local database
+# Local databases & Chroma vector store
 .chroma/
-# SQLite runtime data
-instance/
-*.sqlite
 *.sqlite3
+instance/
+
 # Conversation logs
 conversation_logs/
-
-# Implementation notes
-Implementation_notes.md
 
 # Runtime vector and FAQ response caches
 data/response_cache.json
 data/faqs_cache.json
 
-# Seeded credentials
+# Seeded credentials & notes
 docs/SEEDED_USERS_AND_CREDENTIALS.md
+# Superpowers local scratch
+.superpowers/
+
+# Runtime logs
+*.log
+devTools/
+Implementation_notes.md
+
+# IDE and OS metadata
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

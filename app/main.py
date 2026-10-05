@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import asyncio
 from contextlib import asynccontextmanager
@@ -11,6 +12,7 @@ from app.api.routes.explorer import router as explorer_router
 from app.api.routes.organization import router as organization_router
 from app.api.routes.authentication import router as authentication_router
 from app.api.routes.roles import router as roles_router
+from app.api.routes.channels import router as channels_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -59,8 +61,18 @@ async def lifespan(app: FastAPI):
         logger.error("Startup conversation log cleanup failed: %s", exc)
 
     initialize_persistence(get_session_factory)
-    logger.info("Lifespan: warming up orchestrator…")
-    init_orchestrator()
+    logger.info("Lifespan: warming up orchestrator in background thread…")
+    await asyncio.to_thread(init_orchestrator)
+    try:
+        from app.infrastructure.channels.registry import register_channel_adapter
+        from app.infrastructure.channels.teams.adapter import TeamsChannelAdapter
+        import os
+        skip_auth = os.getenv("TEAMS_SKIP_AUTH", "true").lower() == "true"
+        security_token = os.getenv("TEAMS_SECURITY_TOKEN")
+        register_channel_adapter(TeamsChannelAdapter(security_token=security_token, skip_auth=skip_auth))
+        logger.info("Lifespan: Teams channel adapter registered (skip_auth=%s).", skip_auth)
+    except Exception as exc:
+        logger.warning("Failed to register Teams channel adapter: %s", exc)
     logger.info("Lifespan: startup complete.")
     
     cleanup_task = asyncio.create_task(periodic_log_cleanup_task())
@@ -82,6 +94,7 @@ app.include_router(explorer_router)
 app.include_router(documents_router)
 app.include_router(authentication_router)
 app.include_router(roles_router)
+app.include_router(channels_router)
 
 
 @app.get("/health")

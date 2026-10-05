@@ -33,7 +33,7 @@ class DocumentService:
         return response.json()
 
     def create_document(self, payload):
-        response = requests.post(f"{self.base_url}/api/documents", json=payload, headers=self._headers(), timeout=90)
+        response = requests.post(f"{self.base_url}/api/documents", json=payload, headers=self._headers(), timeout=300)
         response.raise_for_status()
         return response.json()
 

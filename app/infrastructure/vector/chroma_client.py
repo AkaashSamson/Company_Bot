@@ -83,6 +83,7 @@ class ChromaVectorStore:
         documents = result.get("documents", [[]])[0]
         metadatas = result.get("metadatas", [[]])[0]
         distances = result.get("distances", [[]])[0]
+        ids = result.get("ids", [[]])[0]
         if not documents:
             logger.info("vector query returned 0 candidates for query %r", query_text)
             return []
@@ -94,9 +95,19 @@ class ChromaVectorStore:
         )
         output: List[dict] = []
         for index, (document, metadata) in enumerate(zip(documents, metadatas)):
+            meta = metadata or {}
+            chunk_id = (
+                ids[index]
+                if index < len(ids) and ids[index]
+                else f"{meta.get('document_id', 'chunk')}-{meta.get('chunk_index', index)}"
+            )
+            dist = distances[index] if index < len(distances) and isinstance(distances[index], (int, float)) else None
+            score = round(1.0 - dist, 4) if dist is not None else 0.0
             output.append({
+                "id": chunk_id,
                 "text": document,
-                "metadata": metadata or {},
-                "distance": distances[index] if index < len(distances) else None,
+                "score": score,
+                "distance": round(dist, 4) if dist is not None else None,
+                "metadata": meta,
             })
         return output

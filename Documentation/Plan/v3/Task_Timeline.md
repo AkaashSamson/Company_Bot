@@ -193,35 +193,35 @@ This document defines the phase-by-phase execution timeline for KnowLayer V3. It
   - [ ] Apply sliding window overlap (Task `NE-6.1`) and dynamic structural headers (Task `NE-6.2`) cleanly across both regular text chunks and OCR-derived image text chunks.
 
 #### Subsystem 2: Contextual Retrieval & Evidence Quality Funnel (Neha + Abhinav + Akaash)
-- [ ] **Task NE-5.1 (Cross-Encoder Reranker Module - Neha [Originally Phase 2]):** Implement cross-encoder reranking helper in `app/use_cases/chat/retrieval_service.py`:
-  - [ ] Fetch top-15 nearest chunks from ChromaDB vector search.
-  - [ ] Pass candidate chunks and rewritten query through Reranker model (e.g. Cohere or local cross-encoder) to select the top 3-4 chunks with deep semantic relevance.
+- [x] **Task NE-5.1 (Cross-Encoder Reranker Module - Neha [Originally Phase 2]):** Implement cross-encoder reranking helper in `app/use_cases/chat/retrieval_service.py`:
+  - [x] Fetch top-15 nearest chunks from ChromaDB vector search.
+  - [x] Pass candidate chunks and rewritten query through Reranker model (e.g. Cohere or local cross-encoder) to select the top 3-4 chunks with deep semantic relevance.
 - **Top Dependency:** `[Dependency: Task NE-4.1 & NE-5.1 - Query Resolver & Cross-Encoder Reranker (Neha)]`
-- [ ] **Task NE-5.2 (Reranker Pipeline Hook - Neha [Sequential Step 1]):**
-  - [ ] Deprecate hardcoded `_query_parts` regex in `app/use_cases/chat/retrieval_service.py`.
-  - [ ] Connect Cross-Encoder Reranker to filter ChromaDB top-15 candidates down to top-4 semantic chunks.
-- [ ] **Task AB-3.3 (POS Noun Filtering, Lemmatization & Vector Synonym Clustering - Abhinav [Originally Phase 2]):** Implement `app/use_cases/chat/synonym_clustering.py`:
-  - [ ] Extract and filter all noun-type unique words (`NN`, `NNS`, `NNP`, `NNPS`) from documents/queries using Part-of-Speech (POS) tagging.
-  - [ ] Apply lemmatization to reduce extracted noun tokens to their canonical lemma base form.
-  - [ ] Group and cluster canonical nouns based on embedding vector similarity (cosine threshold).
-  - [ ] Integrate generated synonym clusters into `QueryNormalizer` domain synonym map to enhance lexical grounding in retrieval and caching.
+- [x] **Task NE-5.2 (Reranker Pipeline Hook - Neha [Sequential Step 1]):**
+  - [x] Deprecate hardcoded `_query_parts` regex in `app/use_cases/chat/retrieval_service.py`.
+  - [x] Connect Cross-Encoder Reranker to filter ChromaDB top-15 candidates down to top-4 semantic chunks.
+- [x] **Task AB-3.3 (POS Noun Filtering, Lemmatization & Vector Synonym Clustering - Abhinav [Originally Phase 2]):** Implement `app/use_cases/chat/synonym_clustering.py`:
+  - [x] Extract and filter all noun-type unique words (`NN`, `NNS`, `NNP`, `NNPS`) from documents/queries using Part-of-Speech (POS) tagging.
+  - [x] Apply lemmatization to reduce extracted noun tokens to their canonical lemma base form.
+  - [x] Group and cluster canonical nouns based on embedding vector similarity (cosine threshold).
+  - [x] Integrate generated synonym clusters into `QueryNormalizer` domain synonym map to enhance lexical grounding in retrieval and caching.
 - **Top Dependency:** `[Dependency: Task AB-5.1 - RetrievalQualityGate Engine (Abhinav)]`
-- [ ] **Task AB-5.2 (Quality Gate Integration - Abhinav [Sequential Step 2 - Depends on Neha's Reranked Chunks]):**
-  - [ ] In `app/use_cases/chat/retrieval_service.py`, pass reranked top-4 chunks through `RetrievalQualityGate.evaluate()`.
-  - [ ] Attach evidence quality metrics (`level`, `grounding_score`, `confidence`) to candidate evidence.
+- [x] **Task AB-5.2 (Quality Gate Integration - Abhinav [Sequential Step 2 - Depends on Neha's Reranked Chunks]):**
+  - [x] In `app/use_cases/chat/retrieval_service.py`, pass reranked top-4 chunks through `RetrievalQualityGate.evaluate()`.
+  - [x] Attach evidence quality metrics (`level`, `grounding_score`, `confidence`) to candidate evidence.
 - **Top Dependency:** `[Dependency: Task AK-5.1 - Pre-LLM Distance Cutoff Specification (Akaash)]`
-- [ ] **Task AK-5.1 (Distance Cutoff Gate Hook - Akaash Samson [Sequential Step 3 - Depends on Abhinav's Quality Gate]):**
-  - [ ] Hook distance threshold check (`RAG_DISTANCE_THRESHOLD`) into `RetrievalService` output.
-  - [ ] If top chunk distance exceeds threshold or quality is `INVALID`, return empty evidence list to trigger early negative exit.
+- [x] **Task AK-5.1 (Distance Cutoff Gate Hook - Akaash Samson [Sequential Step 3 - Depends on Abhinav's Quality Gate]):**
+  - [x] Hook distance threshold check (`RAG_DISTANCE_THRESHOLD`) into `RetrievalService` output.
+  - [x] If top chunk distance exceeds threshold or quality is `INVALID`, return empty evidence list to trigger early negative exit.
 
 #### Subsystem 3: Observability Bridge (Akaash + Abhinav)
 - **Top Dependency:** `[Dependency: Task AK-3.2 - ObservabilityManager & LangfuseProvider (Akaash)]`
 - [x] **Task AK-3.4 (Observability Manager Singleton - Akaash Samson [Sequential Step 1]):**
   - [x] Expose singleton `get_observability_manager()` in `app/infrastructure/observability/manager.py`.
-- [ ] **Task AK-3.3 (Groq Token Standardization - Akaash Samson [Originally Phase 2]):** Update `app/infrastructure/llm/groq_client.py` to parse OpenAI-compatible `usage` blocks (`prompt_tokens`, `completion_tokens`, `total_tokens`) and populate `TokenUsage`.
+- [x] **Task AK-3.3 (Groq Token Standardization - Akaash Samson [Originally Phase 2]):** Update `app/infrastructure/llm/groq_client.py` to parse OpenAI-compatible `usage` blocks (`prompt_tokens`, `completion_tokens`, `total_tokens`) and populate `TokenUsage`.
 - **Top Dependency:** `[Dependency: Task AB-6.1 - PipelineTracer Engine (Abhinav)]`
-- [ ] **Task AB-6.3 (Pipeline Tracer Dispatch Hook - Abhinav [Sequential Step 2 - Depends on Akaash's ObservabilityManager]):**
-  - [ ] In `app/infrastructure/observability/pipeline_tracer.py`, bind completed `PipelineTrace` execution records and stage spans to `ObservabilityManager.dispatch_trace()`.
+- [x] **Task AB-6.3 (Pipeline Tracer Dispatch Hook - Abhinav [Sequential Step 2 - Depends on Akaash's ObservabilityManager]):**
+  - [x] In `app/infrastructure/observability/pipeline_tracer.py`, bind completed `PipelineTrace` execution records and stage spans to `ObservabilityManager.dispatch_trace()`.
 
 #### Subsystem 4: Document Governance & Auto-ID Handshake (Roshan)
 - [ ] **Task RO-4.1 (Document Update Schema - Roshan [Originally Phase 1]):** Add `DocumentUpdate` Pydantic model (`document_name`, `description`, `version`, `file_type`, `project_id`) in `app/api/schemas/documents.py`.
@@ -233,19 +233,19 @@ This document defines the phase-by-phase execution timeline for KnowLayer V3. It
   - [ ] Enforce non-empty content: reject metadata-only registration if both `content` and `source_path` are missing.
 
 #### Subsystem 5: Inbound Driving Channels & Microsoft Teams Integration (Akaash Samson)
-- [ ] **Task AK-2.1 (Channel Interfaces & Driving Port Protocol - Akaash Samson [Originally Phase 1]):** Create `app/infrastructure/channels/base.py`:
-  - [ ] Define `BaseChannelAdapter` abstract base class/protocol (`send_message`, `handle_webhook`, `verify_signature`).
-  - [ ] Define standardized channel entities: `ChannelMessage`, `ChannelResponse`, `ChannelUserContext`.
-- [ ] **Task AK-2.2 (Channel Identity & JWT Bridge - Akaash Samson [Originally Phase 2]):** Create `app/infrastructure/channels/identity_bridge.py`:
-  - [ ] Map inbound channel identity (Teams UPN/AAD Object ID) to internal user entity in SQL database via `UserRepository`.
-  - [ ] Generate ephemeral internal service JWT token (`create_access_token`) for the mapped principal.
-  - [ ] Handle unmapped channel users gracefully with fallback or registration advisory.
-- [ ] **Task AK-2.3 (Stateless Teams Adapter & Adaptive Card Formatter - Akaash Samson [Originally Phase 2]):**
-  - [ ] Create `app/infrastructure/channels/teams/adapter.py`: Inbound webhook endpoint verifying Bot Framework authorization and routing turn to `QueryOrchestrator.answer()`.
-  - [ ] Create `app/infrastructure/channels/teams/formatter.py`: Format markdown response and citation footnotes into Microsoft Teams Adaptive Cards.
-- [ ] **Task AK-2.4 (Channel Registry - Akaash Samson [Originally Phase 2]):** Create `app/infrastructure/channels/registry.py`:
-  - [ ] Provide thread-safe registry of active channel adapters keyed by channel name (e.g., `"teams"`, `"slack"`).
-  - [ ] Expose initialization hook for lifespan mounting.
+- [x] **Task AK-2.1 (Channel Interfaces & Driving Port Protocol - Akaash Samson [Originally Phase 1]):** Create `app/infrastructure/channels/base.py`:
+  - [x] Define `BaseChannelAdapter` abstract base class/protocol (`send_message`, `handle_webhook`, `verify_signature`).
+  - [x] Define standardized channel entities: `ChannelMessage`, `ChannelResponse`, `ChannelUserContext`.
+- [x] **Task AK-2.2 (Channel Identity & JWT Bridge - Akaash Samson [Originally Phase 2]):** Create `app/infrastructure/channels/identity_bridge.py`:
+  - [x] Map inbound channel identity (Teams UPN/AAD Object ID) to internal user entity in SQL database via `UserRepository`.
+  - [x] Generate ephemeral internal service JWT token (`create_access_token`) for the mapped principal.
+  - [x] Handle unmapped channel users gracefully with fallback or registration advisory.
+- [x] **Task AK-2.3 (Stateless Teams Adapter & Adaptive Card Formatter - Akaash Samson [Originally Phase 2]):**
+  - [x] Create `app/infrastructure/channels/teams/adapter.py`: Inbound webhook endpoint verifying Bot Framework authorization and routing turn to `QueryOrchestrator.answer()`.
+  - [x] Create `app/infrastructure/channels/teams/formatter.py`: Format markdown response and citation footnotes into Microsoft Teams Adaptive Cards.
+- [x] **Task AK-2.4 (Channel Registry - Akaash Samson [Originally Phase 2]):** Create `app/infrastructure/channels/registry.py`:
+  - [x] Provide thread-safe registry of active channel adapters keyed by channel name (e.g., `"teams"`, `"slack"`).
+  - [x] Expose initialization hook for lifespan mounting.
 
 ---
 
@@ -259,9 +259,9 @@ Step 4.1 (Akaash) -> Step 4.2 (Abhinav) -> Step 4.3 (Neha) -> Step 4.4 (Akaash)
 ```
 
 #### Step 4.1: Akaash Samson [Sequential Owner 1 - Session Memory & Outage Fallback]
-- [ ] **Task AK-1.3 (Session Memory Wiring):**
-  - [ ] In `QueryOrchestrator.answer()`, check if `conversation_history` is provided by caller; if absent, load history from `SessionMemoryService.get_history(session_id)`.
-  - [ ] On turn completion, append user query and assistant response via `SessionMemoryService.add_turn(session_id, question, answer)`.
+- [x] **Task AK-1.3 (Session Memory Wiring):**
+  - [x] In `QueryOrchestrator.answer()`, check if `conversation_history` is provided by caller; if absent, load history from `SessionMemoryService.get_history(session_id)`.
+  - [x] On turn completion, append user query and assistant response via `SessionMemoryService.add_turn(session_id, question, answer)`.
 - [x] **Task AK-4 (Resilient Outage Fallback [Implemented early in Phase 1/2 PR #22/#26]):**
   - [x] Wrap LLM generation in `try...except (LLMProviderError, Exception)`.
   - [x] If LLM call fails but `selected_evidence` exists from ChromaDB, preserve evidence, format citations immediately, and return response with outage advisory note.
@@ -279,8 +279,8 @@ Step 4.1 (Akaash) -> Step 4.2 (Abhinav) -> Step 4.3 (Neha) -> Step 4.4 (Akaash)
 
 #### Step 4.3: Neha [Sequential Owner 3 - Contextual Rewriting & Append Logging]
 - **[Dependency: Step 4.2 completed by Abhinav (Query normalization and cache hooks active)]**
-- [ ] **Task NE-4.2 (Contextual Query Rewriting Integration):**
-  - [ ] In `QueryOrchestrator.answer()`, invoke `ConversationQueryResolver` *before* normalization when multi-turn session history exists, rewriting pronouns into standalone query terms.
+- [x] **Task NE-4.2 (Contextual Query Rewriting Integration):**
+  - [x] In `QueryOrchestrator.answer()`, invoke `ConversationQueryResolver` *before* normalization when multi-turn session history exists, rewriting pronouns into standalone query terms.
 - [x] **Task NE-1.3 (Single-Turn Append Logging Hook [Implemented early in Phase 1/2 PR #23]):**
   - [x] Update `_safe_log_conversation()` in `QueryOrchestrator`: pass only active turn (user question and assistant answer) to `ConversationLogger`, using session ID to append to active file.
 
@@ -321,7 +321,7 @@ Step 4.1 (Akaash) -> Step 4.2 (Abhinav) -> Step 4.3 (Neha) -> Step 4.4 (Akaash)
   - [x] Register 24-hour periodic log cleanup `asyncio` background task inside FastAPI `lifespan` context manager.
 
 #### 3. Akaash Samson [Parallel - Channel Lifespan, DevOps & Containerization]
-- [ ] **Task AK-2.5 (Channel Lifespan Startup - Akaash Samson):** In `app/main.py`: Mount `ChannelRegistry.initialize_channels(app)` in FastAPI lifespan context manager to initialize active driving adapters (e.g. Teams).
+- [x] **Task AK-2.5 (Channel Lifespan Startup - Akaash Samson):** In `app/main.py`: Mount `ChannelRegistry.initialize_channels(app)` in FastAPI lifespan context manager to initialize active driving adapters (e.g. Teams).
 - [ ] **Task AK-6.1 (UI Token Privacy Separation):** In `streamlit_app/app.py`:
   - [ ] Remove technical token metric strings from user chat bubbles.
   - [ ] Move sidebar token usage metrics behind administrator role check (`if st.session_state.get("is_admin"): ...`).
@@ -380,7 +380,7 @@ If scope needs adjustment during execution:
 | **AK-1.1** | Akaash | Phase 1 | Completed [Phase 1] | Parallel | `app/domain/services/session_memory_service.py` |
 | **AK-1.2** | Akaash | Phase 1 | Completed [Phase 1] | Parallel | `app/core/settings.py` |
 | **AK-3.1** | Akaash | Phase 1 | Completed [Phase 1] | Parallel | `app/infrastructure/observability/provider.py` |
-| **AK-2.1** | Akaash | Phase 3 [Originally Phase 1] | Pending | Parallel | `app/infrastructure/channels/base.py` |
+| **AK-2.1** | Akaash | Phase 3 [Originally Phase 1] | Completed [Phase 3] | Parallel | `app/infrastructure/channels/base.py` |
 | **AB-2** | Abhinav | Phase 1 | Completed [Phase 1] | Parallel | `app/infrastructure/llm/llm_response.py` |
 | **AB-1.1** | Abhinav | Phase 1 | Completed [Phase 1] | Parallel | `app/infrastructure/llm/provider_health.py`, `provider_error_tracker.py` |
 | **AB-3.1** | Abhinav | Phase 1 | Completed [Phase 1] | Parallel | `app/use_cases/chat/query_normalizer.py` |
@@ -396,16 +396,16 @@ If scope needs adjustment during execution:
 | **RO-4.1** | Roshan | Phase 3 [Originally Phase 1] | Pending | Parallel | `app/api/schemas/documents.py` |
 | **RO-7.1a** | Roshan | Phase 1 | Completed [Phase 1] | Parallel | `requirements.txt` |
 | **RO-7.1b** | Roshan | Phase 3 [Originally Phase 1] | Pending | Parallel | `app/core/settings.py`, `.env.example` |
-| **AK-2.2** | Akaash | Phase 3 [Originally Phase 2] | Pending | Parallel | `app/infrastructure/channels/identity_bridge.py` |
-| **AK-2.3** | Akaash | Phase 3 [Originally Phase 2] | Pending | Parallel | `app/infrastructure/channels/teams/adapter.py`, `formatter.py` |
-| **AK-2.4** | Akaash | Phase 3 [Originally Phase 2] | Pending | Parallel | `app/infrastructure/channels/registry.py` |
+| **AK-2.2** | Akaash | Phase 3 [Originally Phase 2] | Completed [Phase 3] | Parallel | `app/infrastructure/channels/identity_bridge.py` |
+| **AK-2.3** | Akaash | Phase 3 [Originally Phase 2] | Completed [Phase 3] | Parallel | `app/infrastructure/channels/teams/adapter.py`, `formatter.py` |
+| **AK-2.4** | Akaash | Phase 3 [Originally Phase 2] | Completed [Phase 3] | Parallel | `app/infrastructure/channels/registry.py` |
 | **AK-3.2** | Akaash | Phase 2 | Completed [Phase 2] | Parallel | `app/infrastructure/observability/langfuse_provider.py`, `manager.py` |
-| **AK-3.3** | Akaash | Phase 3 [Originally Phase 2] | Pending | Parallel | `app/infrastructure/llm/groq_client.py` |
+| **AK-3.3** | Akaash | Phase 3 [Originally Phase 2] | Completed [Phase 3] | Parallel | `app/infrastructure/llm/groq_client.py` |
 | **AB-4** | Abhinav | Phase 2 | Completed [Phase 2] | Parallel | `app/infrastructure/cache/quality_aware_cache.py` |
 | **AB-5.1** | Abhinav | Phase 2 | Completed [Phase 2] | Parallel | `app/use_cases/chat/retrieval_quality.py` |
 | **AB-6.1** | Abhinav | Phase 2 | Completed [Phase 2] | Parallel | `app/infrastructure/observability/pipeline_tracer.py` |
 | **AB-1.2** | Abhinav | Phase 2 | Completed [Phase 2] | Parallel | `app/infrastructure/llm/openrouter_client.py`, `groq_client.py` |
-| **AB-3.3** | Abhinav | Phase 3 [Originally Phase 2] | Pending | Parallel | `app/use_cases/chat/synonym_clustering.py` |
+| **AB-3.3** | Abhinav | Phase 3 [Originally Phase 2] | Completed [Phase 3] | Parallel | `app/use_cases/chat/synonym_clustering.py` |
 | **AB-3.4** | Abhinav | Phase 2 | Completed [Phase 2] | Parallel | `app/use_cases/chat/query_intent_classifier.py` |
 | **NE-4.1** | Neha | Phase 2 | Completed [Phase 2] | Parallel | `app/use_cases/chat/conversation_query_resolver.py` |
 | **NE-5.1** | Neha | Phase 3 [Originally Phase 2] | Pending | Parallel | `app/use_cases/chat/retrieval_service.py` |
@@ -424,13 +424,13 @@ If scope needs adjustment during execution:
 | **AB-5.2** | Abhinav | Phase 3 | Pending | Dependent [Neha] | `app/use_cases/chat/retrieval_service.py` |
 | **AK-5.1** | Akaash | Phase 3 | Pending | Dependent [Abhinav] | `app/use_cases/chat/retrieval_service.py` |
 | **AK-3.4** | Akaash | Phase 3 | Completed [Phase 2/3 PR #26] | Sequential (Lead) | `app/infrastructure/observability/manager.py` |
-| **AB-6.3** | Abhinav | Phase 3 | Pending | Dependent [Akaash] | `app/infrastructure/observability/pipeline_tracer.py` |
-| **AK-1.3** | Akaash | Phase 4 | Pending | Sequential (Step 4.1) | `app/use_cases/chat/query_orchestrator.py` |
+| **AB-6.3** | Abhinav | Phase 3 | Completed [Phase 3] | Dependent [Akaash] | `app/infrastructure/observability/pipeline_tracer.py` |
+| **AK-1.3** | Akaash | Phase 4 | Completed [Phase 4] | Sequential (Step 4.1) | `app/use_cases/chat/query_orchestrator.py` |
 | **AK-4** | Akaash | Phase 4 | Completed early [Phase 1/2 PR #22/#26] | Sequential (Step 4.1) | `app/use_cases/chat/query_orchestrator.py` |
 | **AB-3.2** | Abhinav | Phase 4 | Completed early [Phase 1/2 PR #22] | Sequential (Step 4.2) [Akaash] | `app/use_cases/chat/query_orchestrator.py` |
 | **AB-4.2** | Abhinav | Phase 4 | Completed early [Phase 1/2 PR #22] | Sequential (Step 4.2) [Akaash] | `app/use_cases/chat/query_orchestrator.py` |
 | **AB-6.2** | Abhinav | Phase 4 | Completed early [Phase 1/2 PR #22] | Sequential (Step 4.2) [Akaash] | `app/use_cases/chat/query_orchestrator.py` |
-| **NE-4.2** | Neha | Phase 4 | Pending | Sequential (Step 4.3) [Abhinav] | `app/use_cases/chat/query_orchestrator.py` |
+| **NE-4.2** | Neha | Phase 4 | Completed [Phase 4] | Sequential (Step 4.3) [Abhinav] | `app/use_cases/chat/query_orchestrator.py` |
 | **NE-1.3** | Neha | Phase 4 | Completed early [Phase 1/2 PR #23] | Sequential (Step 4.3) [Abhinav] | `app/use_cases/chat/query_orchestrator.py` |
 | **AK-5.2** | Akaash | Phase 4 | Pending | Sequential (Step 4.4) [Neha] | `app/use_cases/chat/query_orchestrator.py` |
 | **RO-1.3** | Roshan | Phase 5 | Completed early [Phase 1/2 PR #25] | Parallel | `streamlit_app/pages/explorer.py` |
@@ -443,7 +443,7 @@ If scope needs adjustment during execution:
 | **RO-7.4** | Roshan | Phase 5 | Pending | Parallel | `streamlit_app/pages/documents.py` |
 | **NE-1.4** | Neha | Phase 5 | Completed early [Phase 1/2 PR #23] | Parallel | `streamlit_app/app.py` |
 | **NE-2.2** | Neha | Phase 5 | Completed early [Phase 1/2 PR #23] | Parallel | `app/main.py` |
-| **AK-2.5** | Akaash | Phase 5 | Pending | Parallel | `app/main.py` |
+| **AK-2.5** | Akaash | Phase 5 | Completed [Phase 3/5] | Parallel | `app/main.py` |
 | **AK-6.1** | Akaash | Phase 5 | Pending | Parallel | `streamlit_app/app.py` |
 | **AK-6.2** | Akaash | Phase 5 | Pending | Parallel | `app/api/routes/chat.py` |
 | **AK-7.1** | Akaash | Phase 5 | Pending | Parallel | `Dockerfile`, `.dockerignore` |

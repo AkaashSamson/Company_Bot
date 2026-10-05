@@ -3,6 +3,7 @@ import math
 import logging
 import re
 
+from typing import Any, Dict, List, Optional, Iterable, Sequence, Tuple
 from app.core.settings import (
     BASE_DIR,
     COLLECTION_NAME,
@@ -21,21 +22,75 @@ from app.infrastructure.vector.bge_reranker import BgeReranker
 
 logger = logging.getLogger(__name__)
 
+from app.use_cases.chat.retrieval_quality import (
+    RetrievalQualityGate,
+    QualityGateResult,
+    EvidenceQualityLevel,
+)
 
 logger = logging.getLogger("knowlayer.retrieval")
 
 
 class RetrievalService:
-    def __init__(self, collection_name: str = COLLECTION_NAME, persist_directory: str | None = None, reranker: RerankerPort | None = None):
+    def __init__(
+        self,
+        collection_name: str = COLLECTION_NAME,
+        persist_directory: str | None = None,
+        quality_gate: RetrievalQualityGate | None = None,
+        reranker: RerankerPort | None = None,
+    ):
         self.store = ChromaVectorStore(
             collection_name=collection_name,
             persist_directory=persist_directory or str(BASE_DIR / ".chroma"),
         )
+        self.quality_gate = quality_gate or RetrievalQualityGate()
         self.reranker = reranker or BgeReranker(model_name=RAG_RERANKER_MODEL)
+        self.last_quality_result: QualityGateResult | None = None
+
+
+    def retrieve_raw_candidates(
+        self,
+        query_text: str,
+        top_k: int = RAG_CANDIDATE_COUNT,
+        authorized_project_ids: Optional[Iterable[str]] = None,
+        authorized_document_ids: Optional[Iterable[str]] = None,
+        include_unassigned: bool = True,
+    ) -> list[dict]:
+        """Fetch raw vector candidates from store without applying cross-encoder reranker."""
+        project_ids_for_filter = None
+        if authorized_project_ids is not None:
+            project_ids_for_filter = list(authorized_project_ids)
+            if include_unassigned and "unassigned" not in project_ids_for_filter:
+                project_ids_for_filter.append("unassigned")
+
+        where_filter = None
+        if authorized_document_ids is not None:
+            document_filter = {"document_id": {"$in": list(authorized_document_ids)}}
+            if project_ids_for_filter is not None:
+                where_filter = {
+                    "$or": [
+                        {"project_id": {"$in": project_ids_for_filter}},
+                        document_filter,
+                    ]
+                }
+            else:
+                where_filter = document_filter
+
+        query_kwargs = {"top_k": top_k}
+        if where_filter is not None:
+            query_kwargs["where"] = where_filter
+        elif project_ids_for_filter is not None:
+            query_kwargs["project_ids"] = project_ids_for_filter
+
+        candidates = []
+        for candidate in self.store.query(query_text, **query_kwargs):
+            candidates.append({**candidate, "_query_part_index": 0})
+        return candidates
 
     def retrieve(
         self,
         query_text: str,
+        rerank: bool = True,
         top_k: int = RAG_CANDIDATE_COUNT,
         max_evidence: int = RAG_MAX_EVIDENCE,
         authorized_project_ids: list[str] | None = None,
@@ -86,10 +141,25 @@ class RetrievalService:
             distance_threshold=RAG_DISTANCE_THRESHOLD,
             max_context_chars=RAG_MAX_CONTEXT_CHARS,
         )
+
+        gate_result = None
+        if getattr(self, "quality_gate", None) is not None:
+            try:
+                gate_result = self.quality_gate.evaluate(query_text, selected)
+                self.last_quality_result = gate_result
+                for chunk in selected:
+                    chunk["quality_level"] = gate_result.quality_level.value
+                    chunk["grounding_score"] = gate_result.quality_score.grounding_score
+                    chunk["confidence"] = gate_result.confidence
+            except Exception as exc:
+                logger.warning("Quality gate evaluation failed: %s", exc)
+
         logger.info(
-            "retrieval accepted %d evidence chunks for query %r (distances=%s)",
+            "retrieval accepted %d evidence chunks for query %r (distances=%s, quality=%s, confidence=%s)",
             len(selected), query_text,
             [round(c["distance"], 4) for c in selected if isinstance(c.get("distance"), (int, float))],
+            gate_result.quality_level.value if gate_result else "n/a",
+            round(gate_result.confidence, 4) if gate_result else "n/a",
         )
         return selected
 

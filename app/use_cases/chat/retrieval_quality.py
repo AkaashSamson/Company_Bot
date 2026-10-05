@@ -193,6 +193,14 @@ class RetrievalQualityGate:
         else:
             return EvidenceQualityLevel.INVALID
 
+    def evaluate(
+        self,
+        query: str,
+        evidence: list[dict],
+    ) -> QualityGateResult:
+        
+        return self.assess(query=query, evidence=evidence)
+
     def assess(
         self,
         query: str,

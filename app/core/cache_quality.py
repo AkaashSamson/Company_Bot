@@ -17,24 +17,24 @@ _NO_INFO_PATTERN = re.compile(
 
 # Comprehensive patterns detecting refusals, non-answers, and missing information
 _NEGATIVE_RESPONSE_PATTERNS = [
-    # 1. Inability to find / locate / provide (e.g., "could not find", "unable to locate")
+    # 1. Inability to find / locate / determine information
     re.compile(
-        r"\b(?:could not|cannot|can't|unable to|failed to)\s+(?:find|locate|retrieve|identify|provide|uncover|determine)\b",
+        r"\b(?:could not|cannot|can't|unable to|failed to)\s+(?:find|locate|retrieve|identify|uncover|determine|(?:provide\s+(?:any\s+|the\s+)?(?:information|details?|answers?|guidance|records?)))\b",
         re.IGNORECASE,
     ),
-    # 2. No info / no details / no policy / no records (e.g., "No information regarding this topic was found")
+    # 2. No info / no details / no records found
     re.compile(
-        r"\bno\s+(?:relevant\s+|specific\s+|applicable\s+|further\s+|requested\s+)?(?:information|details?|polic(?:y|ies)|data|documents?|guidance|records?|context)\b",
+        r"\bno\s+(?:relevant\s+|specific\s+|applicable\s+|further\s+|requested\s+)?(?:information|details?|data|documents?|guidance|records?|context)\b",
         re.IGNORECASE,
     ),
-    # 3. Not found / not mentioned / not covered in documents/handbook/policy
+    # 3. Not found / not mentioned / not covered in documents/handbook/context/files
     re.compile(
-        r"\bnot\s+(?:found|mentioned|covered|specified|stated|addressed|included|provided|detailed|available|discussed|referenced|contained)\s+(?:in|within|under|across)\b",
+        r"\bnot\s+(?:found|mentioned|covered|specified|stated|addressed|included|provided|detailed|available|discussed|referenced|contained)\s+(?:in|within|across)\s+(?:the\s+)?(?:provided\s+|available\s+|retrieved\s+)?(?:documents?|handbooks?|context|files?|guidelines?|manuals?|records?)\b",
         re.IGNORECASE,
     ),
-    # 4. Does not contain / does not provide / does not mention
+    # 4. Does not contain / does not provide / does not mention information
     re.compile(
-        r"\b(?:does not|doesn't|do not|don't|did not|didn't)\s+(?:contain|mention|provide|specify|cover|include|address|detail|state)\s+(?:any|the|that|this|sufficient)?\s*(?:information|details?|polic(?:y|ies)|rules?|guidelines?)",
+        r"\b(?:does not|doesn't|do not|don't|did not|didn't)\s+(?:contain|mention|provide|specify|cover|include|address|detail|state)\s+(?:any|the|that|this|sufficient)?\s*(?:information|details?|guidance|data|records?)\b",
         re.IGNORECASE,
     ),
     # 5. Access restricted / denied
