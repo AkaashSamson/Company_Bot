@@ -22,13 +22,21 @@ from docling.document_converter import DocumentConverter
 from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
 from docling_core.types.doc import DocItemLabel
 
-from app.core.settings import DOCLING_MAX_TOKENS, EMBEDDING_MODEL
+from app.core.settings import (
+    DOCLING_CITATION_PDF_DIR,
+    DOCLING_CITATION_PDF_ENABLED,
+    DOCLING_MAX_TOKENS,
+    DOCLING_VISUAL_ENRICHMENT_ENABLED,
+    EMBEDDING_MODEL,
+)
 from app.domain.ports.document_processing import (
     DocumentProcessingPort,
     ProcessedChunk,
     ProcessedDocument,
     SectionHeading,
 )
+from app.infrastructure.document.visual_enrichment import VisualEnricher
+from app.infrastructure.document.citation_pdf import map_docx_pages
 
 logger = logging.getLogger("knowlayer.ingestion")
 
@@ -115,6 +123,7 @@ class DoclingDocumentProcessor:
         chunker: HybridChunker | None = None,
         tokenizer_name: str | None = None,
         max_tokens: int | None = None,
+        visual_enricher: VisualEnricher | None = None,
     ):
         self._converter = converter
         self._chunker = chunker
@@ -122,6 +131,7 @@ class DoclingDocumentProcessor:
         # with, so chunk boundaries line up with the embedding window.
         self._tokenizer_name = tokenizer_name or EMBEDDING_MODEL
         self._max_tokens = int(max_tokens or DOCLING_MAX_TOKENS)
+        self._visual_enricher = visual_enricher
 
     @property
     def converter(self) -> DocumentConverter:
@@ -173,6 +183,18 @@ class DoclingDocumentProcessor:
         document, page_count = self._convert(content, file_name)
         outline, facts = self._index_items(document)
         chunks = self._collect_chunks(document, facts)
+        if DOCLING_VISUAL_ENRICHMENT_ENABLED:
+            enricher = self._visual_enricher or VisualEnricher()
+            visual_chunks = enricher.enrich(document, facts, starting_index=len(chunks))
+            chunks = (*chunks, *visual_chunks)
+        if DOCLING_CITATION_PDF_ENABLED and Path(file_name).suffix.lower() == ".docx":
+            chunks, _citation_pdf = map_docx_pages(
+                content,
+                file_name,
+                tuple(chunks),
+                self.converter,
+                DOCLING_CITATION_PDF_DIR,
+            )
 
         logger.info(
             "docling processed %r: %d chunks, %d outline entries, pages=%s",
@@ -182,7 +204,7 @@ class DoclingDocumentProcessor:
             page_count,
         )
         return ProcessedDocument(
-            chunks=chunks,
+            chunks=tuple(chunks),
             file_type=Path(file_name).suffix.lower().lstrip(".") or None,
             page_count=page_count,
             outline=tuple(outline),
