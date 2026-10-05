@@ -32,4 +32,4 @@ The implementation strictly adheres to the existing **Modular Monolith + Ports a
   1. Chroma raw output
   2. BGE Cross-Encoder re-ordered output
   3. Final chunk selection post-filtering
-- **Key finding during evaluation**: A perceived ranking issue with a "Grace Period" query was diagnosed and debunked. The reranker accurately identified that a seemingly generic "Scheduled Start Time" chunk actually contained the full, detailed Grace Period policy deeper within its text. Truncated terminal output in early evaluation tests hid this fact, but the reranker was performing perfectly on the raw data.
+
