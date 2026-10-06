@@ -18,7 +18,7 @@ from app.core.settings import (
 )
 from app.infrastructure.vector.chroma_client import ChromaVectorStore
 from app.domain.ports.reranker import RerankerPort
-from app.infrastructure.vector.bge_reranker import BgeReranker
+from app.infrastructure.vector.reranker_factory import get_reranker
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ class RetrievalService:
             persist_directory=persist_directory or str(BASE_DIR / ".chroma"),
         )
         self.quality_gate = quality_gate or RetrievalQualityGate()
-        self.reranker = reranker or BgeReranker(model_name=RAG_RERANKER_MODEL)
+        self.reranker = reranker or get_reranker()
         self.last_quality_result: QualityGateResult | None = None
 
 
