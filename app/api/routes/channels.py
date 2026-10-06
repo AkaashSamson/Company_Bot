@@ -41,7 +41,17 @@ async def channel_webhook(channel_name: str, request: Request) -> Response:
             from app.api.dependencies import get_authorization_service
             authz_service = get_authorization_service()
             if authz_service:
-                scope = authz_service.authorization_scope(principal)
+                resolved_scope = authz_service.authorization_scope(principal)
+                if resolved_scope.include_unassigned or resolved_scope.is_admin:
+                    scope = resolved_scope
+                else:
+                    # Guest or unmapped channel user: allow organization-wide unassigned docs
+                    scope = AuthorizationScope(
+                        is_admin=False,
+                        project_ids=resolved_scope.project_ids or [],
+                        document_ids=resolved_scope.document_ids,
+                        include_unassigned=True,
+                    )
         except Exception as exc:
             logger.debug("Failed to calculate channel scope: %s", exc)
 
