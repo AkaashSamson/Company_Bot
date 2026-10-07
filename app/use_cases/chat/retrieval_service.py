@@ -85,6 +85,21 @@ class RetrievalService:
         candidates = []
         for candidate in self.store.query(query_text, **query_kwargs):
             candidates.append({**candidate, "_query_part_index": 0})
+
+        if authorized_project_ids is not None or authorized_document_ids is not None:
+            from app.domain.services.document_project_service import get_document_project_service
+            doc_proj_svc = get_document_project_service()
+            candidates = [
+                c for c in candidates
+                if doc_proj_svc.is_chunk_authorized(
+                    c.get("metadata") or {},
+                    authorized_project_ids=authorized_project_ids,
+                    authorized_document_ids=authorized_document_ids,
+                    include_unassigned=include_unassigned,
+                    is_admin=(authorized_project_ids is None and authorized_document_ids is None),
+                )
+            ]
+
         return candidates
 
     def retrieve(
@@ -126,6 +141,33 @@ class RetrievalService:
             
         for candidate in self.store.query(query_text, **query_kwargs):
             candidates.append({**candidate, "_query_part_index": 0})
+
+        # Post-retrieval verification using DocumentProjectMappingService:
+        # Strictly ensure zero unauthorized chunks pass into reranking or LLM generation
+        if authorized_project_ids is not None or authorized_document_ids is not None:
+            from app.domain.services.document_project_service import get_document_project_service
+            doc_proj_svc = get_document_project_service()
+            filtered_candidates = []
+            for candidate in candidates:
+                cand_meta = candidate.get("metadata") or {}
+                if doc_proj_svc.is_chunk_authorized(
+                    cand_meta,
+                    authorized_project_ids=authorized_project_ids,
+                    authorized_document_ids=authorized_document_ids,
+                    include_unassigned=include_unassigned,
+                    is_admin=(authorized_project_ids is None and authorized_document_ids is None),
+                ):
+                    filtered_candidates.append(candidate)
+                else:
+                    logger.info(
+                        "Filtered out unauthorized candidate chunk %s (doc=%s, proj=%s) for scope proj=%s docs=%s",
+                        candidate.get("id"),
+                        cand_meta.get("document_id") or cand_meta.get("source"),
+                        cand_meta.get("project_id"),
+                        authorized_project_ids,
+                        authorized_document_ids,
+                    )
+            candidates = filtered_candidates
             
         if self.reranker:
             candidates = self.reranker.rerank(query_text, candidates, top_k=RAG_FINAL_K)
@@ -161,6 +203,15 @@ class RetrievalService:
             gate_result.quality_level.value if gate_result else "n/a",
             round(gate_result.confidence, 4) if gate_result else "n/a",
         )
+
+        # Dynamically generate unique vocabulary based on set() of NN from retrieved chunks
+        if selected:
+            try:
+                from app.use_cases.chat.query_normalizer import get_query_normalizer
+                get_query_normalizer().learn_nouns_from_chunks(selected)
+            except Exception as exc:
+                logger.debug("Failed dynamically learning nouns from retrieved chunks: %s", exc)
+
         return selected
 
     def detect_unauthorized_relevance(
@@ -192,8 +243,8 @@ class RetrievalService:
             return []
         candidates = self.store.query(query_text, top_k=top_k)
 
-        authorized_projects = set(authorized_project_ids)
-        authorized_docs = set(authorized_document_ids or [])
+        from app.domain.services.document_project_service import get_document_project_service
+        doc_proj_svc = get_document_project_service()
 
         hits = []
         for candidate in candidates:
@@ -206,20 +257,21 @@ class RetrievalService:
                 continue
 
             metadata = candidate.get("metadata") or {}
-            document_id = metadata.get("document_id")
-            if document_id in authorized_docs:
-                continue
-            project_id = metadata.get("project_id")
-            is_unassigned = not project_id or str(project_id) == "unassigned"
-            if is_unassigned:
-                if include_unassigned:
-                    continue
-            elif str(project_id) in authorized_projects:
+            if doc_proj_svc.is_chunk_authorized(
+                metadata,
+                authorized_project_ids=authorized_project_ids,
+                authorized_document_ids=authorized_document_ids,
+                include_unassigned=include_unassigned,
+            ):
                 continue
 
+            raw_doc_id = metadata.get("document_id") or metadata.get("source")
+            canonical_doc_id, resolved_proj_id = doc_proj_svc.resolve_doc_and_project(raw_doc_id)
+            effective_proj_id = metadata.get("project_id") or resolved_proj_id
+
             hits.append({
-                "project_id": str(project_id) if project_id else None,
-                "document_id": document_id,
+                "project_id": str(effective_proj_id) if effective_proj_id else None,
+                "document_id": canonical_doc_id or raw_doc_id,
                 "source": metadata.get("source"),
                 "distance": distance,
             })

@@ -318,6 +318,35 @@ class SynonymClusterer:
 
         return sorted(unique_lemmas)
 
+    def extract_unique_nouns_from_chunks(
+        self,
+        chunks: Sequence[dict | str] | Iterable[dict | str],
+    ) -> set[str]:
+        """
+        Extract unique set of noun lemmas (NN, NNS, NNP, NNPS) from retrieved chunks.
+
+        Args:
+            chunks: Collection of retrieved chunk dictionaries containing 'text' or raw text strings.
+
+        Returns:
+            set() of unique canonical noun lemmas.
+        """
+        unique_nouns: set[str] = set()
+        for chunk in chunks:
+            text = chunk.get("text", "") if isinstance(chunk, dict) else str(chunk)
+            if not text or not text.strip():
+                continue
+            tokens = self.extract_noun_tokens(text)
+            for tok in tokens:
+                lemma = tok.lemma.lower().strip()
+                if (
+                    len(lemma) >= self.min_word_length
+                    and lemma.isalpha()
+                    and lemma not in self.stop_words
+                ):
+                    unique_nouns.add(lemma)
+        return unique_nouns
+
     # ── 3. Vector Embedding & Cosine Similarity Clustering ─────────────────────
 
     def encode_words(self, words: Sequence[str]) -> np.ndarray:

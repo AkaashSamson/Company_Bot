@@ -202,9 +202,14 @@ class LangCacheAdapter:
                 except Exception:
                     citations = []
 
+            top_prompt = top_entry.get("prompt", "")
+            entry_meta = dict(top_attributes)
+            if top_prompt:
+                entry_meta["stored_prompt"] = top_prompt
+
             return CacheEntryProtocol(
                 cache_key=cache_key or prompt_to_search,
-                original_query=prompt_to_search,
+                original_query=top_prompt or prompt_to_search,
                 response=top_response,
                 confidence=float(top_similarity),
                 source="langcache",
@@ -214,7 +219,7 @@ class LangCacheAdapter:
                 project_ids=top_attributes.get("project_ids", "").split(",") if top_attributes.get("project_ids") else [],
                 model=top_attributes.get("model", ""),
                 citations=citations if isinstance(citations, list) else [],
-                metadata=top_attributes,
+                metadata=entry_meta,
             )
 
         except Exception as e:
@@ -438,19 +443,25 @@ class LangCacheAdapter:
             if not caller_roles or entry_role.strip().lower() not in caller_roles:
                 return False
 
+        caller_projs = {p.strip().lower() for p in project_ids if p} if project_ids is not None else set()
+        caller_docs = {d.strip().lower() for d in document_ids if d} if document_ids is not None else set()
+
         entry_projects_raw = attributes.get("project_ids")
-        if entry_projects_raw and project_ids is not None:
+        entry_projs = set()
+        if entry_projects_raw:
             entry_projs = {p.strip().lower() for p in entry_projects_raw.split(",") if p.strip()}
-            caller_projs = {p.strip().lower() for p in project_ids if p}
-            if not (entry_projs & caller_projs):
+            if entry_projs and not (entry_projs & caller_projs):
                 return False
 
         entry_docs_raw = attributes.get("document_ids")
-        if entry_docs_raw and document_ids is not None:
+        if entry_docs_raw:
             entry_docs = {d.strip().lower() for d in entry_docs_raw.split(",") if d.strip()}
-            caller_docs = {d.strip().lower() for d in document_ids if d}
-            for edoc in entry_docs:
-                if edoc not in caller_docs:
+            if entry_docs:
+                for edoc in entry_docs:
+                    if edoc in caller_docs:
+                        continue
+                    if document_ids is None and entry_projs and (entry_projs & caller_projs):
+                        continue
                     return False
 
         return True

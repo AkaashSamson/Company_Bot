@@ -1,7 +1,21 @@
+"""
+Langfuse v4 Observability Provider.
+
+Engineered according to the official Langfuse AI Skill best practices:
+- Uses canonical observation types ('chain', 'retriever', 'tool', 'generation', 'guardrail', 'agent').
+- Maintains span nesting and hierarchy via OpenTelemetry context propagation.
+- Captures model name, usage_details (prompt, completion, total tokens), and latency for automated cost calculation.
+- Associates traces with session_id and user_id for multi-turn conversational tracing.
+- Captures user-meaningful inputs and outputs while masking confidential keys.
+- Implements fail-safe execution: never crashes the caller if Langfuse is offline or unreachable.
+- Flushes queues gracefully on process shutdown.
+"""
+
 import datetime
 import logging
 import threading
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Generator
+from contextlib import contextmanager
 
 from app.core import settings
 from app.domain.ports.observability import (
@@ -14,27 +28,46 @@ logger = logging.getLogger(__name__)
 
 # Optional Langfuse SDK import
 try:
-    from langfuse import Langfuse
+    from langfuse import Langfuse, propagate_attributes
     _HAS_LANGFUSE = True
 except ImportError:
     Langfuse = None  # type: ignore
+    propagate_attributes = None  # type: ignore
     _HAS_LANGFUSE = False
 
 
-def _resolve_observation_type(name: str) -> str:
-    """Map observation name to Langfuse canonical observation types (Langfuse Best Practice).
+def _resolve_observation_type(name: str, run_type: Optional[str] = None) -> str:
+    """Map observation name or run_type to canonical Langfuse observation types.
     
-    Valid types: 'span', 'generation', 'retriever', 'tool', 'agent', 'chain', 'guardrail'.
+    Valid types in Langfuse v4:
+    'chain', 'retriever', 'tool', 'generation', 'agent', 'guardrail', 'evaluator', 'span'.
     """
+    if run_type:
+        rt = run_type.lower()
+        if rt in ("llm", "generation"):
+            return "generation"
+        if rt in ("retriever", "retrieval"):
+            return "retriever"
+        if rt in ("tool", "function"):
+            return "tool"
+        if rt in ("chain", "turn", "orchestrator"):
+            return "chain"
+        if rt in ("guardrail", "safety"):
+            return "guardrail"
+        if rt in ("agent",):
+            return "agent"
+
     lower = name.lower()
-    if "retrieval" in lower or "retriever" in lower or "vector" in lower:
-        return "retriever"
-    if "generation" in lower or "llm" in lower:
+    if any(k in lower for k in ("generation", "llm", "generate", "chat")):
         return "generation"
-    if "guardrail" in lower:
-        return "guardrail"
-    if "tool" in lower:
+    if any(k in lower for k in ("retrieval", "retriever", "vector", "search", "cache", "faq")):
+        return "retriever"
+    if any(k in lower for k in ("normalize", "normalizer", "tool", "filter", "preprocess")):
         return "tool"
+    if any(k in lower for k in ("guardrail", "safety", "scope", "authorize", "probe")):
+        return "guardrail"
+    if any(k in lower for k in ("answer", "orchestrator", "chain", "pipeline", "turn")):
+        return "chain"
     if "agent" in lower:
         return "agent"
     return "span"
@@ -50,19 +83,44 @@ class LangfuseSpan(TraceSpanPort):
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        sdk_observation: Any = None,
+        cm: Any = None,
+        sdk_obs: Any = None,
     ) -> None:
         self.provider = provider
         self.name = name
         self.session_id = session_id
         self.user_id = user_id
-        self.metadata = metadata or {}
-        self._sdk_obs = sdk_observation
+        self.metadata = dict(metadata or {})
+        self._cm = cm
+        self._sdk_obs = sdk_obs
         self.start_time = datetime.datetime.now(datetime.timezone.utc)
         self.end_time: Optional[datetime.datetime] = None
         self.outputs: Optional[Dict[str, Any]] = None
         self.error: Optional[str] = None
         self.is_ended: bool = False
+
+    def update(
+        self,
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Update active observation properties dynamically."""
+        if metadata:
+            self.metadata.update(metadata)
+        if self._sdk_obs is not None:
+            try:
+                update_kwargs: Dict[str, Any] = {}
+                if input is not None:
+                    update_kwargs["input"] = input
+                if output is not None:
+                    update_kwargs["output"] = output
+                if self.metadata:
+                    update_kwargs["metadata"] = self.metadata
+                if update_kwargs:
+                    self._sdk_obs.update(**update_kwargs)
+            except Exception as exc:
+                logger.debug("Langfuse observation update failed: %s", exc)
 
     def end(self, outputs: Optional[Dict[str, Any]] = None, error: Optional[str] = None) -> None:
         if self.is_ended:
@@ -79,7 +137,7 @@ class LangfuseSpan(TraceSpanPort):
         if self.user_id:
             meta["user_id"] = self.user_id
 
-        # Update Langfuse observation if SDK active
+        # Update and close Langfuse observation
         if self._sdk_obs is not None:
             try:
                 self._sdk_obs.update(
@@ -88,30 +146,40 @@ class LangfuseSpan(TraceSpanPort):
                     level="ERROR" if error else "DEFAULT",
                     metadata=meta,
                 )
-                self._sdk_obs.end()
             except Exception as exc:
-                logger.warning("Langfuse span end failed: %s", exc)
+                logger.debug("Langfuse observation update on end failed: %s", exc)
+
+        if self._cm is not None:
+            try:
+                self._cm.__exit__(None, None, None)
+            except Exception as exc:
+                logger.debug("Langfuse observation context exit failed: %s", exc)
 
     def __enter__(self) -> "LangfuseSpan":
+        if self._cm is not None and self._sdk_obs is None:
+            try:
+                self._sdk_obs = self._cm.__enter__()
+            except Exception as exc:
+                logger.debug("Langfuse context manager __enter__ failed: %s", exc)
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if exc_type is not None:
             self.end(error=str(exc_val))
         else:
-            self.end()
+            self.end(outputs=self.outputs)
 
 
 class LangfuseProvider(BaseObservabilityProvider):
     """Vendor adapter for Langfuse observability.
     
     Built according to the official Langfuse AI Skill best practices:
-    - Automatically resolves credentials from args or env (LANGFUSE_BASE_URL, LANGFUSE_HOST).
-    - Maps stages to correct observation types ('retriever', 'generation', 'span', 'guardrail').
-    - Captures model name, token usage details (input/output/total), and latencies.
-    - Captures session_id and user_id for multi-turn conversational tracing.
-    - Flushes event queue before termination.
-    - Fails safe with zero crashes if Langfuse is unreachable.
+    - Resolves credentials cleanly from environment or settings.
+    - Automatically structures traces with canonical observation types ('chain', 'retriever', 'tool', 'generation').
+    - Nests multi-step pipelines accurately using OpenTelemetry context propagation.
+    - Captures model details, token consumption (input/output/total), and latencies.
+    - Tracks session_id for multi-turn conversation views and user_id for cost attribution.
+    - Zero crash guarantee: gracefully falls back to no-op mode if server is unavailable.
     """
 
     supports_pipeline_export: bool = True
@@ -126,11 +194,14 @@ class LangfuseProvider(BaseObservabilityProvider):
     ) -> None:
         self._lock = threading.Lock()
 
-        # Default directly to centralized app settings
-        self.public_key = public_key if public_key is not None else getattr(settings, "LANGFUSE_PUBLIC_KEY", "")
-        self.secret_key = secret_key if secret_key is not None else getattr(settings, "LANGFUSE_SECRET_KEY", "")
-        raw_host = host if host is not None else getattr(settings, "LANGFUSE_HOST", "https://cloud.langfuse.com")
-        self.host = (raw_host or "https://cloud.langfuse.com").rstrip("/")
+        # Cleanly resolve credentials
+        pk = public_key if public_key is not None else getattr(settings, "LANGFUSE_PUBLIC_KEY", "")
+        sk = secret_key if secret_key is not None else getattr(settings, "LANGFUSE_SECRET_KEY", "")
+        raw_host = host if host is not None else getattr(settings, "LANGFUSE_HOST", getattr(settings, "LANGFUSE_BASE_URL", "https://cloud.langfuse.com"))
+
+        self.public_key = str(pk or "").strip("\"' \t\r\n")
+        self.secret_key = str(sk or "").strip("\"' \t\r\n")
+        self.host = str(raw_host or "https://cloud.langfuse.com").strip("\"' \t\r\n").rstrip("/")
 
         self.timeout = timeout_seconds
         self.enabled = enabled and bool(self.public_key and self.secret_key and _HAS_LANGFUSE)
@@ -148,7 +219,7 @@ class LangfuseProvider(BaseObservabilityProvider):
                 if auth_ok:
                     logger.info("LangfuseProvider successfully authenticated with %s", self.host)
                 else:
-                    logger.warning("LangfuseProvider auth check failed for %s", self.host)
+                    logger.warning("LangfuseProvider auth check failed for %s; continuing in fallback mode", self.host)
             except Exception as exc:
                 logger.warning("LangfuseProvider failed to initialize SDK: %s", exc)
                 self.enabled = False
@@ -266,31 +337,51 @@ class LangfuseProvider(BaseObservabilityProvider):
         except Exception as exc:
             logger.warning("Langfuse export_pipeline_trace encountered error: %s", exc)
 
+    @property
+    def client(self) -> Optional[Any]:
+        return self._client
+
     def create_trace(
         self,
         name: str,
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        inputs: Optional[Any] = None,
+        run_type: Optional[str] = None,
     ) -> LangfuseSpan:
-        obs_type = _resolve_observation_type(name)
-        sdk_obs = None
-
+        """Create a new root trace or child observation span."""
+        obs_type = _resolve_observation_type(name, run_type)
         meta = dict(metadata or {})
         if session_id:
             meta["session_id"] = session_id
         if user_id:
             meta["user_id"] = user_id
 
+        cm = None
+        sdk_obs = None
+
         if self.enabled and self._client is not None:
             try:
-                sdk_obs = self._client.start_observation(
+                # Apply attributes context if available
+                if propagate_attributes and (session_id or user_id):
+                    propagate_attributes(
+                        session_id=session_id,
+                        user_id=user_id,
+                        tags=["knowlayer", "rag"],
+                    )
+
+                cm = self._client.start_as_current_observation(
                     name=name,
                     as_type=obs_type,
+                    input=inputs,
                     metadata=meta,
                 )
+                sdk_obs = cm.__enter__()
             except Exception as exc:
-                logger.warning("Langfuse start_observation failed: %s", exc)
+                logger.debug("Langfuse start_as_current_observation failed: %s", exc)
+                cm = None
+                sdk_obs = None
 
         return LangfuseSpan(
             provider=self,
@@ -298,8 +389,37 @@ class LangfuseProvider(BaseObservabilityProvider):
             session_id=session_id,
             user_id=user_id,
             metadata=meta,
-            sdk_observation=sdk_obs,
+            cm=cm,
+            sdk_obs=sdk_obs,
         )
+
+    @contextmanager
+    def trace_step(
+        self,
+        name: str,
+        inputs: Optional[Any] = None,
+        run_type: str = "span",
+        metadata: Optional[Dict[str, Any]] = None,
+        session_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> Generator[LangfuseSpan, None, None]:
+        """Context manager for tracing an internal pipeline step."""
+        span = self.create_trace(
+            name=name,
+            session_id=session_id,
+            user_id=user_id,
+            metadata=metadata,
+            inputs=inputs,
+            run_type=run_type,
+        )
+        try:
+            yield span
+        except Exception as exc:
+            span.end(error=str(exc))
+            raise
+        else:
+            if not span.is_ended:
+                span.end()
 
     def record_llm_call(
         self,
@@ -307,17 +427,22 @@ class LangfuseProvider(BaseObservabilityProvider):
         token_usage: TokenUsage,
         latency_ms: float = 0.0,
         metadata: Optional[Dict[str, Any]] = None,
+        prompt: Optional[Any] = None,
+        completion: Optional[Any] = None,
     ) -> None:
-        """Log token consumption and latency as a Langfuse generation observation."""
+        """Log token consumption, latency, and messages as a Langfuse generation observation."""
         if not self.enabled or self._client is None:
             logger.debug("Langfuse dry-run recorded LLM call: %s (%d tokens)", model, token_usage.total_tokens)
             return
 
         try:
-            gen = self._client.start_observation(
-                name=f"llm_generation_{model}",
+            # Langfuse generation observation for automated cost & token calculation
+            with self._client.start_as_current_observation(
+                name="llm-generation",
                 as_type="generation",
                 model=model,
+                input=prompt,
+                output=completion,
                 usage_details={
                     "input": token_usage.prompt_tokens,
                     "output": token_usage.completion_tokens,
@@ -327,10 +452,10 @@ class LangfuseProvider(BaseObservabilityProvider):
                     **(metadata or {}),
                     "latency_ms": latency_ms,
                 },
-            )
-            gen.end()
+            ):
+                pass
         except Exception as exc:
-            logger.warning("Langfuse record_llm_call failed: %s", exc)
+            logger.debug("Langfuse record_llm_call failed: %s", exc)
 
     def flush(self) -> None:
         """Flush the Langfuse client event queue to ensure all background events are pushed."""
@@ -339,7 +464,7 @@ class LangfuseProvider(BaseObservabilityProvider):
                 self._client.flush()
                 logger.debug("Langfuse client successfully flushed")
             except Exception as exc:
-                logger.warning("Langfuse flush encountered error: %s", exc)
+                logger.debug("Langfuse flush encountered error: %s", exc)
 
     def close(self) -> None:
         """Gracefully flush and shutdown Langfuse client workers."""
@@ -350,4 +475,4 @@ class LangfuseProvider(BaseObservabilityProvider):
                 else:
                     self._client.flush()
             except Exception as exc:
-                logger.warning("Langfuse shutdown encountered error: %s", exc)
+                logger.debug("Langfuse shutdown encountered error: %s", exc)

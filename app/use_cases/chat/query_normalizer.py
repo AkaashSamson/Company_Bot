@@ -21,7 +21,7 @@ import math
 import re
 import unicodedata
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Optional, Set
+from typing import Any, Callable, Iterable, Optional, Sequence, Set
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +130,15 @@ DOMAIN_VOCABULARY = {
     "resignation": "resignation",
     "termination": "termination",
     "exit": "resignation",
+    
+    # Knowledge Assistant & Platform terms
+    "knowledge": "knowledge",
+    "knowlayer": "knowlayer",
+    "know layer": "knowlayer",
+    "know ledge": "knowledge",
+    "know leedge": "knowledge",
+    "knowledge system": "knowledge assistant",
+    "knowledge assistant": "knowledge assistant",
 }
 
 
@@ -152,6 +161,8 @@ COMMON_TYPOS = {
     "resignation": ["resignaton", "resigantion", "resigntion"],
     "attendance": ["attendace", "attenddance", "atendence"],
     "annual": ["annul", "anual", "annuel"],
+    "knowledge": ["knowlege", "knowledg", "knowldge", "knowleedge", "leedge"],
+    "knowlayer": ["knowlyer", "knowleyer", "knowler"],
 }
 
 # Build reverse lookup for typos (typo -> correct)
@@ -413,6 +424,50 @@ class QueryNormalizer:
         unique_words = get_unique_informational_words(doc_input, file_name=file_name)
         self.add_vocabulary(unique_words)
         return unique_words
+
+    def learn_nouns_from_chunks(
+        self,
+        chunks: Sequence[dict | str] | Iterable[dict | str],
+        cluster_synonyms: bool = False,
+    ) -> set[str]:
+        """
+        Dynamically generate unique vocabulary based on the set() of NN (nouns)
+        from the chunks retrieved.
+
+        Extracts all noun tokens (NN, NNS, NNP, NNPS), lemmatizes them to canonical
+        base forms, and adds the resulting set of unique nouns to the domain vocabulary
+        and spellchecker dictionary.
+
+        Args:
+            chunks: Retrieved evidence chunks (dicts with 'text' or raw text strings).
+            cluster_synonyms: Whether to also compute vector synonym clusters.
+
+        Returns:
+            The set of unique canonical noun vocabulary generated from the chunks.
+        """
+        if not chunks:
+            return set()
+
+        from app.use_cases.chat.synonym_clustering import get_synonym_clusterer
+        clusterer = get_synonym_clusterer()
+        unique_nouns = clusterer.extract_unique_nouns_from_chunks(chunks)
+
+        if unique_nouns:
+            self.add_vocabulary(unique_nouns)
+            if cluster_synonyms:
+                chunk_texts = [c.get("text", "") if isinstance(c, dict) else str(c) for c in chunks]
+                chunk_texts = [t for t in chunk_texts if t.strip()]
+                if chunk_texts:
+                    try:
+                        clusterer.cluster_and_register(chunk_texts, normalizer=self)
+                    except Exception as exc:
+                        logger.debug("Synonym clustering on chunks skipped: %s", exc)
+            logger.info(
+                "Dynamically generated %d unique noun vocabulary terms from retrieved chunks",
+                len(unique_nouns),
+            )
+
+        return unique_nouns
     
     def normalize(self, query: str) -> NormalizationResult:
         """
@@ -641,6 +696,14 @@ class QueryNormalizer:
 
         # Prevent splitting into single letters
         if any(len(s) == 1 and s not in ("a", "i") for s in segments):
+            return [token]
+
+        # Prevent splitting into non-English or invalid two-letter fragments (e.g. "le", "de", "ed")
+        valid_two_letter_words = {
+            "to", "in", "on", "at", "by", "is", "it", "as", "or", "an",
+            "if", "do", "go", "my", "no", "so", "up", "we", "he", "me", "us", "am"
+        }
+        if any(len(s) == 2 and s not in valid_two_letter_words for s in segments):
             return [token]
 
         # If the whole token is already a very common English word, don't over-split

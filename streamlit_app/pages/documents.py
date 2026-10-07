@@ -42,7 +42,7 @@ except Exception as error:
         "The document service is unavailable. "
         "Check that the FastAPI backend is running and that you are logged in."
     )
-    st.caption(f"Technical detail: {error}")
+    st.caption(f"Technical detail: {format_error(error)}")
     documents = []
 
 project_name_by_id = {p["project_id"]: p["project_name"] for p in projects}
@@ -68,7 +68,7 @@ with st.expander("Upload document", expanded=True):
                 st.success("Document uploaded and provisioned for retrieval.")
                 st.rerun()
             except Exception as error:
-                st.error(str(error))
+                st.error(format_error(error))
 
 # ------------------------------------------------------------ detail view
 

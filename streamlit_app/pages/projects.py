@@ -31,7 +31,7 @@ except Exception as error:
         "The project service is unavailable. "
         "Check that the FastAPI backend is running and that you are logged in."
     )
-    st.caption(f"Technical detail: {error}")
+    st.caption(f"Technical detail: {format_error(error)}")
     projects = []
 
 department_name_by_id = {d["department_id"]: d["department_name"] for d in departments}

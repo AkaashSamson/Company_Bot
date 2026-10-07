@@ -21,7 +21,6 @@ from app.domain.ports.document_processing import (
     DocumentProcessingPort,
     ProcessedDocument,
 )
-from app.infrastructure.document.docling_processor import DoclingDocumentProcessor
 from app.infrastructure.document.plaintext_processor import PlainTextDocumentProcessor
 
 logger = logging.getLogger("knowlayer.ingestion")
@@ -62,15 +61,27 @@ def build_document_processor(structural: bool | None = None) -> DocumentProcessi
 
     ``structural`` overrides ``DOCLING_ENABLED`` and exists for tests and for
     callers that need to pin a pipeline; when omitted the configured flag
-    decides. Either way the text pipeline stays available as a fallback, so
+    decides. Either way the text and pdf pipelines stay available as fallbacks, so
     enabling the structural parser never removes a supported file type.
     """
+    from app.infrastructure.document.pdf_processor import PdfDocumentProcessor
+
     use_structural = DOCLING_ENABLED if structural is None else structural
     text_processor = PlainTextDocumentProcessor()
+    pdf_processor = PdfDocumentProcessor()
 
     if not use_structural:
-        logger.debug("structural parsing disabled; using the text pipeline only")
-        return text_processor
+        logger.debug("structural parsing disabled; using the text and pdf pipelines")
+        return CompositeDocumentProcessor(text_processor, pdf_processor)
 
-    logger.debug("structural parsing enabled; composing over the text pipeline fallback")
-    return CompositeDocumentProcessor(DoclingDocumentProcessor(), text_processor)
+    try:
+        from app.infrastructure.document.docling_processor import DoclingDocumentProcessor
+
+        logger.debug("structural parsing enabled; composing over the text pipeline fallback")
+        return CompositeDocumentProcessor(DoclingDocumentProcessor(), text_processor, pdf_processor)
+    except ImportError as exc:
+        logger.warning(
+            "Docling parser requested but dependency is missing (%s); falling back to plain text and pdf pipeline",
+            exc,
+        )
+        return CompositeDocumentProcessor(text_processor, pdf_processor)

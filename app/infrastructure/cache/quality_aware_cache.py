@@ -708,19 +708,54 @@ class InMemoryQualityAwareCache:
             if not caller_roles or target_role not in caller_roles:
                 return False
 
-        # 2. Project enforcement: Requester must be authorized for the project
-        if entry_projs and project_ids is not None:
-            caller_projs = {str(p).strip().lower() for p in project_ids if p}
-            entry_projs_set = {str(p).strip().lower() for p in entry_projs if p}
+        # If neither project_ids nor document_ids is specified, caller is not project/document constrained
+        if project_ids is None and document_ids is None:
+            return True
+
+        caller_projs = {str(p).strip().lower() for p in project_ids if p} if project_ids is not None else set()
+        caller_docs = {str(d).strip().lower() for d in document_ids if d} if document_ids is not None else set()
+        entry_projs_set = {str(p).strip().lower() for p in entry_projs if p}
+        entry_docs_set = {str(d).strip().lower() for d in entry_docs if d}
+
+        # Resolve document -> project mapping via DocumentProjectMappingService
+        try:
+            from app.domain.services.document_project_service import get_document_project_service
+            doc_proj_svc = get_document_project_service()
+        except Exception:
+            doc_proj_svc = None
+
+        if doc_proj_svc and entry_docs_set:
+            for edoc in list(entry_docs_set):
+                can_doc, r_proj = doc_proj_svc.resolve_doc_and_project(edoc)
+                if can_doc:
+                    entry_docs_set.add(can_doc.strip().lower())
+                if r_proj and r_proj.lower() not in ("none", "null", "unassigned"):
+                    entry_projs_set.add(r_proj.strip().lower())
+
+        # 2. Project enforcement: Requester must be authorized for the project if both define projects
+        if entry_projs_set and project_ids is not None:
             if not (entry_projs_set & caller_projs):
                 return False
 
-        # 3. Document enforcement: Requester must be authorized for all cited documents
-        if entry_docs and document_ids is not None:
-            caller_docs = {str(d).strip().lower() for d in document_ids if d}
-            for edoc in entry_docs:
-                if str(edoc).strip().lower() not in caller_docs:
-                    return False
+        # 3. Document enforcement:
+        if entry_docs_set:
+            for edoc in entry_docs_set:
+                can_id, r_proj = doc_proj_svc.resolve_doc_and_project(edoc) if doc_proj_svc else (edoc, None)
+                can_id_lower = can_id.lower() if can_id else edoc
+
+                # 1. Direct document grant
+                if edoc in caller_docs or can_id_lower in caller_docs:
+                    continue
+
+                # 2. Project membership: if user has a Proj_id, doc_ids belonging to that project can be accessed
+                if r_proj and project_ids is not None and r_proj.strip().lower() in caller_projs:
+                    continue
+
+                # 3. Unassigned document: org-wide if caller did not restrict to explicit document_ids
+                if (not r_proj or r_proj.lower() in ("none", "null", "unassigned")) and document_ids is None:
+                    continue
+
+                return False
 
         return True
     
@@ -941,6 +976,16 @@ class InMemoryQualityAwareCache:
             docs_list = extracted_docs
 
         projs_list = list(project_ids) if project_ids else []
+        if not projs_list and docs_list:
+            try:
+                from app.domain.services.document_project_service import get_document_project_service
+                doc_proj_svc = get_document_project_service()
+                for did in docs_list:
+                    _, pid = doc_proj_svc.resolve_doc_and_project(did)
+                    if pid and pid.lower() not in ("none", "null", "unassigned") and pid not in projs_list:
+                        projs_list.append(pid)
+            except Exception:
+                pass
 
         # Resolve document last_updated timestamps if not provided
         effective_doc_last_updated = dict(doc_last_updated) if doc_last_updated else {}

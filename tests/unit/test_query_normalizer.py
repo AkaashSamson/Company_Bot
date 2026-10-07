@@ -257,6 +257,28 @@ class TestWordBoundaryFixing:
         assert "policy" in res2.normalized_query
         assert any("what is leave policy" in c for c in res2.corrections_made)
 
+    def test_learn_nouns_from_chunks_dynamic_vocabulary(self, normalizer):
+        """Test dynamically generating unique vocabulary based on set of NN from chunks."""
+        chunks = [
+            {"text": "Project Overview: Build an internal knowledge assistant for employees."},
+            {"text": "The architecture integrates ChromaDB vector embeddings and semantic cache."},
+        ]
+        unique_nouns = normalizer.learn_nouns_from_chunks(chunks)
+        assert isinstance(unique_nouns, set)
+        assert len(unique_nouns) > 0
+        assert "assistant" in unique_nouns or "overview" in unique_nouns or "architecture" in unique_nouns
+        # Verify learned words are now registered in domain vocabulary
+        for noun in unique_nouns:
+            assert noun in normalizer._domain_keywords
+
+    def test_knowledge_typo_normalization(self, normalizer):
+        """Test normalization for 'know leedge' and 'knowledge system'."""
+        result = normalizer.normalize("what is the know leedge system about?")
+        # Should NOT split into 'le edge'
+        assert "le edge" not in result.normalized_query
+        # Should resolve to knowledge assistant / knowledge system
+        assert "knowledge" in result.normalized_query
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

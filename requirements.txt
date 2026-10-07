@@ -46,3 +46,6 @@ langfuse>=0.2.0
 # Dynamic Spell Checking (AB-3)
 pyspellchecker>=0.8.0
 
+# PDF Extraction fallback
+pypdf>=4.0.0
+

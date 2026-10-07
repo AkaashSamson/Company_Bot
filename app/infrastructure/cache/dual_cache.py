@@ -297,13 +297,30 @@ class DualCache:
             fallback_file = json_fallback_path or DUAL_CACHE_JSON_FILE_PATH
             self._json_cache = JSONLocalCache(fallback_file)
 
+        # Initialize cache_id -> {doc_id, proj_id} mapping index
+        self._cache_id_to_meta: dict[str, dict] = {}
+        try:
+            for entry in self._json_cache.get_all().values():
+                cid = getattr(entry, "cache_id", None)
+                if cid:
+                    self._cache_id_to_meta[cid] = {
+                        "cache_id": cid,
+                        "cache_key": entry.cache_key,
+                        "document_ids": list(entry.document_ids or []),
+                        "project_ids": list(entry.project_ids or []),
+                        "assigned_role": getattr(entry, "assigned_role", None),
+                        "is_public": getattr(entry, "is_public", False),
+                    }
+        except Exception as e:
+            logger.debug("Failed indexing existing cache_ids: %s", e)
+
         # Start background sync if enabled
         if enable_sync:
             self._start_sync_thread()
         
         logger.info(
-            "dual_cache initialized langcache_available=%s sync=%s",
-            self.langcache_available, enable_sync
+            "dual_cache initialized langcache_available=%s sync=%s indexed_cache_ids=%d",
+            self.langcache_available, enable_sync, len(self._cache_id_to_meta),
         )
 
     @property
@@ -401,6 +418,64 @@ class DualCache:
                     )
                     if langcache_entry is not None:
                         logger.debug("dual_cache hit=langcache key=%s", cache_key)
+                        resolved_doc_ids = list(langcache_entry.document_ids or [])
+                        resolved_proj_ids = list(langcache_entry.project_ids or [])
+                        resolved_role = langcache_entry.assigned_role
+                        resolved_citations = list(langcache_entry.citations or [])
+                        resolved_public = getattr(langcache_entry, "is_public", False)
+
+                        # If LangCache attributes were not persisted by cloud instance, enrich from local JSON cache fallback
+                        if not resolved_proj_ids and not resolved_doc_ids:
+                            stored_prompt = (langcache_entry.metadata or {}).get("stored_prompt")
+                            candidates = [
+                                self._json_cache.get(stored_prompt) if stored_prompt else None,
+                                self._json_cache.get(langcache_entry.original_query) if langcache_entry.original_query else None,
+                                self._json_cache.get(cache_key),
+                                self._json_cache.get(query_prompt) if query_prompt else None,
+                            ]
+                            local_match = None
+                            for cand in candidates:
+                                if cand and (cand.project_ids or cand.document_ids):
+                                    local_match = cand
+                                    break
+                            if not local_match:
+                                target_resp = langcache_entry.response.strip() if langcache_entry.response else ""
+                                orig_lower = langcache_entry.original_query.strip().lower() if langcache_entry.original_query else ""
+                                stored_lower = stored_prompt.strip().lower() if stored_prompt else ""
+                                for le in self._json_cache.get_all().values():
+                                    le_key_lower = le.cache_key.strip().lower() if le.cache_key else ""
+                                    le_orig_lower = le.original_query.strip().lower() if le.original_query else ""
+                                    if (
+                                        (stored_lower and le_key_lower == stored_lower)
+                                        or (orig_lower and le_key_lower == orig_lower)
+                                        or (stored_lower and le_orig_lower == stored_lower)
+                                        or (target_resp and le.response and le.response.strip() == target_resp)
+                                    ):
+                                        if le.project_ids or le.document_ids:
+                                            local_match = le
+                                            break
+                                        elif local_match is None:
+                                            local_match = le
+
+                            if local_match:
+                                resolved_proj_ids = list(local_match.project_ids or [])
+                                resolved_doc_ids = list(local_match.document_ids or [])
+                                resolved_role = local_match.assigned_role or resolved_role
+                                resolved_citations = local_match.citations or resolved_citations
+                                resolved_public = getattr(local_match, "is_public", False)
+
+                        # Also resolve against database if citations are available
+                        if not resolved_proj_ids and resolved_citations:
+                            try:
+                                from app.use_cases.chat.query_orchestrator import _resolve_document_and_project_metadata
+                                d_ids, p_ids = _resolve_document_and_project_metadata(citations=resolved_citations)
+                                if p_ids:
+                                    resolved_proj_ids = p_ids
+                                if d_ids:
+                                    resolved_doc_ids = d_ids
+                            except Exception:
+                                pass
+
                         entry = DualCacheEntry(
                             cache_key=cache_key,
                             original_query=query_prompt,
@@ -408,13 +483,26 @@ class DualCache:
                             confidence=langcache_entry.confidence,
                             source="langcache",
                             cache_id=langcache_entry.cache_id,
-                            assigned_role=langcache_entry.assigned_role,
-                            document_ids=langcache_entry.document_ids,
-                            project_ids=langcache_entry.project_ids,
+                            assigned_role=resolved_role,
+                            document_ids=resolved_doc_ids,
+                            project_ids=resolved_proj_ids,
                             model=langcache_entry.model,
-                            citations=langcache_entry.citations,
+                            citations=resolved_citations,
                             metadata=langcache_entry.metadata,
+                            is_public=resolved_public,
                         )
+                        # Validate RBAC on LangCache entry
+                        if not self._check_rbac(
+                            entry,
+                            role=role,
+                            roles=roles,
+                            project_ids=project_ids,
+                            document_ids=document_ids,
+                            is_admin=is_admin,
+                        ):
+                            logger.debug("dual_cache langcache rbac_denied key=%s", cache_key)
+                            return None
+
                         # Write-through to JSON cache for offline resilience
                         if DUAL_CACHE_SYNC_ON_WRITE:
                             try:
@@ -433,6 +521,25 @@ class DualCache:
                     self._json_cache.delete(cache_key)
                     json_entry = None
                 else:
+                    # Enrich from _cache_id_to_meta if needed
+                    if json_entry.cache_id and json_entry.cache_id in self._cache_id_to_meta:
+                        meta = self._cache_id_to_meta[json_entry.cache_id]
+                        if not json_entry.project_ids and meta.get("project_ids"):
+                            json_entry.project_ids = list(meta["project_ids"])
+                        if not json_entry.document_ids and meta.get("document_ids"):
+                            json_entry.document_ids = list(meta["document_ids"])
+
+                    if not json_entry.project_ids and json_entry.document_ids:
+                        try:
+                            from app.domain.services.document_project_service import get_document_project_service
+                            doc_proj_svc = get_document_project_service()
+                            for did in json_entry.document_ids:
+                                _, pid = doc_proj_svc.resolve_doc_and_project(did)
+                                if pid and pid.lower() not in ("none", "null", "unassigned") and pid not in json_entry.project_ids:
+                                    json_entry.project_ids.append(pid)
+                        except Exception:
+                            pass
+
                     # Validate RBAC on JSON entry
                     if not self._check_rbac(
                         json_entry,
@@ -475,8 +582,46 @@ class DualCache:
         Writes to both LangCache and JSON fallback.
         """
         if is_negative_response(response):
-            logger.info("dual_cache_skip reason=negative_response key=%s", cache_key)
+            logger.info("dual_cache_put_rejected reason=negative_response key=%s", cache_key)
             return False
+
+        import uuid
+        effective_cache_id = cache_id or f"cch_{uuid.uuid4().hex[:12]}"
+        resolved_dids = list(document_ids or [])
+        resolved_pids = list(project_ids or [])
+
+        # If project_ids/document_ids missing, resolve from citations or DB
+        if citations and (not resolved_dids or not resolved_pids):
+            try:
+                from app.use_cases.chat.query_orchestrator import _resolve_document_and_project_metadata
+                c_dids, c_pids = _resolve_document_and_project_metadata(citations=citations)
+                if not resolved_dids and c_dids:
+                    resolved_dids = c_dids
+                if not resolved_pids and c_pids:
+                    resolved_pids = c_pids
+            except Exception:
+                pass
+
+        try:
+            from app.domain.services.document_project_service import get_document_project_service
+            doc_proj_svc = get_document_project_service()
+            for did in resolved_dids:
+                _, pid = doc_proj_svc.resolve_doc_and_project(did)
+                if pid and pid.lower() not in ("none", "null", "unassigned") and pid not in resolved_pids:
+                    resolved_pids.append(pid)
+        except Exception:
+            pass
+
+        # Record cache_id -> {doc_id, proj_id} mapping explicitly
+        with self._lock:
+            self._cache_id_to_meta[effective_cache_id] = {
+                "cache_id": effective_cache_id,
+                "cache_key": cache_key,
+                "document_ids": list(resolved_dids),
+                "project_ids": list(resolved_pids),
+                "assigned_role": assigned_role,
+                "is_public": kwargs.get("is_public", False),
+            }
 
         entry = DualCacheEntry(
             cache_key=cache_key,
@@ -488,10 +633,11 @@ class DualCache:
             model=model,
             citations=citations or [],
             metadata=metadata or {},
-            cache_id=cache_id,
+            cache_id=effective_cache_id,
             assigned_role=assigned_role,
-            document_ids=list(document_ids) if document_ids else [],
-            project_ids=list(project_ids) if project_ids else [],
+            document_ids=list(resolved_dids),
+            project_ids=list(resolved_pids),
+            is_public=kwargs.get("is_public", False),
         )
         
         with self._lock:
@@ -510,10 +656,10 @@ class DualCache:
                         model=model,
                         citations=citations,
                         metadata=metadata,
-                        cache_id=cache_id,
+                        cache_id=effective_cache_id,
                         assigned_role=assigned_role,
-                        document_ids=document_ids,
-                        project_ids=project_ids,
+                        document_ids=resolved_dids,
+                        project_ids=resolved_pids,
                         ttl_seconds=ttl_seconds,
                     )
                     if primary_ok:
@@ -585,9 +731,76 @@ class DualCache:
         # JSON cache is always available as fallback
         return True
 
-    @staticmethod
+    def get_by_cache_id(
+        self,
+        cache_id: str,
+        role: Optional[str] = None,
+        roles: Optional[Sequence[str]] = None,
+        project_ids: Optional[Sequence[str]] = None,
+        document_ids: Optional[Sequence[str]] = None,
+        is_admin: bool = False,
+        **kwargs: Any,
+    ) -> Optional[DualCacheEntry]:
+        """
+        Get cache entry by cache_id, enforcing RBAC isolation.
+        """
+        if not cache_id:
+            return None
+        with self._lock:
+            # 1. Check local JSON cache first by cache_id
+            target_entry = None
+            for entry in self._json_cache.get_all().values():
+                if getattr(entry, "cache_id", None) == cache_id:
+                    target_entry = entry
+                    break
+            
+            # 2. Check _cache_id_to_meta index
+            if target_entry is None and cache_id in self._cache_id_to_meta:
+                meta = self._cache_id_to_meta[cache_id]
+                cache_key = meta.get("cache_key")
+                if cache_key:
+                    target_entry = self._json_cache.get(cache_key)
+
+            if target_entry is not None:
+                if not self._check_rbac(
+                    target_entry,
+                    role=role,
+                    roles=roles,
+                    project_ids=project_ids,
+                    document_ids=document_ids,
+                    is_admin=is_admin,
+                ):
+                    logger.debug("dual_cache get_by_cache_id rbac_denied cache_id=%s", cache_id)
+                    return None
+                return target_entry
+
+            return None
+
+    def delete_by_cache_id(self, cache_id: str) -> bool:
+        """
+        Delete cache entry by cache_id across both cache layers.
+        """
+        if not cache_id:
+            return False
+        with self._lock:
+            deleted = False
+            meta = self._cache_id_to_meta.pop(cache_id, None)
+            cache_key = meta.get("cache_key") if meta else None
+
+            keys_to_delete = []
+            for k, entry in self._json_cache.get_all().items():
+                if getattr(entry, "cache_id", None) == cache_id or (cache_key and k == cache_key):
+                    keys_to_delete.append(k)
+
+            for k in keys_to_delete:
+                if self.invalidate(k):
+                    deleted = True
+
+            return deleted
+
     def _check_rbac(
-        entry: DualCacheEntry,
+        self,
+        entry: Optional[DualCacheEntry] = None,
         role: Optional[str] = None,
         roles: Optional[Sequence[str]] = None,
         project_ids: Optional[Sequence[str]] = None,
@@ -595,10 +808,21 @@ class DualCache:
         is_admin: bool = False,
     ) -> bool:
         """RBAC access control check on DualCacheEntry."""
+        # Support both instance method self._check_rbac(entry, ...) and static call DualCache._check_rbac(entry, ...)
+        if isinstance(self, DualCacheEntry):
+            target_entry = self
+            meta_index = None
+        else:
+            target_entry = entry
+            meta_index = getattr(self, "_cache_id_to_meta", None)
+
+        if target_entry is None:
+            return False
+
         if is_admin:
             return True
 
-        if entry.is_public and not entry.assigned_role and not entry.document_ids and not entry.project_ids:
+        if target_entry.is_public and not target_entry.assigned_role and not target_entry.document_ids and not target_entry.project_ids:
             return True
 
         caller_roles = set()
@@ -612,22 +836,67 @@ class DualCache:
         if "admin" in caller_roles:
             return True
 
-        if entry.assigned_role:
-            target_role = entry.assigned_role.strip().lower()
+        if target_entry.assigned_role:
+            target_role = target_entry.assigned_role.strip().lower()
             if not caller_roles or target_role not in caller_roles:
                 return False
 
-        if entry.project_ids and project_ids is not None:
-            caller_projs = {str(p).strip().lower() for p in project_ids if p}
-            entry_projs = {str(p).strip().lower() for p in entry.project_ids if p}
+        # If neither project_ids nor document_ids is specified, caller is not project/document constrained
+        if project_ids is None and document_ids is None:
+            return True
+
+        caller_projs = {str(p).strip().lower() for p in project_ids if p} if project_ids is not None else set()
+        caller_docs = {str(d).strip().lower() for d in document_ids if d} if document_ids is not None else set()
+        entry_projs = {str(p).strip().lower() for p in target_entry.project_ids if p} if target_entry.project_ids else set()
+        entry_docs = {str(d).strip().lower() for d in target_entry.document_ids if d} if target_entry.document_ids else set()
+
+        cid = getattr(target_entry, "cache_id", None)
+        if cid and meta_index and cid in meta_index:
+            meta = meta_index[cid]
+            if not entry_projs and meta.get("project_ids"):
+                entry_projs.update(str(p).strip().lower() for p in meta["project_ids"] if p)
+            if not entry_docs and meta.get("document_ids"):
+                entry_docs.update(str(d).strip().lower() for d in meta["document_ids"] if d)
+
+        # Resolve document -> project mapping via DocumentProjectMappingService
+        try:
+            from app.domain.services.document_project_service import get_document_project_service
+            doc_proj_svc = get_document_project_service()
+        except Exception:
+            doc_proj_svc = None
+
+        if doc_proj_svc and entry_docs:
+            for edoc in list(entry_docs):
+                can_doc, r_proj = doc_proj_svc.resolve_doc_and_project(edoc)
+                if can_doc:
+                    entry_docs.add(can_doc.strip().lower())
+                if r_proj and r_proj.lower() not in ("none", "null", "unassigned"):
+                    entry_projs.add(r_proj.strip().lower())
+
+        # 2. Project enforcement: Requester must be authorized for the project if both define projects
+        if entry_projs and project_ids is not None:
             if not (entry_projs & caller_projs):
                 return False
 
-        if entry.document_ids and document_ids is not None:
-            caller_docs = {str(d).strip().lower() for d in document_ids if d}
-            for edoc in entry.document_ids:
-                if str(edoc).strip().lower() not in caller_docs:
-                    return False
+        # 3. Document enforcement:
+        if entry_docs:
+            for edoc in entry_docs:
+                can_id, r_proj = doc_proj_svc.resolve_doc_and_project(edoc) if doc_proj_svc else (edoc, None)
+                can_id_lower = can_id.lower() if can_id else edoc
+
+                # 1. Direct document grant
+                if edoc in caller_docs or can_id_lower in caller_docs:
+                    continue
+
+                # 2. Project membership: if user has a Proj_id, doc_ids belonging to that project can be accessed
+                if r_proj and project_ids is not None and r_proj.strip().lower() in caller_projs:
+                    continue
+
+                # 3. Unassigned document: org-wide if caller did not restrict to explicit document_ids
+                if (not r_proj or r_proj.lower() in ("none", "null", "unassigned")) and document_ids is None:
+                    continue
+
+                return False
 
         return True
 

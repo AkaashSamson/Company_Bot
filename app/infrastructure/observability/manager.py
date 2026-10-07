@@ -1,6 +1,7 @@
 import logging
 import threading
-from typing import Any, Dict, Optional
+from contextlib import contextmanager
+from typing import Any, Dict, Generator, Optional
 
 from app.core import settings
 from app.domain.ports.observability import (
@@ -61,10 +62,11 @@ class ObservabilityManager(BaseObservabilityProvider):
         provider_name = getattr(settings, "OBSERVABILITY_PROVIDER", "null").lower()
 
         if provider_name == "langfuse":
+            host = getattr(settings, "LANGFUSE_HOST", getattr(settings, "LANGFUSE_BASE_URL", "https://cloud.langfuse.com"))
             return LangfuseProvider(
                 public_key=getattr(settings, "LANGFUSE_PUBLIC_KEY", ""),
                 secret_key=getattr(settings, "LANGFUSE_SECRET_KEY", ""),
-                host=getattr(settings, "LANGFUSE_HOST", "http://localhost:3000"),
+                host=host,
             )
         elif provider_name == "phoenix":
             return PhoenixProvider(
@@ -85,10 +87,11 @@ class ObservabilityManager(BaseObservabilityProvider):
         provider_name = provider_type.lower()
         with self._lock:
             if provider_name == "langfuse":
+                host = getattr(settings, "LANGFUSE_HOST", getattr(settings, "LANGFUSE_BASE_URL", "https://cloud.langfuse.com"))
                 self._active_provider = LangfuseProvider(
                     public_key=getattr(settings, "LANGFUSE_PUBLIC_KEY", ""),
                     secret_key=getattr(settings, "LANGFUSE_SECRET_KEY", ""),
-                    host=getattr(settings, "LANGFUSE_HOST", "http://localhost:3000"),
+                    host=host,
                 )
             elif provider_name == "phoenix":
                 self._active_provider = PhoenixProvider(
@@ -107,6 +110,11 @@ class ObservabilityManager(BaseObservabilityProvider):
         with self._lock:
             return self._active_provider
 
+    @property
+    def is_langfuse_active(self) -> bool:
+        with self._lock:
+            return isinstance(self._active_provider, LangfuseProvider) and self._active_provider.enabled
+
     # Delegate BaseObservabilityProvider methods to active provider
 
     def create_trace(
@@ -115,10 +123,48 @@ class ObservabilityManager(BaseObservabilityProvider):
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        inputs: Optional[Any] = None,
+        run_type: Optional[str] = None,
     ) -> TraceSpanPort:
         with self._lock:
             provider = self._active_provider
+        if isinstance(provider, LangfuseProvider):
+            return provider.create_trace(
+                name=name,
+                session_id=session_id,
+                user_id=user_id,
+                metadata=metadata,
+                inputs=inputs,
+                run_type=run_type,
+            )
         return provider.create_trace(name=name, session_id=session_id, user_id=user_id, metadata=metadata)
+
+    @contextmanager
+    def trace_step(
+        self,
+        name: str,
+        inputs: Optional[Any] = None,
+        run_type: str = "span",
+        metadata: Optional[Dict[str, Any]] = None,
+        session_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> Generator[Any, None, None]:
+        with self._lock:
+            provider = self._active_provider
+        if hasattr(provider, "trace_step"):
+            with provider.trace_step(
+                name=name,
+                inputs=inputs,
+                run_type=run_type,
+                metadata=metadata,
+                session_id=session_id,
+                user_id=user_id,
+            ) as span:
+                yield span
+        else:
+            span = provider.create_trace(name=name, session_id=session_id, user_id=user_id, metadata=metadata)
+            with span:
+                yield span
 
     def record_llm_call(
         self,
@@ -126,10 +172,27 @@ class ObservabilityManager(BaseObservabilityProvider):
         token_usage: TokenUsage,
         latency_ms: float = 0.0,
         metadata: Optional[Dict[str, Any]] = None,
+        prompt: Optional[Any] = None,
+        completion: Optional[Any] = None,
     ) -> None:
         with self._lock:
             provider = self._active_provider
-        provider.record_llm_call(model=model, token_usage=token_usage, latency_ms=latency_ms, metadata=metadata)
+        if isinstance(provider, LangfuseProvider):
+            provider.record_llm_call(
+                model=model,
+                token_usage=token_usage,
+                latency_ms=latency_ms,
+                metadata=metadata,
+                prompt=prompt,
+                completion=completion,
+            )
+        else:
+            provider.record_llm_call(
+                model=model,
+                token_usage=token_usage,
+                latency_ms=latency_ms,
+                metadata=metadata,
+            )
 
     def flush(self) -> None:
         with self._lock:
@@ -220,7 +283,13 @@ class ObservabilityManager(BaseObservabilityProvider):
         except Exception as exc:
             logger.warning("ObservabilityManager failed to dispatch trace %s: %s", getattr(trace, "trace_id", "unknown"), exc)
 
-
+    def close(self) -> None:
+        with self._lock:
+            provider = self._active_provider
+        if hasattr(provider, "close"):
+            provider.close()
+        else:
+            provider.flush()
 
 # Global Singleton & Accessors
 _manager_instance: Optional[ObservabilityManager] = None

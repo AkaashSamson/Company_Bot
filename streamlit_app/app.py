@@ -46,7 +46,6 @@ if st.session_state.get("auth") is None:
         try:
             auth = AuthenticationService().login(login_username, login_password)
             st.session_state.auth = auth
-            st.session_state.logged_out = False
             st.rerun()
         except requests.exceptions.HTTPError as error:
             status_code = error.response.status_code if error.response is not None else None
@@ -65,7 +64,6 @@ persist_auth(cookies)
 
 def _logout():
     st.session_state.auth = None
-    st.session_state.logged_out = True
     st.session_state.messages = []
     st.session_state.last_response = None
     st.session_state.session_id = str(uuid.uuid4())
@@ -260,45 +258,90 @@ def _format_citations(citations: list, answer: str = "") -> str:
     return "\n".join(lines)
 
 
-def _format_token_info(tokens: dict | None) -> str:
-    """Format token usage info for display."""
-    if not tokens:
+def _format_corrections(corrections: list) -> str:
+    """Format spelling / typo corrections for display (excluding internal lemmas)."""
+    if not corrections:
+        return ""
+    cleaned = []
+    for c in corrections:
+        # e.g. "spell: compilance -> compliance" -> "compilance → compliance"
+        clean_c = re.sub(r'^[a-z_]+:\s*', '', str(c)).replace("->", "→").strip()
+        if clean_c and clean_c not in cleaned:
+            cleaned.append(clean_c)
+    if not cleaned:
+        return ""
+    return f"\n\n✏️ *Auto-corrected spelling:* `{', '.join(cleaned)}`"
+
+
+def _format_token_info(
+    tokens: dict | None,
+    cache_id: str | None = None,
+    assigned_role: str | None = None,
+) -> str:
+    """Format token usage and cache info for display."""
+    if not tokens and not cache_id:
         return ""
     
-    prompt = tokens.get("prompt_tokens", 0)
-    completion = tokens.get("completion_tokens", 0)
-    total = tokens.get("total_tokens", 0)
-    cached = tokens.get("cache_hit", False)
+    prompt = tokens.get("prompt_tokens", 0) if tokens else 0
+    completion = tokens.get("completion_tokens", 0) if tokens else 0
+    total = tokens.get("total_tokens", 0) if tokens else 0
+    cached = tokens.get("cache_hit", False) if tokens else False
     
     if cached:
-        return "\n\n💾 *Response from cache (0 tokens used)*"
-    elif total > 0:
-        return f"\n\n📊 *Tokens used: {prompt}P + {completion}C = {total}T*"
-    else:
-        return ""
+        text = "💾 *Response from cache (0 tokens used)*"
+        if cache_id:
+            text += f" • `ID: {cache_id}`"
+        if assigned_role:
+            text += f" • `Role: {assigned_role}`"
+        return f"\n\n{text}"
+    elif total > 0 or cache_id:
+        text = "🤖 *Generated via LLM*"
+        if total > 0:
+            text += f" (Tokens: {prompt}P + {completion}C = {total}T)"
+        if cache_id:
+            text += f" • `Cache ID: {cache_id}`"
+        return f"\n\n{text}"
+    return ""
 
 
-# Replay full chat history (citations already embedded in content)
-for message in st.session_state.messages:
+feedback_input = None
+
+# Replay full chat history with buttons embedded directly inside the latest assistant response
+total_messages = len(st.session_state.messages)
+for i, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-last_msg = st.session_state.messages[-1] if st.session_state.messages else None
-show_feedback_buttons = (
-    last_msg is not None
-    and last_msg.get("role") == "assistant"
-    and "relevant to your question" in last_msg.get("content", "").lower()
-)
+        # Display interactive action buttons directly with the response
+        is_last_message = (i == total_messages - 1)
+        if is_last_message and message.get("role") == "assistant":
+            content_lower = (message.get("content", "")).lower()
+            action_type = message.get("action_type")
 
-feedback_input = None
-if show_feedback_buttons:
-    col_fb1, col_fb2, _ = st.columns([1, 1, 3])
-    with col_fb1:
-        if st.button("👍 Yes, relevant", key=f"fb_yes_{len(st.session_state.messages)}", help="Confirm response was relevant and view document references"):
-            feedback_input = "Yes"
-    with col_fb2:
-        if st.button("👎 No, not relevant", key=f"fb_no_{len(st.session_state.messages)}", help="Clear cache and request another LLM-generated response"):
-            feedback_input = "No, not relevant"
+            show_relevance = action_type == "relevance_feedback" or (
+                not action_type and "relevant to your question" in content_lower
+            )
+            show_references = action_type == "references_prompt" or (
+                not action_type and "would you like to see the source references" in content_lower
+            )
+
+            if show_relevance:
+                col_fb1, col_fb2, _ = st.columns([1.2, 1.6, 2.5])
+                with col_fb1:
+                    if st.button("👍 Yes, relevant", key=f"fb_yes_{i}", help="Confirm response was relevant"):
+                        feedback_input = "Yes"
+                with col_fb2:
+                    if st.button("👎 No, not relevant", key=f"fb_no_{i}", help="Mark as not relevant to generate an alternative answer"):
+                        feedback_input = "No, not relevant"
+
+            elif show_references:
+                col_ref1, col_ref2, _ = st.columns([1.5, 1.2, 2.5])
+                with col_ref1:
+                    if st.button("📄 Yes, show references", key=f"ref_yes_{i}", help="Show source document references"):
+                        feedback_input = "Yes"
+                with col_ref2:
+                    if st.button("🚫 No thanks", key=f"ref_no_{i}", help="Skip references"):
+                        feedback_input = "No"
 
 user_input = st.chat_input("Ask about the HR policy...")
 if feedback_input:
@@ -331,28 +374,50 @@ if user_input:
         answer = response.get("answer", "I could not find a relevant answer in the policy source.")
         citations = response.get("citations", [])
         tokens = response.get("tokens")
+        cache_id = response.get("cache_id")
+        assigned_role = response.get("assigned_role")
+        is_latest = response.get("is_latest", True)
+        corrections = response.get("corrections", [])
+        action_type = response.get("action_type")
     except requests.exceptions.ConnectionError:
         answer = "The chat backend is not running. Start FastAPI with: python -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
         citations = []
         tokens = None
+        cache_id = None
+        assigned_role = None
+        is_latest = True
+        corrections = []
+        action_type = None
     except requests.exceptions.RequestException as error:
         answer = f"The chat backend could not process the request: {error}"
         citations = []
         tokens = None
+        cache_id = None
+        assigned_role = None
+        is_latest = True
+        corrections = []
+        action_type = None
 
     # Embed citations and token info as plain markdown into the answer so they persist in history
-    full_content = answer + _format_citations(citations, answer=answer) + _format_token_info(tokens)
+    full_content = (
+        answer
+        + _format_citations(citations, answer=answer)
+        + _format_corrections(corrections)
+        + _format_token_info(tokens, cache_id=cache_id, assigned_role=assigned_role)
+    )
 
     st.session_state.messages.append({
         "role": "assistant",
         "content": full_content,
         "raw_answer": answer,
+        "action_type": action_type,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
     with st.chat_message("assistant"):
         st.markdown(full_content)
 
-    if feedback_input:
-        st.rerun()
+    # Always rerun so feedback buttons (and any post-reply widgets) appear
+    # immediately after the bot response, not only on the next user query.
+    st.rerun()
 
 

@@ -30,6 +30,12 @@ def init_orchestrator() -> None:
     _orchestrator = QueryOrchestrator(
         response_cache=get_semantic_cache(),
     )
+    try:
+        reranker = getattr(getattr(_orchestrator, "retrieval", None), "reranker", None)
+        if reranker is not None and hasattr(reranker, "model"):
+            _ = reranker.model
+    except Exception as exc:
+        logger.warning("Could not pre-warm reranker: %s", exc)
     logger.info("QueryOrchestrator initialised with loosely-coupled semantic cache.")
 
 

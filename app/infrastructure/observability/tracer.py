@@ -1,24 +1,19 @@
 """
-LangSmith tracing integration.
+Unified Tracing Integration (Langfuse & LangSmith).
 
-Usage
------
-Wrap any callable with trace_step() to create a named span in LangSmith:
-
-    from app.infrastructure.observability.tracer import trace_step
-
-    with trace_step("retrieval", inputs={"query": query}) as span:
-        results = vector_store.query(query)
-        span.end(outputs={"chunks": len(results)})
-
-When LANGCHAIN_TRACING_V2=false or LANGCHAIN_API_KEY is missing,
-all calls are no-ops — no errors, no overhead.
+Provides vendor-neutral `@traceable` decorator and `trace_step()` context manager.
+Automatically dispatches to Langfuse when OBSERVABILITY_PROVIDER=langfuse,
+to LangSmith when LANGCHAIN_TRACING_V2=true, or safe no-op otherwise.
 """
 
+import functools
+import inspect
 import logging
+import os
 from contextlib import contextmanager
-from typing import Any, Generator
+from typing import Any, Callable, Dict, Generator, Optional
 
+from app.core import settings
 from app.core.settings import (
     LANGCHAIN_API_KEY,
     LANGCHAIN_ENDPOINT,
@@ -28,9 +23,7 @@ from app.core.settings import (
 
 logger = logging.getLogger(__name__)
 
-# Activate LangSmith by setting the env vars it reads.
-# langsmith reads these directly from os.environ — set them once here.
-import os
+# Activate LangSmith if enabled
 if LANGCHAIN_TRACING_V2 and LANGCHAIN_API_KEY:
     os.environ["LANGCHAIN_TRACING_V2"] = "true"
     os.environ["LANGCHAIN_API_KEY"] = LANGCHAIN_API_KEY
@@ -39,90 +32,184 @@ if LANGCHAIN_TRACING_V2 and LANGCHAIN_API_KEY:
     logger.info("LangSmith tracing enabled → project '%s'", LANGCHAIN_PROJECT)
 else:
     os.environ["LANGCHAIN_TRACING_V2"] = "false"
-    logger.info("LangSmith tracing disabled.")
 
 
 class _NoOpSpan:
     """Returned when tracing is disabled — all methods are safe no-ops."""
-    def end(self, outputs: dict | None = None, error: str | None = None) -> None:
+    def end(self, outputs: Optional[Dict[str, Any]] = None, error: Optional[str] = None) -> None:
         pass
+
+    def update(self, *args: Any, **kwargs: Any) -> None:
+        pass
+
+    def __enter__(self) -> "_NoOpSpan":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        pass
+
+
+def _is_langfuse_active() -> bool:
+    provider = getattr(settings, "OBSERVABILITY_PROVIDER", "").lower()
+    return provider == "langfuse"
+
+
+def _sanitize_inputs(func: Callable, args: tuple, kwargs: dict) -> Dict[str, Any]:
+    """Extract clean, user-meaningful inputs without leaking 'self' or sensitive keys."""
+    sensitive_keys = {"api_key", "secret", "password", "token", "auth", "authorization", "secret_key"}
+    cleaned: Dict[str, Any] = {}
+
+    try:
+        sig = inspect.signature(func)
+        bound = sig.bind_partial(*args, **kwargs)
+        for name, val in bound.arguments.items():
+            if name in ("self", "cls"):
+                continue
+            if any(s in name.lower() for s in sensitive_keys):
+                cleaned[name] = "[REDACTED]"
+            elif isinstance(val, (str, int, float, bool, list, dict)) or val is None:
+                cleaned[name] = val
+            else:
+                cleaned[name] = str(val)[:200]
+    except Exception:
+        # Fallback if binding fails
+        for k, v in kwargs.items():
+            if any(s in k.lower() for s in sensitive_keys):
+                cleaned[k] = "[REDACTED]"
+            elif isinstance(v, (str, int, float, bool)):
+                cleaned[k] = v
+        if args and len(args) > 1 and isinstance(args[1], str):
+            cleaned["query"] = args[1]
+        elif args and len(args) > 0 and isinstance(args[0], str):
+            cleaned["query"] = args[0]
+
+    return cleaned
+
+
+def _sanitize_output(result: Any) -> Any:
+    """Sanitize output object for trace display."""
+    if isinstance(result, dict):
+        # Exclude massive internal objects, keep user-facing text
+        clean = {}
+        for k, v in result.items():
+            if k in ("answer", "question", "cache_hit", "tokens", "is_latest", "model", "latency_ms"):
+                clean[k] = v
+            elif k == "citations" and isinstance(v, list):
+                clean[k] = [
+                    {"document": getattr(c, "document_name", str(c)), "page": getattr(c, "page_number", None)}
+                    if hasattr(c, "document_name") else str(c)[:100]
+                    for c in v[:5]
+                ]
+            elif isinstance(v, (str, int, float, bool)):
+                clean[k] = v
+        return clean
+    elif isinstance(result, str):
+        return result
+    return str(result)[:500]
 
 
 @contextmanager
 def trace_step(
     name: str,
-    inputs: dict[str, Any] | None = None,
+    inputs: Optional[Any] = None,
     run_type: str = "chain",
+    metadata: Optional[Dict[str, Any]] = None,
+    session_id: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> Generator[Any, None, None]:
-    """
-    Context manager that creates a LangSmith span when tracing is enabled.
-
-    Parameters
-    ----------
-    name : str
-        Display name for the span in LangSmith.
-    inputs : dict, optional
-        Key/value pairs logged as the step's inputs.
-    run_type : str
-        LangSmith run type: "chain", "retriever", "llm", "tool", etc.
-
-    Yields
-    ------
-    span
-        Object with .end(outputs, error) method. Call it to close the span
-        with output data. If you don't call it, the span closes automatically.
-    """
-    if not (LANGCHAIN_TRACING_V2 and LANGCHAIN_API_KEY):
-        yield _NoOpSpan()
-        return
-
-    try:
-        from langsmith import Client
-        from langsmith.run_helpers import get_current_run_tree
-
-        client = Client()
-        run = client.create_run(
-            name=name,
-            run_type=run_type,
-            inputs=inputs or {},
-            project_name=LANGCHAIN_PROJECT,
-        )
+    """Context manager for tracing an internal pipeline step."""
+    # 1. Langfuse Dispatch
+    if _is_langfuse_active():
         try:
-            yield run
+            from app.infrastructure.observability.manager import get_observability_manager
+            mgr = get_observability_manager()
+            with mgr.trace_step(
+                name=name,
+                inputs=inputs,
+                run_type=run_type,
+                metadata=metadata,
+                session_id=session_id,
+                user_id=user_id,
+            ) as span:
+                yield span
+            return
         except Exception as exc:
-            run.end(error=str(exc))
-            client.update_run(run.id, error=str(exc))
-            raise
+            logger.debug("Langfuse trace_step dispatch error: %s", exc)
+            yield _NoOpSpan()
+            return
+
+    # 2. LangSmith Dispatch
+    if LANGCHAIN_TRACING_V2 and LANGCHAIN_API_KEY:
+        try:
+            from langsmith import Client
+            client = Client()
+            run = client.create_run(
+                name=name,
+                run_type=run_type,
+                inputs=inputs if isinstance(inputs, dict) else {"input": inputs},
+                project_name=LANGCHAIN_PROJECT,
+            )
+            try:
+                yield run
+            except Exception as exc:
+                run.end(error=str(exc))
+                client.update_run(run.id, error=str(exc))
+                raise
+            else:
+                client.update_run(run.id)
+            return
+        except Exception as exc:
+            logger.debug("LangSmith trace_step failed: %s", exc)
+            yield _NoOpSpan()
+            return
+
+    # 3. No-op
+    yield _NoOpSpan()
+
+
+def traceable(name: Optional[str] = None, run_type: str = "chain") -> Callable:
+    """Decorator that wraps a function or method in a trace span.
+    
+    Compatible with Langfuse v4 canonical types and LangSmith.
+    """
+    def decorator(fn: Callable) -> Callable:
+        span_name = name or fn.__name__
+
+        if inspect.iscoroutinefunction(fn):
+            @functools.wraps(fn)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                if not (_is_langfuse_active() or (LANGCHAIN_TRACING_V2 and LANGCHAIN_API_KEY)):
+                    return await fn(*args, **kwargs)
+
+                clean_in = _sanitize_inputs(fn, args, kwargs)
+                with trace_step(name=span_name, inputs=clean_in, run_type=run_type) as span:
+                    try:
+                        res = await fn(*args, **kwargs)
+                        if hasattr(span, "update"):
+                            span.update(output=_sanitize_output(res))
+                        return res
+                    except Exception as exc:
+                        if hasattr(span, "end"):
+                            span.end(error=str(exc))
+                        raise
+            return async_wrapper
         else:
-            client.update_run(run.id)
-    except ImportError:
-        logger.warning("langsmith not installed — tracing skipped.")
-        yield _NoOpSpan()
-    except Exception as exc:
-        logger.warning("LangSmith trace_step failed: %s", exc)
-        yield _NoOpSpan()
+            @functools.wraps(fn)
+            def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+                if not (_is_langfuse_active() or (LANGCHAIN_TRACING_V2 and LANGCHAIN_API_KEY)):
+                    return fn(*args, **kwargs)
 
+                clean_in = _sanitize_inputs(fn, args, kwargs)
+                with trace_step(name=span_name, inputs=clean_in, run_type=run_type) as span:
+                    try:
+                        res = fn(*args, **kwargs)
+                        if hasattr(span, "update"):
+                            span.update(output=_sanitize_output(res))
+                        return res
+                    except Exception as exc:
+                        if hasattr(span, "end"):
+                            span.end(error=str(exc))
+                        raise
+            return sync_wrapper
 
-def traceable(name: str | None = None, run_type: str = "chain"):
-    """
-    Decorator that wraps a function in a LangSmith span.
-
-    Example
-    -------
-        @traceable(name="FAQ Cache Search", run_type="retriever")
-        def search(question: str) -> dict | None:
-            ...
-    """
-    if not (LANGCHAIN_TRACING_V2 and LANGCHAIN_API_KEY):
-        # Return identity decorator when tracing is off
-        def _identity(fn):
-            return fn
-        return _identity
-
-    try:
-        from langsmith import traceable as _ls_traceable
-        return _ls_traceable(name=name, run_type=run_type)
-    except ImportError:
-        def _identity(fn):
-            return fn
-        return _identity
+    return decorator

@@ -51,9 +51,16 @@ class ProvenanceService:
             metadata = result.get("metadata", {})
             raw_text = result.get("text", "")
             raw_section = metadata.get("section", "Policy")
-            citations.append({
+            c_dict = {
                 "source": metadata.get("source", "NEXORA TECHNOLOGIES PVT.docx"),
                 "section": _clean_section(raw_section),
                 "text": _strip_numbering(raw_text),
-            })
+            }
+            doc_id = metadata.get("document_id") or metadata.get("doc_id")
+            if doc_id:
+                c_dict["document_id"] = str(doc_id)
+            proj_id = metadata.get("project_id") or metadata.get("proj_id")
+            if proj_id:
+                c_dict["project_id"] = str(proj_id)
+            citations.append(c_dict)
         return citations

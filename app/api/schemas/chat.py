@@ -41,6 +41,7 @@ class ChatResponse(BaseModel):
     matched_faq: Optional[str] = None
     similarity: Optional[float] = None
     tokens: Optional[TokenUsageInfo] = None
+    action_type: Optional[str] = Field(default=None, description="Action for UI: 'relevance_feedback' | 'references_prompt'")
     is_latest: bool = Field(default=True, description="Indicates if the response is based on the latest version of the documents")
     corrections: List[str] = Field(default_factory=list, description="Spelling or typo corrections applied to the query")
 

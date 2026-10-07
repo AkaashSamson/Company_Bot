@@ -20,6 +20,8 @@ htmlcov/
 # Local databases & Chroma vector store
 .chroma/
 *.sqlite3
+*.db
+company_bot.db
 instance/
 
 # Conversation logs

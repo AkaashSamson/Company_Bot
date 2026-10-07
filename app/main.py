@@ -85,6 +85,12 @@ async def lifespan(app: FastAPI):
     except asyncio.CancelledError:
         pass
 
+    try:
+        from app.infrastructure.observability.manager import get_observability_manager
+        get_observability_manager().flush()
+    except Exception as exc:
+        logger.debug("Observability flush on shutdown error: %s", exc)
+
 
 app = FastAPI(title="KnowLayer API", lifespan=lifespan)
 app.include_router(chat_router)
