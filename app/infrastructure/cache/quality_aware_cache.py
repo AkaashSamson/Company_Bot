@@ -879,7 +879,7 @@ class InMemoryQualityAwareCache:
                         "cache_stale_document_detected key=%s doc=%s (cached_ts=%.2f, current_updated_at=%.2f) - evicting stale cache to use LLM",
                         effective_key, stale_doc, cached_ts, latest_ts
                     )
-                    self._remove_entry(effective_key)
+                    self.invalidate_document(stale_doc)
                     self._stats["misses"] += 1
                     self._stats["stale_document_evictions"] = self._stats.get("stale_document_evictions", 0) + 1
                     return None

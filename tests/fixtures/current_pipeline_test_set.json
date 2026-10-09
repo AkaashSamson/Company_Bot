@@ -1,0 +1,629 @@
+[
+  {
+    "id": "CURR-CONF-BELOW-0.59",
+    "category": "CONFIDENCE_THRESHOLD_BOUNDARY",
+    "description": "In-between edge case: Confidence 0.59 is 0.01 below the 0.60 threshold. Validator must reject write.",
+    "input": {
+      "query": "What is the probation period?",
+      "response": "The probation period is 3 months.",
+      "confidence": 0.59,
+      "evidence_count": 2,
+      "evidence_distances": [0.35],
+      "lexical_grounding": 0.85,
+      "separation_gap": 0.20,
+      "assigned_role": "employee",
+      "document_ids": ["doc_handbook_01"],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "expected_output": {
+      "write_admitted": false,
+      "gate_decision": "FAIL",
+      "rejection_reason_contains": "below threshold",
+      "in_between_edge_type": "SUB_THRESHOLD_BOUNDARY"
+    }
+  },
+  {
+    "id": "CURR-CONF-EXACT-0.60",
+    "category": "CONFIDENCE_THRESHOLD_BOUNDARY",
+    "description": "In-between edge case: Confidence exactly at 0.60 threshold boundary. Validator must admit write.",
+    "input": {
+      "query": "What is the probation period?",
+      "response": "The probation period is 3 months.",
+      "confidence": 0.60,
+      "evidence_count": 2,
+      "evidence_distances": [0.35],
+      "lexical_grounding": 0.85,
+      "separation_gap": 0.20,
+      "assigned_role": "employee",
+      "document_ids": ["doc_handbook_01"],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "gate_decision": "PASS",
+      "in_between_edge_type": "EXACT_THRESHOLD_BOUNDARY"
+    }
+  },
+  {
+    "id": "CURR-CONF-ABOVE-0.61",
+    "category": "CONFIDENCE_THRESHOLD_BOUNDARY",
+    "description": "In-between edge case: Confidence 0.61 is 0.01 above threshold boundary. Validator must admit write.",
+    "input": {
+      "query": "What is the probation period?",
+      "response": "The probation period is 3 months.",
+      "confidence": 0.61,
+      "evidence_count": 2,
+      "evidence_distances": [0.35],
+      "lexical_grounding": 0.85,
+      "separation_gap": 0.20,
+      "assigned_role": "employee",
+      "document_ids": ["doc_handbook_01"],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "gate_decision": "PASS",
+      "in_between_edge_type": "SUPER_THRESHOLD_BOUNDARY"
+    }
+  },
+  {
+    "id": "CURR-DIST-STRONG-0.599",
+    "category": "EVIDENCE_DISTANCE_BOUNDARY",
+    "description": "In-between edge case: Distance 0.599 is right at the upper edge of STRONG (< 0.60).",
+    "input": {
+      "query": "What are working hours?",
+      "response": "Standard working hours are 9:30 AM to 6:30 PM.",
+      "confidence": 0.85,
+      "evidence_count": 1,
+      "evidence_distances": [0.599],
+      "lexical_grounding": 0.75,
+      "separation_gap": 0.15,
+      "assigned_role": "employee",
+      "document_ids": ["doc_handbook_01"],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "gate_decision": "PASS",
+      "classified_quality_level": "strong",
+      "in_between_edge_type": "STRONG_DISTANCE_UPPER_BOUND"
+    }
+  },
+  {
+    "id": "CURR-DIST-BORDERLINE-0.600",
+    "category": "EVIDENCE_DISTANCE_BOUNDARY",
+    "description": "In-between edge case: Distance exactly 0.600 transitions from STRONG to BORDERLINE (0.60 to 0.70).",
+    "input": {
+      "query": "What are working hours?",
+      "response": "Standard working hours are 9:30 AM to 6:30 PM.",
+      "confidence": 0.85,
+      "evidence_count": 1,
+      "evidence_distances": [0.600],
+      "lexical_grounding": 0.75,
+      "separation_gap": 0.15,
+      "assigned_role": "employee",
+      "document_ids": ["doc_handbook_01"],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "gate_decision": "PASS",
+      "classified_quality_level": "borderline",
+      "in_between_edge_type": "BORDERLINE_DISTANCE_LOWER_BOUND"
+    }
+  },
+  {
+    "id": "CURR-DIST-WEAK-0.700",
+    "category": "EVIDENCE_DISTANCE_BOUNDARY",
+    "description": "In-between edge case: Distance exactly 0.700 transitions from BORDERLINE to WEAK (0.70 to 0.85).",
+    "input": {
+      "query": "What are working hours?",
+      "response": "Standard working hours are 9:30 AM to 6:30 PM.",
+      "confidence": 0.85,
+      "evidence_count": 1,
+      "evidence_distances": [0.700],
+      "lexical_grounding": 0.75,
+      "separation_gap": 0.15,
+      "assigned_role": "employee",
+      "document_ids": ["doc_handbook_01"],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "gate_decision": "PASS",
+      "classified_quality_level": "weak",
+      "in_between_edge_type": "WEAK_DISTANCE_LOWER_BOUND"
+    }
+  },
+  {
+    "id": "CURR-DIST-INVALID-0.850",
+    "category": "EVIDENCE_DISTANCE_BOUNDARY",
+    "description": "In-between edge case: Distance 0.850 hits INVALID boundary (>= 0.85). Validator must reject write.",
+    "input": {
+      "query": "What are working hours?",
+      "response": "Standard working hours are 9:30 AM to 6:30 PM.",
+      "confidence": 0.85,
+      "evidence_count": 1,
+      "evidence_distances": [0.850],
+      "lexical_grounding": 0.75,
+      "separation_gap": 0.15,
+      "assigned_role": "employee",
+      "document_ids": ["doc_handbook_01"],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "expected_output": {
+      "write_admitted": false,
+      "gate_decision": "FAIL",
+      "classified_quality_level": "invalid",
+      "rejection_reason_contains": "INVALID",
+      "in_between_edge_type": "INVALID_DISTANCE_BOUNDARY"
+    }
+  },
+  {
+    "id": "CURR-LEX-BELOW-0.19",
+    "category": "LEXICAL_GROUNDING_BOUNDARY",
+    "description": "In-between edge case: Lexical word overlap 0.19 is 0.01 below 0.20 threshold. Validator rejects write.",
+    "input": {
+      "query": "What is the overtime rate?",
+      "response": "Overtime is compensated at 1.5x regular pay rate.",
+      "confidence": 0.85,
+      "evidence_count": 1,
+      "evidence_distances": [0.40],
+      "lexical_grounding": 0.19,
+      "separation_gap": 0.15,
+      "assigned_role": "employee",
+      "document_ids": ["doc_handbook_01"],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "expected_output": {
+      "write_admitted": false,
+      "gate_decision": "FAIL",
+      "rejection_reason_contains": "Lexical grounding",
+      "in_between_edge_type": "SUB_LEXICAL_BOUNDARY"
+    }
+  },
+  {
+    "id": "CURR-LEX-EXACT-0.20",
+    "category": "LEXICAL_GROUNDING_BOUNDARY",
+    "description": "In-between edge case: Lexical word overlap exactly at 0.20 target threshold. Validator admits write.",
+    "input": {
+      "query": "What is the overtime rate?",
+      "response": "Overtime is compensated at 1.5x regular pay rate.",
+      "confidence": 0.85,
+      "evidence_count": 1,
+      "evidence_distances": [0.40],
+      "lexical_grounding": 0.20,
+      "separation_gap": 0.15,
+      "assigned_role": "employee",
+      "document_ids": ["doc_handbook_01"],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "gate_decision": "PASS",
+      "in_between_edge_type": "EXACT_LEXICAL_BOUNDARY"
+    }
+  },
+  {
+    "id": "CURR-GAP-BELOW-0.09",
+    "category": "SEPARATION_GAP_BOUNDARY",
+    "description": "In-between edge case: Separation gap 0.09 is below 0.10 target. Triggers warning flag in metrics.",
+    "input": {
+      "query": "Can I request remote work?",
+      "response": "Remote work requests require manager approval.",
+      "confidence": 0.85,
+      "evidence_count": 1,
+      "evidence_distances": [0.40],
+      "lexical_grounding": 0.50,
+      "separation_gap": 0.09,
+      "assigned_role": "employee",
+      "document_ids": ["doc_handbook_01"],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "gate_decision": "PASS",
+      "separation_gap_warning": true,
+      "in_between_edge_type": "SUB_SEPARATION_GAP_WARNING"
+    }
+  },
+  {
+    "id": "CURR-CONTENT-WHITESPACE",
+    "category": "CONTENT_EMPTY_BOUNDARY",
+    "description": "In-between edge case: Whitespace response ('   \\n\\t  '). Validator must reject write.",
+    "input": {
+      "query": "What is the sick leave policy?",
+      "response": "   \n\t  ",
+      "confidence": 0.95,
+      "evidence_count": 1,
+      "evidence_distances": [0.20],
+      "lexical_grounding": 1.0,
+      "assigned_role": "employee",
+      "document_ids": ["doc_handbook_01"],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "expected_output": {
+      "write_admitted": false,
+      "gate_decision": "FAIL",
+      "rejection_reason_contains": "Empty or whitespace",
+      "in_between_edge_type": "WHITESPACE_REJECTION"
+    }
+  },
+  {
+    "id": "CURR-NEG-FALSE-POSITIVE-GUARD",
+    "category": "NEGATIVE_FILTER_IN_BETWEEN",
+    "description": "In-between edge case: Affirmative helpful answer containing negation word 'not' ('Please do not hesitate to contact HR'). Must NOT be blocked by is_negative_response.",
+    "input": {
+      "query": "Who can I ask about maternity benefits?",
+      "response": "Please do not hesitate to contact HR Operations at hr@company.com for guidance on maternity leave benefits.",
+      "confidence": 0.90,
+      "evidence_count": 1,
+      "evidence_distances": [0.30],
+      "lexical_grounding": 0.60,
+      "assigned_role": "employee",
+      "document_ids": ["doc_handbook_01"],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "gate_decision": "PASS",
+      "is_negative_response": false,
+      "in_between_edge_type": "AFFIRMATIVE_NEGATION_FALSE_POSITIVE_GUARD"
+    }
+  },
+  {
+    "id": "CURR-NEG-SUBTLE-NO-INFO",
+    "category": "NEGATIVE_FILTER_IN_BETWEEN",
+    "description": "In-between edge case: Subtle refusal ('The handbook does not contain details regarding pet allowances'). Filter must catch and reject write.",
+    "input": {
+      "query": "Are pets allowed in the office?",
+      "response": "The handbook does not contain details regarding pet allowances in office premises.",
+      "confidence": 0.85,
+      "evidence_count": 0,
+      "evidence_distances": [],
+      "assigned_role": "employee",
+      "document_ids": ["doc_handbook_01"],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "expected_output": {
+      "write_admitted": false,
+      "gate_decision": "FAIL",
+      "is_negative_response": true,
+      "rejection_reason_contains": "Negative/unverified",
+      "in_between_edge_type": "SUBTLE_NON_ANSWER_DETECTION"
+    }
+  },
+  {
+    "id": "CURR-RBAC-CASE-INSENSITIVE",
+    "category": "RBAC_ROLE_IN_BETWEEN",
+    "description": "In-between edge case: Role casing mismatch. Assigned role is 'Developer', caller role is 'developer'. Current cache must match case-insensitively and return HIT.",
+    "input": {
+      "query": "What is the deployment procedure?",
+      "response": "Production deployments require CI approval on Tuesdays.",
+      "confidence": 0.90,
+      "assigned_role": "Developer",
+      "document_ids": ["doc_eng_01"],
+      "project_ids": ["proj_core"],
+      "is_public": false
+    },
+    "retrieval_context": {
+      "query": "What is the deployment procedure?",
+      "user_roles": ["developer"],
+      "user_project_ids": ["proj_core"],
+      "is_admin": false
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "retrieval_action": "HIT",
+      "in_between_edge_type": "CASE_INSENSITIVE_ROLE_MATCH"
+    }
+  },
+  {
+    "id": "CURR-RBAC-MULTI-ROLE-MATCH",
+    "category": "RBAC_ROLE_IN_BETWEEN",
+    "description": "In-between edge case: User possesses multiple roles ['Contractor', 'SeniorEngineer', 'Tester']. Assigned role is 'SeniorEngineer'. Cache must HIT.",
+    "input": {
+      "query": "How do I request architectural review?",
+      "response": "Architecture reviews are submitted via RFC template to the arch committee.",
+      "confidence": 0.90,
+      "assigned_role": "SeniorEngineer",
+      "document_ids": ["doc_eng_02"],
+      "project_ids": ["proj_core"],
+      "is_public": false
+    },
+    "retrieval_context": {
+      "query": "How do I request architectural review?",
+      "user_roles": ["Contractor", "SeniorEngineer", "Tester"],
+      "user_project_ids": ["proj_core"],
+      "is_admin": false
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "retrieval_action": "HIT",
+      "in_between_edge_type": "MULTI_ROLE_MEMBERSHIP_MATCH"
+    }
+  },
+  {
+    "id": "CURR-RBAC-ROLE-MISMATCH",
+    "category": "RBAC_ROLE_IN_BETWEEN",
+    "description": "In-between edge case: Assigned role 'Manager'. Caller role 'Employee'. Cache must deny retrieval.",
+    "input": {
+      "query": "What are performance evaluation guidelines?",
+      "response": "Managers review quarterly peer ratings and calibrate performance scores.",
+      "confidence": 0.90,
+      "assigned_role": "Manager",
+      "document_ids": ["doc_mgmt_01"],
+      "project_ids": ["proj_core"],
+      "is_public": false
+    },
+    "retrieval_context": {
+      "query": "What are performance evaluation guidelines?",
+      "user_roles": ["Employee"],
+      "user_project_ids": ["proj_core"],
+      "is_admin": false
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "retrieval_action": "RBAC_DENIED",
+      "in_between_edge_type": "ROLE_MISMATCH_REJECTION"
+    }
+  },
+  {
+    "id": "CURR-RBAC-ADMIN-BYPASS",
+    "category": "RBAC_ROLE_IN_BETWEEN",
+    "description": "In-between edge case: Assigned role 'Executive'. Caller is role 'Guest' with is_admin=True. Admin override must return HIT.",
+    "input": {
+      "query": "What is the board meeting cadence?",
+      "response": "Board meetings occur quarterly on the second Thursday.",
+      "confidence": 0.95,
+      "assigned_role": "Executive",
+      "document_ids": ["doc_exec_01"],
+      "project_ids": ["proj_exec"],
+      "is_public": false
+    },
+    "retrieval_context": {
+      "query": "What is the board meeting cadence?",
+      "user_roles": ["Guest"],
+      "user_project_ids": ["proj_guest"],
+      "is_admin": true
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "retrieval_action": "HIT",
+      "in_between_edge_type": "ADMIN_UNIVERSAL_BYPASS"
+    }
+  },
+  {
+    "id": "CURR-RBAC-PUBLIC-ENTRY",
+    "category": "RBAC_ROLE_IN_BETWEEN",
+    "description": "In-between edge case: is_public=True entry with no role or project constraints. Any caller receives HIT.",
+    "input": {
+      "query": "What is the office address?",
+      "response": "The corporate headquarters is located at 100 Main Street, Suite 400.",
+      "confidence": 0.99,
+      "assigned_role": null,
+      "document_ids": [],
+      "project_ids": [],
+      "is_public": true
+    },
+    "retrieval_context": {
+      "query": "What is the office address?",
+      "user_roles": ["Anonymous"],
+      "user_project_ids": [],
+      "is_admin": false
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "retrieval_action": "HIT",
+      "in_between_edge_type": "PUBLIC_RESOURCE_BYPASS"
+    }
+  },
+  {
+    "id": "CURR-TS-EXACT-EQUAL",
+    "category": "DOCUMENT_TIMESTAMP_FRESHNESS",
+    "description": "In-between edge case: Document timestamp lookup returns exactly equal timestamp (current == cached == 1000.0). Entry is fresh; cache returns HIT.",
+    "input": {
+      "query": "What are the holiday dates?",
+      "response": "The official holidays list is updated annually on the portal.",
+      "confidence": 0.90,
+      "assigned_role": "employee",
+      "document_ids": ["doc_handbook_01"],
+      "project_ids": ["default"],
+      "doc_last_updated": {"doc_handbook_01": 1000.0},
+      "is_public": false
+    },
+    "retrieval_context": {
+      "query": "What are the holiday dates?",
+      "user_roles": ["employee"],
+      "user_project_ids": ["default"],
+      "is_admin": false,
+      "current_document_timestamps": {"doc_handbook_01": 1000.0}
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "retrieval_action": "HIT",
+      "in_between_edge_type": "EXACT_TIMESTAMP_IDENTITY"
+    }
+  },
+  {
+    "id": "CURR-TS-SLIGHT-NEWER-EVICTION",
+    "category": "DOCUMENT_TIMESTAMP_FRESHNESS",
+    "description": "In-between edge case: Document was updated slightly after cache creation (current=1000.001 vs cached=1000.0). Cache detects staleness, evicts entry, and returns None.",
+    "input": {
+      "query": "What are the holiday dates?",
+      "response": "The official holidays list is updated annually on the portal.",
+      "confidence": 0.90,
+      "assigned_role": "employee",
+      "document_ids": ["doc_handbook_01"],
+      "project_ids": ["default"],
+      "doc_last_updated": {"doc_handbook_01": 1000.0},
+      "is_public": false
+    },
+    "retrieval_context": {
+      "query": "What are the holiday dates?",
+      "user_roles": ["employee"],
+      "user_project_ids": ["default"],
+      "is_admin": false,
+      "current_document_timestamps": {"doc_handbook_01": 1000.001}
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "retrieval_action": "STALE_EVICTION",
+      "in_between_edge_type": "SLIGHT_TIMESTAMP_DELTA_EVICTION"
+    }
+  },
+  {
+    "id": "CURR-TTL-EXPIRED-BOUNDARY",
+    "category": "TTL_EXPIRATION_BOUNDARY",
+    "description": "In-between edge case: Entry age exceeds TTL threshold. Cache detects expiration, purges entry, and returns None.",
+    "input": {
+      "query": "What is today's cafeteria menu?",
+      "response": "Today's specials are soup and salad bar.",
+      "confidence": 0.90,
+      "assigned_role": "employee",
+      "document_ids": [],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "retrieval_context": {
+      "query": "What is today's cafeteria menu?",
+      "user_roles": ["employee"],
+      "user_project_ids": ["default"],
+      "is_admin": false,
+      "simulate_expired": true
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "retrieval_action": "EXPIRED",
+      "in_between_edge_type": "TTL_BOUNDARY_EXPIRATION"
+    }
+  },
+  {
+    "id": "CURR-SEAM-NUMERIC-LEAK",
+    "category": "ADR_V2_SEAM_VULNERABILITY",
+    "description": "Critical architectural seam: Stale answer claims '12 days' while evidence states '18 days'. Lexical overlap is 86%. Current pipeline admits write and serves answer, causing fatal false reuse.",
+    "input": {
+      "query": "How many annual leave days do employees get?",
+      "response": "Eligible regular employees receive 12 days of Annual Leave per calendar year.",
+      "confidence": 0.90,
+      "evidence_count": 1,
+      "evidence_distances": [0.35],
+      "lexical_grounding": 0.86,
+      "assigned_role": "employee",
+      "document_ids": ["NEXORA TECHNOLOGIES PVT.docx"],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "retrieval_context": {
+      "query": "How many annual leave days do employees get?",
+      "user_roles": ["employee"],
+      "user_project_ids": ["default"],
+      "is_admin": false
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "retrieval_action": "HIT",
+      "failure_type_if_any": "FATAL_FALSE_REUSE",
+      "in_between_edge_type": "NUMERIC_UPDATE_LEXICAL_BLIND_SPOT"
+    }
+  },
+  {
+    "id": "CURR-SEAM-NEGATION-LEAK",
+    "category": "ADR_V2_SEAM_VULNERABILITY",
+    "description": "Critical architectural seam: Polar negation shift. Stale answer claims leave 'can normally be carried forward' vs doc 'cannot normally be carried forward'. Word overlap 90%. Current pipeline admits and reuses.",
+    "input": {
+      "query": "Can unused casual leave be carried forward?",
+      "response": "Unused Casual Leave does not expire at the end of the calendar year and can normally be carried forward.",
+      "confidence": 0.90,
+      "evidence_count": 1,
+      "evidence_distances": [0.32],
+      "lexical_grounding": 0.90,
+      "assigned_role": "employee",
+      "document_ids": ["NEXORA TECHNOLOGIES PVT.docx"],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "retrieval_context": {
+      "query": "Can unused casual leave be carried forward?",
+      "user_roles": ["employee"],
+      "user_project_ids": ["default"],
+      "is_admin": false
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "retrieval_action": "HIT",
+      "failure_type_if_any": "FATAL_FALSE_REUSE",
+      "in_between_edge_type": "POLAR_NEGATION_LEXICAL_BLIND_SPOT"
+    }
+  },
+  {
+    "id": "CURR-SEAM-ENTITY-LEAK",
+    "category": "ADR_V2_SEAM_VULNERABILITY",
+    "description": "Critical architectural seam: Entity mismatch. User query asks about 'contractor casual leave', cached answer describes 'full-time permanent employee annual leave'. Semantic vector match retrieves it; current cache lacks QA validator and leaks.",
+    "input": {
+      "query": "Can contractors take casual leave?",
+      "response": "Full-time permanent employees are entitled to 12 days of Casual Leave per calendar year.",
+      "confidence": 0.90,
+      "evidence_count": 1,
+      "evidence_distances": [0.38],
+      "lexical_grounding": 0.80,
+      "assigned_role": "employee",
+      "document_ids": ["NEXORA TECHNOLOGIES PVT.docx"],
+      "project_ids": ["default"],
+      "is_public": false
+    },
+    "retrieval_context": {
+      "query": "Can contractors take casual leave?",
+      "user_roles": ["employee"],
+      "user_project_ids": ["default"],
+      "is_admin": false
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "retrieval_action": "HIT",
+      "failure_type_if_any": "FATAL_FALSE_REUSE",
+      "in_between_edge_type": "QUERY_ANSWER_ENTITY_SHIFT"
+    }
+  },
+  {
+    "id": "CURR-SEAM-COARSE-STALE-MISS",
+    "category": "ADR_V2_SEAM_VULNERABILITY",
+    "description": "Critical architectural seam: Unrelated section of handbook was edited, bumping whole file timestamp. Chunk on Page 1 is 100% unchanged. Current pipeline purges the valid cached response, causing a false cache miss.",
+    "input": {
+      "query": "Is there a grace period for late arrival morning?",
+      "response": "Yes. A 15-minute grace period is provided for occasional delays. Arrival by 9:45 AM falls within the grace period.",
+      "confidence": 0.90,
+      "assigned_role": "employee",
+      "document_ids": ["NEXORA TECHNOLOGIES PVT.docx"],
+      "project_ids": ["default"],
+      "doc_last_updated": {"NEXORA TECHNOLOGIES PVT.docx": 1000.0},
+      "is_public": false
+    },
+    "retrieval_context": {
+      "query": "Is there a grace period for late arrival morning?",
+      "user_roles": ["employee"],
+      "user_project_ids": ["default"],
+      "is_admin": false,
+      "current_document_timestamps": {"NEXORA TECHNOLOGIES PVT.docx": 2000.0}
+    },
+    "expected_output": {
+      "write_admitted": true,
+      "retrieval_action": "STALE_EVICTION",
+      "failure_type_if_any": "FALSE_CACHE_MISS",
+      "in_between_edge_type": "COARSE_WHOLE_DOCUMENT_PURGE"
+    }
+  }
+]
