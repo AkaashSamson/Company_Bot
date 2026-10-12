@@ -788,7 +788,7 @@ class QueryNormalizer:
                 corrected = TYPO_CORRECTIONS[word]
                 if corrected != word:
                     corrections.append(f"typo: {word} -> {corrected}")
-                    corrected_words.append(corrected)
+                corrected_words.append(corrected)
             else:
                 corrected_words.append(word)
         

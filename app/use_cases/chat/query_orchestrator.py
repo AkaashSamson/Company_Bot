@@ -1015,8 +1015,8 @@ class QueryOrchestrator:
                 })
 
         # ── AB-8: Full RAG + LLM pipeline with Authorization Scoping ───
-        # Use normalized/expanded query for retrieval (AB-8)
-        retrieval_query = self.query_resolver.resolve(processed_query, conversation_history)
+        # Use original question for retrieval to preserve semantic context
+        retrieval_query = self.query_resolver.resolve(question, conversation_history)
         retrieval_kwargs = {"top_k": RAG_CANDIDATE_COUNT}
         scope_flags = {
             "authorized_project_ids": None,
@@ -1078,6 +1078,7 @@ class QueryOrchestrator:
                 question=question,
                 context_chunks=selected_evidence,
                 include_system_prompt=True,
+                conversation_history=conversation_history,
             )
         else:
             messages = [

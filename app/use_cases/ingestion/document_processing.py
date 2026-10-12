@@ -1,6 +1,38 @@
 from app.domain.entities.chunk_metadata import build_chunk_metadata
 from app.domain.ports.document_processing import ProcessedDocument
 
+def _contextualize(hierarchy_path: tuple[str, ...], chunk_text: str, budget_chars: int = 200) -> str:
+    """Safely combine heading hierarchy with chunk text within a strict budget.
+    
+    1. Filters out unreasonably long headers (likely paragraphs misidentified by Docling).
+    2. Takes the deepest headers first.
+    3. Prepends them up to `budget_chars` limit.
+    """
+    if not hierarchy_path:
+        return chunk_text
+        
+    # Filter out bad headers (e.g. > 100 characters)
+    valid_headers = [h for h in hierarchy_path if len(h) <= 100]
+    if not valid_headers:
+        return chunk_text
+        
+    # Build prefix starting from deepest/most relevant headers
+    prefix_parts = []
+    current_length = 0
+    
+    for h in reversed(valid_headers):
+        if current_length + len(h) + 3 > budget_chars:
+            break
+        prefix_parts.insert(0, h)
+        current_length += len(h) + 3
+        
+    if not prefix_parts:
+        return chunk_text
+        
+    hierarchy_prefix = " > ".join(prefix_parts)
+    return f"{hierarchy_prefix}\n\n{chunk_text}"
+
+
 def build_chunk_records_from_processed(
     processed: ProcessedDocument,
     document_id: str,
@@ -57,8 +89,7 @@ def build_chunk_records_from_processed(
                 "content_type",
             }:
                 metadata[key] = value
-        hierarchy_text = entry.hierarchy_text
-        text_with_context = f"{hierarchy_text}\n\n{chunk.text}" if hierarchy_text else chunk.text
+        text_with_context = _contextualize(entry.hierarchy_path, chunk.text)
         
         records.append(
             {
