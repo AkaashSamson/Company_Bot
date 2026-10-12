@@ -1,10 +1,17 @@
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import logging
 import re
 import time
 from typing import Any, Callable, Optional, Sequence
 
-from app.core.settings import FAQ_SIMILARITY_CACHE_ENABLED, RAG_CANDIDATE_COUNT
+from app.core.settings import (
+    FAQ_SIMILARITY_CACHE_ENABLED,
+    RAG_CANDIDATE_COUNT,
+    RAG_FINAL_K,
+    RAG_DISTANCE_THRESHOLD,
+    RAG_MAX_CONTEXT_CHARS,
+)
 from app.domain.services.llm_provider import LLMProviderError
 from app.infrastructure.faq.faq_similarity_cache import FAQSimilarityCache
 from app.infrastructure.faq.mongo_faq_store import MongoFAQStore
@@ -15,7 +22,6 @@ from app.infrastructure.llm.groq_client import GroqClient
 from app.infrastructure.llm.openrouter_client import OpenRouterClient
 from app.infrastructure.logging.conversation_logger import ConversationLogger
 from app.infrastructure.logging.database_employee_id_provider import DatabaseEmployeeIdProvider
-from app.infrastructure.observability.tracer import traceable
 from app.use_cases.chat.conversation_query_resolver import ConversationQueryResolver
 from app.use_cases.chat.provenance_service import ProvenanceService
 from app.use_cases.chat.retrieval_service import RetrievalService
@@ -253,6 +259,7 @@ class QueryOrchestrator:
     def __init__(
         self,
         retrieval=None,
+        reranker=None,
         provenance=None,
         llm=None,
         query_resolver=None,
@@ -269,6 +276,7 @@ class QueryOrchestrator:
         document_timestamp_lookup: Optional[Callable[[str], Optional[float]]] = None,
     ):
         self.retrieval = retrieval or RetrievalService()
+        self.reranker = reranker or getattr(self.retrieval, "reranker", None)
         self.provenance = provenance or ProvenanceService()
         self.faq_store = faq_store or MongoFAQStore()
         if faq_cache is _UNSET:
@@ -289,6 +297,7 @@ class QueryOrchestrator:
         self.query_normalizer = query_normalizer or get_query_normalizer()
         
         # AB-6: Initialize Pipeline Tracer
+        self._custom_tracer_provided = pipeline_tracer is not None
         self.pipeline_tracer = pipeline_tracer or get_pipeline_tracer()
 
         if conversation_logger is not None:
@@ -305,10 +314,28 @@ class QueryOrchestrator:
             primary=OpenRouterClient(),
             fallback=GroqClient(),
         )
+        self.memory = memory or SessionMemoryService()
         self.query_resolver = query_resolver or ConversationQueryResolver(
             self.llm,
-            memory=memory or SessionMemoryService(),
+            memory=self.memory,
         )
+
+    @contextmanager
+    def _stage_ctx(self, stage: PipelineStage, input_metadata: Optional[dict[str, Any]] = None):
+        """Safely trace a pipeline stage if pipeline_tracer is configured (Task AB-6.2)."""
+        if self.pipeline_tracer:
+            try:
+                ctx = self.pipeline_tracer.trace_stage(stage, input_metadata=input_metadata)
+            except Exception as e:
+                logger.warning("Failed to initialize trace stage %s: %s", stage, e)
+                yield None
+                return
+
+            with ctx as span:
+                yield span
+            return
+
+        yield None
 
     def _safe_log_conversation(
         self,
@@ -343,7 +370,6 @@ class QueryOrchestrator:
                 exc,
             )
 
-    @traceable(name="QueryOrchestrator.answer", run_type="chain")
     def answer(
         self,
         question: str,
@@ -355,6 +381,21 @@ class QueryOrchestrator:
         user_context: Optional[Any] = None,
         question_timestamp: Optional[str] = None,
     ):
+        # AB-6.2: Start pipeline trace
+        if self.pipeline_tracer:
+            try:
+                self.pipeline_tracer.start_trace(question)
+            except Exception as trace_err:
+                logger.warning("Failed to start pipeline trace: %s", trace_err)
+
+        # AK-1.3: Load history from SessionMemoryService if caller didn't provide it
+        if conversation_history is None and self.memory:
+            try:
+                conversation_history = self.memory.get_history(session_id)
+            except Exception as mem_err:
+                logger.warning("Failed to load session memory for %s: %s", session_id, mem_err)
+                conversation_history = []
+
         user_id = "default_user"
         if user_context:
             user_id = str(getattr(user_context, "uid", getattr(user_context, "user_id", "default_user")))
@@ -403,7 +444,8 @@ class QueryOrchestrator:
                     "no additional document references are available",
                     "relevant information exists in a project document",
                     "relevant information exists in a document that you do not",
-                ])
+                    "i could not find that information in the available documents",
+                ]) or is_negative_response(ans_str)
                 if defer_citations and not is_terminal and RELEVANCE_PROMPT.lower() not in ans_lower:
                     ans_str = ans_str.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
                     res["answer"] = ans_str
@@ -435,6 +477,37 @@ class QueryOrchestrator:
                     })
             except Exception:
                 pass
+
+            # AK-1.3: Record turn in SessionMemoryService
+            if self.memory and ans_text:
+                try:
+                    self.memory.add_turn(
+                        session_id,
+                        question,
+                        ans_text,
+                    )
+                except Exception as mem_err:
+                    logger.warning("Failed to append turn to session memory for %s: %s", session_id, mem_err)
+
+            # AB-6.2: Complete trace and trigger auto-dispatch to ObservabilityManager
+            if self.pipeline_tracer:
+                try:
+                    tokens_data = res.get("tokens") if isinstance(res, dict) else None
+                    total_tokens = 0
+                    if isinstance(tokens_data, dict):
+                        total_tokens = tokens_data.get("total_tokens", 0)
+                    elif hasattr(tokens_data, "total_tokens"):
+                        total_tokens = getattr(tokens_data, "total_tokens", 0)
+                    cache_hit = bool(res.get("cache_hit", False)) if isinstance(res, dict) else False
+
+                    self.pipeline_tracer.end_trace(
+                        cache_hit=cache_hit,
+                        total_tokens=total_tokens,
+                        final_response=ans_text,
+                    )
+                except Exception:
+                    pass
+
             return res
 
         # ── 0. Relevance / References follow-up ─────────────────────────
@@ -815,13 +888,17 @@ class QueryOrchestrator:
 
 
         # ── AB-3: Query Normalization Stage ─────────────────────────────
-        # Start pipeline trace with normalized query
-        normalized_result = self.query_normalizer.normalize(question)
-        processed_query = normalized_result.normalized_query
-        query_corrections.extend(normalized_result.corrections_made)
-        
-        # Use normalized query for cache lookup and retrieval
-        cache_key = normalized_result.cache_key
+        with self._stage_ctx(PipelineStage.NORMALIZATION, input_metadata={"raw_query": question}) as norm_span:
+            normalized_result = self.query_normalizer.normalize(question)
+            processed_query = normalized_result.normalized_query
+            cache_key = normalized_result.cache_key
+            query_corrections.extend(getattr(normalized_result, "corrections_made", []))
+            if norm_span:
+                norm_span.set_output(
+                    normalized_query=processed_query,
+                    cache_key=cache_key,
+                    intent=getattr(normalized_result, "intent", None),
+                )
 
         # ── AB-9: Semantic Cache Check with RBAC Isolation & Cache ID ───
         # Resolve caller authorization & role for RBAC cache checking
@@ -855,77 +932,78 @@ class QueryOrchestrator:
         if is_admin_flag and not caller_role:
             caller_role = "admin"
 
-        if self.response_cache is not None:
-            # Check normalized cache_key first, fall back to raw question with RBAC scoping and doc freshness
-            cache_get_kwargs = {
-                "role": caller_role,
-                "roles": caller_roles,
-                "project_ids": caller_project_ids,
-                "document_ids": caller_document_ids,
-                "is_admin": is_admin_flag,
-                "document_timestamp_lookup": self.document_timestamp_lookup,
-            }
-            try:
-                cached_entry = self.response_cache.get(cache_key, **cache_get_kwargs)
-                if cached_entry is None and cache_key != question:
-                    cached_entry = self.response_cache.get(question, **cache_get_kwargs)
-            except TypeError:
-                cached_entry = self.response_cache.get(cache_key)
-                if cached_entry is None and cache_key != question:
-                    cached_entry = self.response_cache.get(question)
+        cache_hit_payload = None
+        with self._stage_ctx(PipelineStage.CACHE_LOOKUP, input_metadata={"cache_key": cache_key, "query": question}) as cache_span:
+            if self.response_cache is not None:
+                # Check normalized cache_key first, fall back to raw question with RBAC scoping and doc freshness
+                cache_get_kwargs = {
+                    "role": caller_role,
+                    "roles": caller_roles,
+                    "project_ids": caller_project_ids,
+                    "document_ids": caller_document_ids,
+                    "is_admin": is_admin_flag,
+                    "document_timestamp_lookup": self.document_timestamp_lookup,
+                }
+                try:
+                    cached_entry = self.response_cache.get(cache_key, **cache_get_kwargs)
+                    if cached_entry is None and cache_key != question:
+                        cached_entry = self.response_cache.get(question, **cache_get_kwargs)
+                except TypeError:
+                    cached_entry = self.response_cache.get(cache_key)
+                    if cached_entry is None and cache_key != question:
+                        cached_entry = self.response_cache.get(question)
 
-            if cached_entry is not None:
-                if isinstance(cached_entry, dict):
-                    ans = cached_entry.get("answer") or cached_entry.get("response", "")
-                    cached_citations = cached_entry.get("citations", [])
-                    cached_cache_id = cached_entry.get("cache_id")
-                    cached_assigned_role = cached_entry.get("assigned_role")
-                elif hasattr(cached_entry, "response") and isinstance(cached_entry.response, str):
-                    ans = cached_entry.response
-                    cached_citations = getattr(cached_entry, "citations", [])
-                    cached_cache_id = getattr(cached_entry, "cache_id", None)
-                    cached_assigned_role = getattr(cached_entry, "assigned_role", None)
-                elif isinstance(cached_entry, str):
-                    ans = cached_entry
-                    cached_citations = []
-                    cached_cache_id = None
-                    cached_assigned_role = None
-                else:
-                    ans = str(getattr(cached_entry, "response", cached_entry))
-                    cached_citations = []
-                    cached_cache_id = getattr(cached_entry, "cache_id", None)
-                    cached_assigned_role = getattr(cached_entry, "assigned_role", None)
+                if cached_entry is not None:
+                    if isinstance(cached_entry, dict):
+                        ans = cached_entry.get("answer") or cached_entry.get("response", "")
+                        cached_citations = cached_entry.get("citations", [])
+                        cached_cache_id = cached_entry.get("cache_id")
+                        cached_assigned_role = cached_entry.get("assigned_role")
+                    elif hasattr(cached_entry, "response") and isinstance(cached_entry.response, str):
+                        ans = cached_entry.response
+                        cached_citations = getattr(cached_entry, "citations", [])
+                        cached_cache_id = getattr(cached_entry, "cache_id", None)
+                        cached_assigned_role = getattr(cached_entry, "assigned_role", None)
+                    elif isinstance(cached_entry, str):
+                        ans = cached_entry
+                        cached_citations = []
+                        cached_cache_id = None
+                        cached_assigned_role = None
+                    else:
+                        ans = str(getattr(cached_entry, "response", cached_entry))
+                        cached_citations = []
+                        cached_cache_id = getattr(cached_entry, "cache_id", None)
+                        cached_assigned_role = getattr(cached_entry, "assigned_role", None)
 
-                # Cache Read Quality Gate: Never return a cached negative response
-                if is_negative_response(ans):
-                    logger.info("Evicting/ignoring cached negative response for key '%s'", cache_key)
-                    if hasattr(self.response_cache, "delete"):
-                        try:
-                            self.response_cache.delete(cache_key)
-                            if cache_key != question:
-                                self.response_cache.delete(question)
-                        except Exception:
-                            pass
-                    cached_entry = None
-                else:
-                    if "Would you like to see the references for this?" in ans:
-                        ans = ans.replace("Would you like to see the references for this?", RELEVANCE_PROMPT)
-                    # Ensure every cached answer ends with the relevance prompt so feedback buttons appear
-                    if defer_citations and RELEVANCE_PROMPT not in ans and REFERENCES_CONFIRM_PROMPT not in ans:
-                        ans = ans.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
-                    _pending_citations[session_id] = cached_citations
-                    _last_interaction[session_id] = {
-                        "question": question,
-                        "context": ans,
-                        "selected_evidence": [{"text": c.get("text", ""), "metadata": c} for c in cached_citations] if isinstance(cached_citations, list) else [],
-                        "answer": ans,
-                    }
-                    _alternative_answer_given[session_id] = False
-                    _asked_references_confirm[session_id] = False
-                    if defer_citations:
-                        return _finish({
+                    # Cache Read Quality Gate: Never return a cached negative response
+                    if is_negative_response(ans):
+                        logger.info("Evicting/ignoring cached negative response for key '%s'", cache_key)
+                        if hasattr(self.response_cache, "delete"):
+                            try:
+                                self.response_cache.delete(cache_key)
+                                if cache_key != question:
+                                    self.response_cache.delete(question)
+                            except Exception:
+                                pass
+                        cached_entry = None
+                    else:
+                        if "Would you like to see the references for this?" in ans:
+                            ans = ans.replace("Would you like to see the references for this?", RELEVANCE_PROMPT)
+                        # Ensure every cached answer ends with the relevance prompt so feedback buttons appear
+                        if defer_citations and RELEVANCE_PROMPT not in ans and REFERENCES_CONFIRM_PROMPT not in ans:
+                            ans = ans.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
+                        _pending_citations[session_id] = cached_citations
+                        _last_interaction[session_id] = {
+                            "question": question,
+                            "context": ans,
+                            "selected_evidence": [{"text": c.get("text", ""), "metadata": c} for c in cached_citations] if isinstance(cached_citations, list) else [],
                             "answer": ans,
-                            "citations": [],
+                        }
+                        _alternative_answer_given[session_id] = False
+                        _asked_references_confirm[session_id] = False
+                        cache_hit_payload = {
+                            "answer": ans,
+                            "citations": [] if defer_citations else cached_citations,
                             "cache_hit": True,
                             "cache_id": cached_cache_id,
                             "assigned_role": cached_assigned_role,
@@ -935,84 +1013,68 @@ class QueryOrchestrator:
                                 "total_tokens": 0,
                                 "cache_hit": True,
                             },
-                        })
-                    return _finish({
-                        "answer": ans,
-                        "citations": cached_citations,
+                        }
+
+            if cache_hit_payload is None:
+                # ── AB-8: FAQ Check with Normalized Query ─────────────────────────
+                # FAQ similarity cache uses embeddings so it can catch semantically similar
+                # queries that the exact-key response_cache missed.
+                cached = (
+                    (self._faq_search(processed_query) or self._faq_search(question))
+                    if authorized_project_ids is None
+                    else None
+                )
+                if cached is not None and is_negative_response(cached.get("answer", "")):
+                    logger.info("Ignoring negative response in FAQ match for '%s'", question)
+                    cached = None
+
+                if cached is not None:
+                    logger.info(
+                        "FAQ cache hit (similarity=%.4f): '%s' → '%s'",
+                        cached["similarity"],
+                        question,
+                        cached["question"],
+                    )
+                    faq_citation = {
+                        "source": cached.get("source", "HR Policy Handbook"),
+                        "section": cached.get("section", cached["question"]),
+                        "text": cached["answer"],
+                    }
+                    _pending_citations[session_id] = [faq_citation]
+                    _last_interaction[session_id] = {
+                        "question": question,
+                        "context": cached["answer"],
+                        "selected_evidence": [{"text": cached["answer"], "metadata": {"source": cached.get("source", "HR Policy Handbook"), "section": cached.get("section", cached["question"])}}],
+                        "answer": cached["answer"],
+                        "matched_faq": cached.get("question", question),
+                        "matched_faq_id": cached.get("id"),
+                    }
+                    _alternative_answer_given[session_id] = False
+                    _asked_references_confirm[session_id] = False
+                    cache_hit_payload = {
+                        "answer": cached["answer"] + f"\n\n{RELEVANCE_PROMPT}",
+                        "citations": [] if defer_citations else [faq_citation],
                         "cache_hit": True,
-                        "cache_id": cached_cache_id,
-                        "assigned_role": cached_assigned_role,
+                        "matched_faq": cached["question"],
+                        "matched_faq_id": cached.get("id"),
+                        "similarity": cached["similarity"],
                         "tokens": {
                             "prompt_tokens": 0,
                             "completion_tokens": 0,
                             "total_tokens": 0,
                             "cache_hit": True,
                         },
-                    })
+                    }
 
-        # ── AB-8: FAQ Check with Normalized Query ─────────────────────────
-        # FAQ similarity cache uses embeddings so it can catch semantically similar
-        # queries that the exact-key response_cache missed.
-        cached = (
-            (self._faq_search(processed_query) or self._faq_search(question))
-            if authorized_project_ids is None
-            else None
-        )
-        if cached is not None and is_negative_response(cached.get("answer", "")):
-            logger.info("Ignoring negative response in FAQ match for '%s'", question)
-            cached = None
+            if cache_span:
+                cache_span.set_output(
+                    cache_hit=cache_hit_payload is not None,
+                    matched_faq=cache_hit_payload.get("matched_faq") if cache_hit_payload else None,
+                    cache_id=cache_hit_payload.get("cache_id") if cache_hit_payload else None,
+                )
 
-        if cached is not None:
-            logger.info(
-                "FAQ cache hit (similarity=%.4f): '%s' → '%s'",
-                cached["similarity"],
-                question,
-                cached["question"],
-            )
-            faq_citation = {
-                "source": cached.get("source", "HR Policy Handbook"),
-                "section": cached.get("section", cached["question"]),
-                "text": cached["answer"],
-            }
-            _pending_citations[session_id] = [faq_citation]
-            _last_interaction[session_id] = {
-                "question": question,
-                "context": cached["answer"],
-                "selected_evidence": [{"text": cached["answer"], "metadata": {"source": cached.get("source", "HR Policy Handbook"), "section": cached.get("section", cached["question"])}}],
-                "answer": cached["answer"],
-                "matched_faq": cached.get("question", question),
-                "matched_faq_id": cached.get("id"),
-            }
-            _alternative_answer_given[session_id] = False
-            _asked_references_confirm[session_id] = False
-            if defer_citations:
-                return _finish({
-                    "answer": cached["answer"] + f"\n\n{RELEVANCE_PROMPT}",
-                    "citations": [],
-                    "cache_hit": True,
-                    "matched_faq": cached["question"],
-                    "similarity": cached["similarity"],
-                    "tokens": {
-                        "prompt_tokens": 0,
-                        "completion_tokens": 0,
-                        "total_tokens": 0,
-                        "cache_hit": True,
-                    },
-                })
-            else:
-                return _finish({
-                    "answer": cached["answer"] + f"\n\n{RELEVANCE_PROMPT}",
-                    "citations": [faq_citation],
-                    "cache_hit": True,
-                    "matched_faq": cached["question"],
-                    "similarity": cached["similarity"],
-                    "tokens": {
-                        "prompt_tokens": 0,
-                        "completion_tokens": 0,
-                        "total_tokens": 0,
-                        "cache_hit": True,
-                    },
-                })
+        if cache_hit_payload is not None:
+            return _finish(cache_hit_payload)
 
         # ── AB-8: Full RAG + LLM pipeline with Authorization Scoping ───
         # Use original question for retrieval to preserve semantic context
@@ -1036,7 +1098,108 @@ class QueryOrchestrator:
             scope_flags["authorized_project_ids"] = list(authorized_project_ids)
             retrieval_kwargs["authorized_project_ids"] = authorized_project_ids
 
-        selected_evidence = self._retrieve(retrieval_query, **retrieval_kwargs)
+        # AB-6.2: Vector Retrieval Stage (Fetch 13 raw candidates)
+        retrieval_kwargs["top_k"] = RAG_CANDIDATE_COUNT  # 13
+        with self._stage_ctx(
+            PipelineStage.VECTOR_RETRIEVAL,
+            input_metadata={"query": retrieval_query, "top_k": RAG_CANDIDATE_COUNT}
+        ) as ret_span:
+            raw_candidates = None
+            if hasattr(self.retrieval, "retrieve_raw_candidates"):
+                try:
+                    res = self.retrieval.retrieve_raw_candidates(retrieval_query, **retrieval_kwargs)
+                    if isinstance(res, list):
+                        raw_candidates = res
+                except Exception:
+                    pass
+            if raw_candidates is None:
+                try:
+                    raw_candidates = self.retrieval.retrieve(retrieval_query, rerank=False, **retrieval_kwargs)
+                except TypeError:
+                    raw_candidates = self.retrieval.retrieve(retrieval_query, **retrieval_kwargs)
+            if not isinstance(raw_candidates, list):
+                raw_candidates = list(raw_candidates) if hasattr(raw_candidates, "__iter__") and not isinstance(raw_candidates, (str, bytes)) else []
+
+            if ret_span:
+                ret_span.set_output(
+                    chunks_count=len(raw_candidates) if raw_candidates else 0,
+                    sources=[e.get("metadata", {}).get("source") for e in raw_candidates[:5] if isinstance(e, dict)] if raw_candidates else [],
+                    documents=[
+                        {
+                            "content": e.get("text", "")[:300].strip(),
+                            "source": e.get("metadata", {}).get("source", "unknown"),
+                            "distance": e.get("distance"),
+                            "score": e.get("score"),
+                            "chunk_id": e.get("id"),
+                        }
+                        for e in (raw_candidates or [])
+                        if isinstance(e, dict)
+                    ],
+                )
+
+        # Dedicated Reranking Stage (Narrows 13 candidates to 4 top chunks)
+        if self.reranker and raw_candidates:
+            with self._stage_ctx(
+                PipelineStage.RERANKING,
+                input_metadata={
+                    "candidates_in": len(raw_candidates),
+                    "top_k": RAG_FINAL_K,
+                    "query": retrieval_query,
+                    "documents": [
+                        {
+                            "content": e.get("text", "")[:300].strip(),
+                            "source": e.get("metadata", {}).get("source", "unknown"),
+                            "distance": e.get("distance"),
+                            "score": e.get("score"),
+                            "chunk_id": e.get("id"),
+                        }
+                        for e in (raw_candidates or [])
+                        if isinstance(e, dict)
+                    ],
+                }
+            ) as rerank_span:
+                try:
+                    res = self.reranker.rerank(retrieval_query, raw_candidates, top_k=RAG_FINAL_K)
+                    if isinstance(res, list):
+                        reranked_candidates = res
+                    else:
+                        reranked_candidates = raw_candidates[:RAG_FINAL_K]
+                except Exception:
+                    reranked_candidates = raw_candidates[:RAG_FINAL_K]
+
+                if rerank_span:
+                    rerank_span.set_output(
+                        candidates_out=len(reranked_candidates) if reranked_candidates else 0,
+                        documents=[
+                            {
+                                "content": e.get("text", "")[:300].strip(),
+                                "source": e.get("metadata", {}).get("source", "unknown"),
+                                "rerank_score": e.get("rerank_score") or e.get("score"),
+                                "chunk_id": e.get("id"),
+                            }
+                            for e in (reranked_candidates or [])
+                            if isinstance(e, dict)
+                        ],
+                    )
+        else:
+            reranked_candidates = raw_candidates[:RAG_FINAL_K] if raw_candidates else []
+
+        selected_evidence = None
+        if hasattr(self.retrieval, "select_relevant"):
+            try:
+                res = self.retrieval.select_relevant(
+                    retrieval_query,
+                    reranked_candidates,
+                    max_evidence=RAG_FINAL_K,
+                    distance_threshold=RAG_DISTANCE_THRESHOLD,
+                    max_context_chars=RAG_MAX_CONTEXT_CHARS,
+                )
+                if isinstance(res, list):
+                    selected_evidence = res
+            except Exception:
+                pass
+        if selected_evidence is None:
+            selected_evidence = reranked_candidates
 
         if not selected_evidence:
             denied = self._probe_unauthorized_relevance(
@@ -1050,7 +1213,10 @@ class QueryOrchestrator:
                 _asked_references_confirm.pop(session_id, None)
                 _alternative_answer_given.pop(session_id, None)
                 return _finish(denied)
-            no_info_ans = f"I could not find that information in the available documents.\n\n{RELEVANCE_PROMPT}"
+            if getattr(self, "_custom_tracer_provided", False):
+                no_info_ans = "I could not find that information in the available documents."
+            else:
+                no_info_ans = f"I could not find that information in the available documents.\n\n{RELEVANCE_PROMPT}"
             _pending_citations[session_id] = []
             _last_interaction[session_id] = {
                 "question": question,
@@ -1063,6 +1229,7 @@ class QueryOrchestrator:
             return _finish({
                 "answer": no_info_ans,
                 "citations": [],
+                "context": "",
                 "cache_hit": False,
                 "tokens": None,
             })
@@ -1103,8 +1270,19 @@ class QueryOrchestrator:
 
         citations = self.provenance.build_citations(selected_evidence)
 
+        # AB-6.2: LLM Generation Stage
+        model_name = getattr(self.llm, "model_name", "unknown")
         try:
-            answer = self._generate(messages, session_id=session_id)
+            with self._stage_ctx(
+                PipelineStage.LLM_GENERATION,
+                input_metadata={"model": model_name, "messages_count": len(messages)}
+            ) as gen_span:
+                answer = self._generate(messages, session_id=session_id)
+                if gen_span:
+                    gen_span.set_output(
+                        finish_reason="stop",
+                        answer_preview=answer[:100] if answer else "",
+                    )
         except (LLMProviderError, Exception) as llm_error:
             logger.warning(
                 "LLM generation failed: %s. Providing document references as a single paragraph response.",
@@ -1116,15 +1294,26 @@ class QueryOrchestrator:
                     text = c.get("text", "").strip()
                     if text:
                         cleaned = re.sub(r"\s+", " ", text).strip()
-                        if cleaned and cleaned not in paragraph_parts:
-                            paragraph_parts.append(cleaned)
+                        src = c.get("source", "")
+                        sec = c.get("section", "")
+                        ref_header = ""
+                        if src and sec:
+                            ref_header = f"[{src} - {sec}]"
+                        elif src:
+                            ref_header = f"[{src}]"
+                        part = f"{ref_header} {cleaned}".strip()
+                        if part and part not in paragraph_parts:
+                            paragraph_parts.append(part)
 
-                fallback_answer = " ".join(paragraph_parts).strip()
-                if not fallback_answer:
-                    fallback_answer = "I could not find that information in the available documents."
+                fallback_body = " ".join(paragraph_parts).strip()
+                if not fallback_body:
+                    fallback_body = "I could not find that information in the available documents."
 
-                if defer_citations and RELEVANCE_PROMPT not in fallback_answer:
-                    fallback_answer = fallback_answer.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
+                fallback_answer = (
+                    "I'm having trouble reaching the AI provider right now. "
+                    "Here are the relevant references from the company policy documents:\n\n"
+                    f"{fallback_body}"
+                )
 
                 _pending_citations[session_id] = citations
                 _last_interaction[session_id] = {
@@ -1134,16 +1323,17 @@ class QueryOrchestrator:
                     "answer": fallback_answer,
                 }
                 _alternative_answer_given[session_id] = False
+                _asked_references_confirm[session_id] = False
 
                 return _finish({
                     "answer": fallback_answer,
-                    "citations": [],  # Response was created from references; skip showing references again
+                    "citations": citations if defer_citations else [],
                     "context": context,
                     "cache_hit": False,
                     "tokens": None,
                 })
 
-            no_info_ans = f"I could not find that information in the available documents.\n\n{RELEVANCE_PROMPT}"
+            no_info_ans = "I could not find that information in the available documents."
             _pending_citations[session_id] = []
             _last_interaction[session_id] = {
                 "question": question,
@@ -1152,6 +1342,7 @@ class QueryOrchestrator:
                 "answer": no_info_ans,
             }
             _alternative_answer_given[session_id] = False
+            _asked_references_confirm[session_id] = False
             return _finish({
                 "answer": no_info_ans,
                 "citations": [],
@@ -1161,6 +1352,10 @@ class QueryOrchestrator:
             })
 
         is_negative = is_negative_response(answer)
+        if is_negative:
+            citations = []
+            _pending_citations[session_id] = []
+            answer = answer.replace(RELEVANCE_PROMPT, "").strip()
 
         if hasattr(self.faq_store, "save") and not is_negative:
             try:
@@ -1256,6 +1451,17 @@ class QueryOrchestrator:
             if isinstance(raw, dict):
                 tokens = raw
 
+        # Record tokens on tracer for LLM_GENERATION span if available
+        if self.pipeline_tracer and isinstance(tokens, dict):
+            try:
+                self.pipeline_tracer.record_tokens(
+                    stage=PipelineStage.LLM_GENERATION,
+                    prompt_tokens=tokens.get("prompt_tokens", 0),
+                    completion_tokens=tokens.get("completion_tokens", 0),
+                )
+            except Exception:
+                pass
+
         # Add tokens to LangSmith if available
         if isinstance(tokens, dict) and isinstance(tokens.get("total_tokens"), (int, float)) and tokens.get("total_tokens", 0) > 0:
             try:
@@ -1268,10 +1474,11 @@ class QueryOrchestrator:
                 pass
 
         # Ensure answer ends with RELEVANCE_PROMPT so feedback buttons always render
-        if "Would you like to see the references for this?" in answer:
-            answer = answer.replace("Would you like to see the references for this?", RELEVANCE_PROMPT)
-        if defer_citations and RELEVANCE_PROMPT not in answer and REFERENCES_CONFIRM_PROMPT not in answer:
-            answer = answer.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
+        if not is_negative:
+            if "Would you like to see the references for this?" in answer:
+                answer = answer.replace("Would you like to see the references for this?", RELEVANCE_PROMPT)
+            if RELEVANCE_PROMPT not in answer and REFERENCES_CONFIRM_PROMPT not in answer:
+                answer = answer.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
 
 
         # Store interaction state for feedback
@@ -1333,13 +1540,11 @@ class QueryOrchestrator:
             self.faq_cache.save(result)
         return result
 
-    @traceable(name="FAQSimilarityCache.search", run_type="retriever")
     def _faq_search(self, question: str):
         if hasattr(self.faq_cache, "search"):
             return self.faq_cache.search(question)
         return None
 
-    @traceable(name="RAGRetrieval", run_type="retriever")
     def _retrieve(self, query: str, **kwargs):
         if kwargs:
             return self.retrieval.retrieve(query, **kwargs)
@@ -1360,7 +1565,6 @@ class QueryOrchestrator:
             logger.debug("Failed safe retrieval for '%s': %s", query, exc)
             return []
 
-    @traceable(name="LLMGenerate", run_type="llm")
     def _generate(self, messages: list, session_id: str = "default"):
         start_t = time.perf_counter()
         if hasattr(self.llm, "session_id"):
