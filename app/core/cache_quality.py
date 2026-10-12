@@ -68,3 +68,52 @@ def is_negative_response(text: Optional[str]) -> bool:
 
     normalized = re.sub(r"\s+", " ", text).strip()
     return any(pattern.search(normalized) for pattern in _NEGATIVE_RESPONSE_PATTERNS)
+
+
+# ============================================================
+# Query Intent Classification & Cache Compatibility (AB-9)
+# ============================================================
+
+def classify_query_intent(query_text: str) -> str:
+    """Classify user query into 10-category actionable intent."""
+    from app.use_cases.chat.query_intent_classifier import get_query_intent_classifier
+    return get_query_intent_classifier().classify(query_text).intent.value.upper()
+
+
+def check_cache_intent_compatibility(query1: str, query2: str) -> bool:
+    """Verify that two queries share compatible intent and topic before reusing a cached answer."""
+    from app.use_cases.chat.query_intent_classifier import get_query_intent_classifier, CachePolicy, QueryIntent
+    classifier = get_query_intent_classifier()
+    res1 = classifier.classify(query1)
+    res2 = classifier.classify(query2)
+
+    # 1. Never share personal status answers in shared cache
+    if res1.cache_policy == CachePolicy.NO_SHARED_CACHE or res2.cache_policy == CachePolicy.NO_SHARED_CACHE:
+        return False
+    if res1.cache_policy == CachePolicy.NO_CACHE or res2.cache_policy == CachePolicy.NO_CACHE:
+        return False
+
+    # 2. Both intent and topic must match (unless general QA)
+    if res1.intent != res2.intent and res1.intent != QueryIntent.GENERAL_QA and res2.intent != QueryIntent.GENERAL_QA:
+        return False
+    if res1.topic != res2.topic and res1.topic.value != "general" and res2.topic.value != "general":
+        return False
+
+    return True
+
+
+_INTENT_STOPWORDS = {
+    "what", "are", "is", "the", "and", "or", "a", "an", "to", "in", "of", "for",
+    "can", "u", "you", "out", "do", "i", "my", "how", "about", "regarding", "please",
+}
+
+
+def calculate_content_token_overlap(query1: str, query2: str) -> float:
+    """Calculate overlap of significant content words between two queries."""
+    clean1 = re.sub(r"[^a-z0-9\s]", " ", (query1 or "").lower())
+    clean2 = re.sub(r"[^a-z0-9\s]", " ", (query2 or "").lower())
+    toks1 = {w for w in clean1.split() if len(w) > 1 and w not in _INTENT_STOPWORDS}
+    toks2 = {w for w in clean2.split() if len(w) > 1 and w not in _INTENT_STOPWORDS}
+    if not toks1 or not toks2:
+        return 0.0
+    return len(toks1 & toks2) / max(1, min(len(toks1), len(toks2)))
