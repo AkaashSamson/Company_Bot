@@ -20,10 +20,8 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 import numpy as np
 
-def is_negative_response(response: str) -> bool:
-    return False
-
-SEMANTIC_CACHE_SIMILARITY_THRESHOLD = 0.90
+from app.core.cache_quality import is_negative_response
+from app.core.settings import SEMANTIC_CACHE_SIMILARITY_THRESHOLD
 
 logger = logging.getLogger(__name__)
 
