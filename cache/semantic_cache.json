@@ -115,5 +115,157 @@
       "unassigned"
     ],
     "is_public": false
+  },
+  "what_be_the_project_role_and_responsibility": {
+    "cache_key": "what_be_the_project_role_and_responsibility",
+    "original_query": "what are the Project Roles and Responsibilities",
+    "response": "Based on the provided document, the Project Roles and Responsibilities section outlines the Task Lifecycle: a task begins with a clear requirement, the owner investigates, plans implementation, performs the work, validates results, and records outcomes. Dependencies or blockers should be communicated early rather than near deadlines. The document does not specify distinct project roles beyond the task owner.\n\nWould you like to see the references for this?",
+    "confidence": 1.0,
+    "source": "semantic_cache",
+    "evidence_count": 0,
+    "model": "",
+    "citations": [
+      {
+        "source": "Three_Page_Test_Document.docx",
+        "section": "Policy",
+        "text": "Project Roles and Responsibilities 6. Task Lifecycle A task generally begins with a clear requirement. The owner then investigates the requirement, plans the implementation, performs the work, validates the result, and records the outcome. If a dependency or blocker appears, it should be communicated early rather than discovered near the deadline. 7.",
+        "document_id": "DOC-005",
+        "project_id": "121"
+      },
+      {
+        "source": "Project_Document_Test 1.docx",
+        "section": "Policy",
+        "text": "PROJECT OVERVIEW \u2014 KNOWLEDGE ASSISTANT Project Goal: Build an internal knowledge assistant that allows authorized employees to ask questions about company and project documents and receive evidence-backed answers. Problem Statement: Important organizational knowledge is distributed across employee handbooks, project documents, technical material, and other files. Employees need a controlled way to find relevant information without exposing documents they are not authorized to access.",
+        "document_id": "DOC-001",
+        "project_id": "121"
+      },
+      {
+        "source": "NEXORA TECHNOLOGIES PVT.docx",
+        "section": "Policy",
+        "text": "Changes in Job Role Nexora may modify an employee's responsibilities based on business requirements, organizational changes, project requirements, or career development considerations. Where a substantial change to an employee's role affects their employment terms, the company will communicate the applicable changes through the appropriate formal process. Employees are expected to cooperate with reasonable changes in responsibilities that fall within the scope of their employment."
+      },
+      {
+        "source": "NEXORA TECHNOLOGIES PVT.docx",
+        "section": "Policy",
+        "text": "Development plans may include: Training Mentoring New responsibilities Internal projects Job-shadowing opportunities Certifications Participation in a development activity does not guarantee promotion. 16. Employee Grievances 16.1 Purpose Nexora provides employees with channels to raise workplace concerns, complaints, or grievances and seeks to address them fairly and appropriately. Employees are encouraged to raise concerns as early as reasonably possible."
+      }
+    ],
+    "created_at": 1791783612.5046728,
+    "metadata": {},
+    "cache_id": "cch_e69190761b93",
+    "assigned_role": "Admin",
+    "document_ids": [
+      "Project_Document_Test 1.docx",
+      "NEXORA TECHNOLOGIES PVT.docx",
+      "Three_Page_Test_Document.docx",
+      "DOC-005",
+      "DOC-001"
+    ],
+    "project_ids": [
+      "121"
+    ],
+    "is_public": false
+  },
+  "what are the Project Roles and Responsibilities": {
+    "cache_key": "what are the Project Roles and Responsibilities",
+    "original_query": "what are the Project Roles and Responsibilities",
+    "response": "Based on the provided document, the Project Roles and Responsibilities section outlines the Task Lifecycle: a task begins with a clear requirement, the owner investigates, plans implementation, performs the work, validates results, and records outcomes. Dependencies or blockers should be communicated early rather than near deadlines. The document does not specify distinct project roles beyond the task owner.\n\nWould you like to see the references for this?",
+    "confidence": 1.0,
+    "source": "semantic_cache",
+    "evidence_count": 0,
+    "model": "",
+    "citations": [
+      {
+        "source": "Three_Page_Test_Document.docx",
+        "section": "Policy",
+        "text": "Project Roles and Responsibilities 6. Task Lifecycle A task generally begins with a clear requirement. The owner then investigates the requirement, plans the implementation, performs the work, validates the result, and records the outcome. If a dependency or blocker appears, it should be communicated early rather than discovered near the deadline. 7.",
+        "document_id": "DOC-005",
+        "project_id": "121"
+      },
+      {
+        "source": "Project_Document_Test 1.docx",
+        "section": "Policy",
+        "text": "PROJECT OVERVIEW \u2014 KNOWLEDGE ASSISTANT Project Goal: Build an internal knowledge assistant that allows authorized employees to ask questions about company and project documents and receive evidence-backed answers. Problem Statement: Important organizational knowledge is distributed across employee handbooks, project documents, technical material, and other files. Employees need a controlled way to find relevant information without exposing documents they are not authorized to access.",
+        "document_id": "DOC-001",
+        "project_id": "121"
+      },
+      {
+        "source": "NEXORA TECHNOLOGIES PVT.docx",
+        "section": "Policy",
+        "text": "Changes in Job Role Nexora may modify an employee's responsibilities based on business requirements, organizational changes, project requirements, or career development considerations. Where a substantial change to an employee's role affects their employment terms, the company will communicate the applicable changes through the appropriate formal process. Employees are expected to cooperate with reasonable changes in responsibilities that fall within the scope of their employment."
+      },
+      {
+        "source": "NEXORA TECHNOLOGIES PVT.docx",
+        "section": "Policy",
+        "text": "Development plans may include: Training Mentoring New responsibilities Internal projects Job-shadowing opportunities Certifications Participation in a development activity does not guarantee promotion. 16. Employee Grievances 16.1 Purpose Nexora provides employees with channels to raise workplace concerns, complaints, or grievances and seeks to address them fairly and appropriately. Employees are encouraged to raise concerns as early as reasonably possible."
+      }
+    ],
+    "created_at": 1791783613.224086,
+    "metadata": {},
+    "cache_id": "cch_e69190761b93",
+    "assigned_role": "Admin",
+    "document_ids": [
+      "Project_Document_Test 1.docx",
+      "NEXORA TECHNOLOGIES PVT.docx",
+      "Three_Page_Test_Document.docx",
+      "DOC-005",
+      "DOC-001"
+    ],
+    "project_ids": [
+      "121"
+    ],
+    "is_public": false
+  },
+  "list the Project Roles and Responsibilities": {
+    "cache_key": "list the Project Roles and Responsibilities",
+    "original_query": "list the Project Roles and Responsibilities",
+    "response": "Based on the provided document, the Project Roles and Responsibilities section outlines the Task Lifecycle: a task begins with a clear requirement, the owner investigates, plans implementation, performs the work, validates results, and records outcomes. Dependencies or blockers should be communicated early rather than near deadlines. The document does not specify distinct project roles beyond the task owner.\n\nWould you like to see the references for this?",
+    "confidence": 0.895236,
+    "source": "langcache",
+    "evidence_count": 0,
+    "model": "",
+    "citations": [
+      {
+        "source": "Three_Page_Test_Document.docx",
+        "section": "Policy",
+        "text": "Project Roles and Responsibilities 6. Task Lifecycle A task generally begins with a clear requirement. The owner then investigates the requirement, plans the implementation, performs the work, validates the result, and records the outcome. If a dependency or blocker appears, it should be communicated early rather than discovered near the deadline. 7.",
+        "document_id": "DOC-005",
+        "project_id": "121"
+      },
+      {
+        "source": "Project_Document_Test 1.docx",
+        "section": "Policy",
+        "text": "PROJECT OVERVIEW \u2014 KNOWLEDGE ASSISTANT Project Goal: Build an internal knowledge assistant that allows authorized employees to ask questions about company and project documents and receive evidence-backed answers. Problem Statement: Important organizational knowledge is distributed across employee handbooks, project documents, technical material, and other files. Employees need a controlled way to find relevant information without exposing documents they are not authorized to access.",
+        "document_id": "DOC-001",
+        "project_id": "121"
+      },
+      {
+        "source": "NEXORA TECHNOLOGIES PVT.docx",
+        "section": "Policy",
+        "text": "Changes in Job Role Nexora may modify an employee's responsibilities based on business requirements, organizational changes, project requirements, or career development considerations. Where a substantial change to an employee's role affects their employment terms, the company will communicate the applicable changes through the appropriate formal process. Employees are expected to cooperate with reasonable changes in responsibilities that fall within the scope of their employment."
+      },
+      {
+        "source": "NEXORA TECHNOLOGIES PVT.docx",
+        "section": "Policy",
+        "text": "Development plans may include: Training Mentoring New responsibilities Internal projects Job-shadowing opportunities Certifications Participation in a development activity does not guarantee promotion. 16. Employee Grievances 16.1 Purpose Nexora provides employees with channels to raise workplace concerns, complaints, or grievances and seeks to address them fairly and appropriately. Employees are encouraged to raise concerns as early as reasonably possible."
+      }
+    ],
+    "created_at": 1791783658.7935135,
+    "metadata": {
+      "stored_prompt": "what are the Project Roles and Responsibilities"
+    },
+    "cache_id": "26f770b86cb1a7d4242a7a2841500648",
+    "assigned_role": "Admin",
+    "document_ids": [
+      "Project_Document_Test 1.docx",
+      "NEXORA TECHNOLOGIES PVT.docx",
+      "Three_Page_Test_Document.docx",
+      "DOC-005",
+      "DOC-001"
+    ],
+    "project_ids": [
+      "121"
+    ],
+    "is_public": false
   }
 }

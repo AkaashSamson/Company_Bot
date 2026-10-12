@@ -33,7 +33,7 @@ PyJWT>=2.8.0
 # ============================================
 # AB-13: New Dependencies for V3 Features
 # ============================================
-
+redis>=5.0.0
 # Semantic Cache (AB-4, AB-14)
 langcache>=0.1.0
 
