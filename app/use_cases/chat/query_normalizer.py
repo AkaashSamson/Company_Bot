@@ -198,6 +198,7 @@ QWERTY_MISTAKES = {
     "woek": "work",
     "requst": "request",
     "reques": "request",
+    "u": "you",
 }
 
 
@@ -1011,6 +1012,7 @@ class QueryNormalizer:
         # Simple hash - just use the normalized query lowercased
         key = normalized_query.lower().strip()
         # Canonicalize leading question prefixes for policy/informational questions
+        key = re.sub(r'^(?:can\s+(?:you|u)\s+)?(?:please\s+)?(?:list\s+out|list\s+down|list)\s+(?:the\s+|all\s+)?', 'list_the_', key)
         key = re.sub(r'^(?:what|how)\s+is\s+(?:the\s+)?', 'what_is_the_', key)
         key = re.sub(r'^(?:what|how)\s+are\s+(?:the\s+)?', 'what_are_the_', key)
         key = re.sub(r'^(?:tell\s+me\s+about\s+(?:the\s+)?|explain\s+(?:the\s+)?)', 'what_is_the_', key)

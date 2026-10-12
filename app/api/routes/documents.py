@@ -87,6 +87,14 @@ def delete_document(
 ):
     try:
         service.delete_document(principal, document_id)
+        # Invalidate any cached answers that reference the deleted document
+        try:
+            from app.infrastructure.cache.factory import get_semantic_cache
+            cache = get_semantic_cache()
+            if cache and hasattr(cache, "invalidate_document"):
+                cache.invalidate_document(document_id)
+        except Exception:
+            pass
     except Exception as error:
         raise _error(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)

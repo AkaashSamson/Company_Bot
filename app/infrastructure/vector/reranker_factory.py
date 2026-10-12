@@ -11,7 +11,7 @@ def get_reranker() -> RerankerPort:
     Factory function to dynamically instantiate the correct reranker 
     adapter based on the RERANKER_PROVIDER environment variable.
     """
-    provider = settings.RERANKER_PROVIDER.strip().lower()
+    provider = getattr(settings, "RERANKER_PROVIDER", "bge").strip().lower()
 
     if provider == "bge":
         logger.info(f"Initializing BgeReranker with model: {settings.RAG_RERANKER_MODEL}")
