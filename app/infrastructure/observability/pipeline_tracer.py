@@ -22,11 +22,16 @@ import logging
 import threading
 import time
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Generator, Optional
 
 logger = logging.getLogger(__name__)
+
+# Execution context variables to isolate concurrent request traces (Ponytail Rung 3)
+_current_trace_id_var: ContextVar[Optional[str]] = ContextVar("current_trace_id", default=None)
+_current_span_var: ContextVar[Optional['StageSpan']] = ContextVar("current_span", default=None)
 
 
 class PipelineStage(Enum):
@@ -143,7 +148,7 @@ class TraceContext:
     ):
         self.stage = stage
         self.tracer = tracer
-        self.trace_id = trace_id
+        self.trace_id = trace_id or _current_trace_id_var.get()
         self.input_metadata = input_metadata or {}
         self.output_metadata: dict[str, Any] = {}
         self.span: Optional[StageSpan] = None
@@ -174,10 +179,12 @@ class TraceContext:
                 input_metadata=dict(self.input_metadata),
             )
             with tracer._lock:
-                trace = tracer._traces.get(self.trace_id) if self.trace_id else tracer._current_trace
+                resolved_trace_id = self.trace_id or _current_trace_id_var.get()
+                trace = tracer._traces.get(resolved_trace_id) if resolved_trace_id else tracer._current_trace
                 if trace:
                     trace.add_span(self.span)
                     tracer._current_span = self.span
+                    _current_span_var.set(self.span)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -455,6 +462,7 @@ class PipelineTracer:
         with self._lock:
             self._traces[trace.trace_id] = trace
             self._current_trace = trace
+            _current_trace_id_var.set(trace.trace_id)
             
             # Cleanup old traces if needed
             if len(self._traces) > self.max_traces:
@@ -493,13 +501,14 @@ class PipelineTracer:
             return None
         
         with self._lock:
-            if trace_id:
-                trace = self._traces.get(trace_id)
+            resolved_trace_id = trace_id or _current_trace_id_var.get()
+            if resolved_trace_id:
+                trace = self._traces.get(resolved_trace_id)
             else:
                 trace = self._current_trace
             
             if trace is None:
-                logger.warning("pipeline_trace_not_found trace_id=%s", trace_id)
+                logger.warning("pipeline_trace_not_found trace_id=%s", trace_id or resolved_trace_id)
                 return None
             
             trace.finish(
@@ -524,7 +533,10 @@ class PipelineTracer:
                 except Exception as e:
                     logger.warning("observability_autodispatch_failed error=%s", e)
             
-            self._current_trace = None
+            if self._current_trace is trace:
+                self._current_trace = None
+            _current_trace_id_var.set(None)
+            _current_span_var.set(None)
             
             logger.info(
                 "pipeline_trace_completed trace_id=%s duration_ms=%.2f cache_hit=%s tokens=%d",
@@ -580,7 +592,7 @@ class PipelineTracer:
     ) -> None:
         """Record token usage for current/last span."""
         with self._lock:
-            span = self._current_span
+            span = _current_span_var.get() or self._current_span
             if span and span.stage == stage:
                 span.prompt_tokens = prompt_tokens
                 span.completion_tokens = completion_tokens
