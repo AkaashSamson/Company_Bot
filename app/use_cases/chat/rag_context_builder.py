@@ -96,9 +96,7 @@ class RAGContextBuilder:
             # Build chunk header with metadata if available
             chunk_lines = []
             if self.include_metadata and "metadata" in chunk:
-                metadata = chunk["metadata"]
-                section = metadata.get("section", f"Section {i}")
-                chunk_lines.append(f"[{section}]")
+                pass  # We no longer prepend section headers because they are now cleanly embedded inside chunk text.
 
             # Add chunk content
             chunk_lines.append(text)
@@ -159,6 +157,7 @@ class RAGContextBuilder:
         question: str,
         context_chunks: list[dict],
         include_system_prompt: bool = True,
+        conversation_history: list[dict] | None = None,
     ) -> list[dict]:
         """
         Build a complete messages list ready for LLM generation.
@@ -186,6 +185,10 @@ class RAGContextBuilder:
                     "content": self.build_system_prompt(),
                 }
             )
+
+        if conversation_history:
+            # Only include the last 5 turns to prevent context length explosion
+            messages.extend(conversation_history[-5:])
 
         messages.append(
             {

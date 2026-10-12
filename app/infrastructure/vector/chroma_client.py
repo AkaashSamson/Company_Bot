@@ -5,6 +5,7 @@ import logging
 import chromadb
 from sentence_transformers import SentenceTransformer
 
+from app.core.settings import EMBEDDING_MODEL
 
 logger = logging.getLogger("knowlayer.retrieval")
 
@@ -30,12 +31,22 @@ class ChromaVectorStore:
     def embedding_model(self):
         """Lazy load the embedding model to avoid blocking on startup."""
         if self._embedding_model is None:
-            self._embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+            self._embedding_model = SentenceTransformer(EMBEDDING_MODEL)
         return self._embedding_model
 
     @embedding_model.setter
     def embedding_model(self, value):
         self._embedding_model = value
+
+    def delete_document_chunks(self, document_id: str) -> None:
+        """Deletes all chunks associated with a specific document_id."""
+        if not document_id:
+            return
+        try:
+            self.collection.delete(where={"document_id": document_id})
+            logger.info("deleted all existing chunks for document_id %r", document_id)
+        except Exception as e:
+            logger.warning("failed to delete chunks for document_id %r: %s", document_id, e)
 
     def add_documents(self, documents: List[Dict[str, Any]]) -> None:
         if not documents:

@@ -155,7 +155,7 @@ class DoclingDocumentProcessor:
                     f"Unable to initialise the Docling chunker tokenizer "
                     f"{self._tokenizer_name!r}: {error}"
                 ) from error
-            self._chunker = HybridChunker(tokenizer=tokenizer)
+            self._chunker = HybridChunker(tokenizer=tokenizer, max_tokens=self._max_tokens)
         return self._chunker
 
     def supported_extensions(self) -> Sequence[str]:

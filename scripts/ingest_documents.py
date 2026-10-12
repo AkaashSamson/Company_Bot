@@ -49,6 +49,7 @@ def main():
         if not records:
             continue
 
+        store.delete_document_chunks(path.stem)
         store.add_documents(records)
         print(f"Processed {path.name}: {len(records)} chunks")
 
