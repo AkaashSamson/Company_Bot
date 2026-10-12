@@ -260,17 +260,7 @@ def _format_citations(citations: list, answer: str = "") -> str:
 
 def _format_corrections(corrections: list) -> str:
     """Format spelling / typo corrections for display (excluding internal lemmas)."""
-    if not corrections:
-        return ""
-    cleaned = []
-    for c in corrections:
-        # e.g. "spell: compilance -> compliance" -> "compilance → compliance"
-        clean_c = re.sub(r'^[a-z_]+:\s*', '', str(c)).replace("->", "→").strip()
-        if clean_c and clean_c not in cleaned:
-            cleaned.append(clean_c)
-    if not cleaned:
-        return ""
-    return f"\n\n✏️ *Auto-corrected spelling:* `{', '.join(cleaned)}`"
+    return ""
 
 
 def _format_token_info(
@@ -279,28 +269,6 @@ def _format_token_info(
     assigned_role: str | None = None,
 ) -> str:
     """Format token usage and cache info for display."""
-    if not tokens and not cache_id:
-        return ""
-    
-    prompt = tokens.get("prompt_tokens", 0) if tokens else 0
-    completion = tokens.get("completion_tokens", 0) if tokens else 0
-    total = tokens.get("total_tokens", 0) if tokens else 0
-    cached = tokens.get("cache_hit", False) if tokens else False
-    
-    if cached:
-        text = "💾 *Response from cache (0 tokens used)*"
-        if cache_id:
-            text += f" • `ID: {cache_id}`"
-        if assigned_role:
-            text += f" • `Role: {assigned_role}`"
-        return f"\n\n{text}"
-    elif total > 0 or cache_id:
-        text = "🤖 *Generated via LLM*"
-        if total > 0:
-            text += f" (Tokens: {prompt}P + {completion}C = {total}T)"
-        if cache_id:
-            text += f" • `Cache ID: {cache_id}`"
-        return f"\n\n{text}"
     return ""
 
 
@@ -310,39 +278,16 @@ feedback_input = None
 total_messages = len(st.session_state.messages)
 for i, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-        # Display interactive action buttons directly with the response
-        is_last_message = (i == total_messages - 1)
-        if is_last_message and message.get("role") == "assistant":
-            content_lower = (message.get("content", "")).lower()
-            action_type = message.get("action_type")
-
-            show_relevance = action_type == "relevance_feedback" or (
-                not action_type and "relevant to your question" in content_lower
-            )
-            show_references = action_type == "references_prompt" or (
-                not action_type and "would you like to see the source references" in content_lower
-            )
-
-            if show_relevance:
-                col_fb1, col_fb2, _ = st.columns([1.2, 1.6, 2.5])
-                with col_fb1:
-                    if st.button("👍 Yes, relevant", key=f"fb_yes_{i}", help="Confirm response was relevant"):
-                        feedback_input = "Yes"
-                with col_fb2:
-                    if st.button("👎 No, not relevant", key=f"fb_no_{i}", help="Mark as not relevant to generate an alternative answer"):
-                        feedback_input = "No, not relevant"
-
-            elif show_references:
-                col_ref1, col_ref2, _ = st.columns([1.5, 1.2, 2.5])
-                with col_ref1:
-                    if st.button("📄 Yes, show references", key=f"ref_yes_{i}", help="Show source document references"):
-                        feedback_input = "Yes"
-                with col_ref2:
-                    if st.button("🚫 No thanks", key=f"ref_no_{i}", help="Skip references"):
-                        feedback_input = "No"
-
+        display_content = message["content"]
+        if message.get("role") == "assistant":
+            display_content = display_content.replace("Was this response relevant to your question?", "").strip()
+            display_content = display_content.replace("Would you like to see the references for this?", "").strip()
+        st.markdown(display_content)
+        
+        # Display references on demand using a native UI expander
+        if message.get("role") == "assistant" and message.get("citations"):
+            with st.expander("📄 Source References"):
+                st.markdown(_format_citations(message["citations"], message.get("raw_answer", "")))
 user_input = st.chat_input("Ask about the HR policy...")
 if feedback_input:
     user_input = feedback_input
@@ -370,6 +315,7 @@ if user_input:
             session_id=st.session_state.session_id,
             history=conversation_history,
             project_id=selected_project_id,
+            defer_citations=False, # Do not defer! We want them on demand immediately in the UI.
         )
         answer = response.get("answer", "I could not find a relevant answer in the policy source.")
         citations = response.get("citations", [])
@@ -398,10 +344,9 @@ if user_input:
         corrections = []
         action_type = None
 
-    # Embed citations and token info as plain markdown into the answer so they persist in history
+    # Just format token info and corrections into the answer
     full_content = (
         answer
-        + _format_citations(citations, answer=answer)
         + _format_corrections(corrections)
         + _format_token_info(tokens, cache_id=cache_id, assigned_role=assigned_role)
     )
@@ -410,14 +355,17 @@ if user_input:
         "role": "assistant",
         "content": full_content,
         "raw_answer": answer,
+        "citations": citations,
         "action_type": action_type,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
     with st.chat_message("assistant"):
         st.markdown(full_content)
+        
+        if citations:
+            with st.expander("📄 Source References"):
+                st.markdown(_format_citations(citations, answer))
 
-    # Always rerun so feedback buttons (and any post-reply widgets) appear
-    # immediately after the bot response, not only on the next user query.
     st.rerun()
 
 

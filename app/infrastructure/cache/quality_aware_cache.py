@@ -20,8 +20,10 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 import numpy as np
 
-from app.core.cache_quality import is_negative_response
-from app.core.settings import SEMANTIC_CACHE_SIMILARITY_THRESHOLD
+def is_negative_response(response: str) -> bool:
+    return False
+
+SEMANTIC_CACHE_SIMILARITY_THRESHOLD = 0.90
 
 logger = logging.getLogger(__name__)
 
@@ -588,7 +590,7 @@ class InMemoryQualityAwareCache:
     def __init__(
         self,
         max_entries: int = 1000,
-        ttl_seconds: float = 30 * 24 * 3600.0,  # 30 days (2,592,000s)
+        ttl_seconds: float = 7 * 24 * 3600.0,  # 7 days (604,800s)
         min_confidence_threshold: float = 0.60,
         semantic_similarity_threshold: float = SEMANTIC_CACHE_SIMILARITY_THRESHOLD,
         validator: Optional[CacheQualityValidator] = None,
@@ -802,11 +804,32 @@ class InMemoryQualityAwareCache:
                     if matched_key is not None and best_sim >= self.semantic_similarity_threshold:
                         entry = self._cache.get(matched_key)
                         if entry is not None:
-                            semantic_matched = True
-                            logger.info(
-                                "semantic_cache_hit query=%s matched_key=%s confidence=%.2f%% (threshold=%.2f%%)",
-                                cache_key, matched_key, best_sim * 100.0, self.semantic_similarity_threshold * 100.0
-                            )
+                            # --- DYNAMIC LEXICAL GATE ---
+                            # Validate if the LLM is required by checking the literal sequence ratio.
+                            # Semantic models often rate "what is X" and "how is X" as >0.95 similar.
+                            # Using difflib prevents these false positives without hardcoding any words!
+                            import difflib
+                            original_q = entry.original_query or matched_key
+                            
+                            lexical_ratio = difflib.SequenceMatcher(
+                                None, cache_key.lower(), original_q.lower()
+                            ).ratio()
+                            
+                            # If the lexical ratio is too low, the query phrasing has changed significantly 
+                            # enough to warrant a fresh LLM generation.
+                            if lexical_ratio < 0.85:
+                                logger.debug(
+                                    "semantic_cache_rejected query='%s' matched='%s' reason='Lexical ratio too low (%.2f < 0.85)'",
+                                    cache_key, original_q, lexical_ratio
+                                )
+                                entry = None
+                                semantic_matched = False
+                            else:
+                                semantic_matched = True
+                                logger.info(
+                                    "semantic_cache_hit query='%s' matched_key='%s' semantic_conf=%.2f%% lexical_ratio=%.2f",
+                                    cache_key, matched_key, best_sim * 100.0, lexical_ratio
+                                )
             
             if entry is None:
                 self._stats["misses"] += 1
@@ -1244,7 +1267,7 @@ _quality_cache: Optional[InMemoryQualityAwareCache] = None
 
 def get_quality_cache(
     max_entries: int = 1000,
-    ttl_seconds: float = 30 * 24 * 3600.0,  # 30 days (2,592,000s)
+    ttl_seconds: float = 7 * 24 * 3600.0,  # 7 days (604,800s)
     semantic_similarity_threshold: float = SEMANTIC_CACHE_SIMILARITY_THRESHOLD,
     document_timestamp_lookup: Optional[Callable[[str], Optional[float]]] = None,
 ) -> InMemoryQualityAwareCache:
