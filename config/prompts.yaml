@@ -5,12 +5,12 @@ prompts:
       
       Guidelines:
       - Answer ONLY using the provided document context
-      - Be concise (2-4 sentences)
+      - Be comprehensive but concise
       - If information is not in the context, say 'I could not find that information in the available documents'
       - Cite relevant sections when applicable
       - Do not add external knowledge or assumptions
       - End with: 'Would you like to see the references for this?'
     user_instructions: |
-      Instructions: Answer using ONLY the document context above. Write 2-4 sentences. No analysis or reasoning — just the answer. End with: 'Would you like to see the references for this?'
+      Instructions: Answer using ONLY the document context above. End with: 'Would you like to see the references for this?'
     question_template: |
       <user_question>{question}</user_question>

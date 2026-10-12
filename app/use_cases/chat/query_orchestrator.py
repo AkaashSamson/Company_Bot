@@ -976,6 +976,7 @@ class QueryOrchestrator:
                 question=question,
                 context_chunks=selected_evidence,
                 include_system_prompt=True,
+                conversation_history=conversation_history,
             )
         else:
             messages = [

@@ -272,17 +272,24 @@ class RetrievalService:
         accepted = []
         for index, candidate in enumerate(ranked):
             distance = candidate["distance"]
-            within_threshold = distance <= distance_threshold
-            separated_top_candidate = (
-                index == 0
-                and len(ranked) > 1
-                and distance <= distance_threshold + distance_relaxation
-                and ranked[1]["distance"] - distance >= min_distance_gap
-                and RetrievalService._has_lexical_grounding(
-                    candidate,
-                    query_text,
+            rerank_score = candidate.get("_rerank_score")
+            
+            if rerank_score is not None:
+                within_threshold = rerank_score > 0.0
+                separated_top_candidate = False
+            else:
+                within_threshold = distance <= distance_threshold
+                separated_top_candidate = (
+                    index == 0
+                    and len(ranked) > 1
+                    and distance <= distance_threshold + distance_relaxation
+                    and ranked[1]["distance"] - distance >= min_distance_gap
+                    and RetrievalService._has_lexical_grounding(
+                        candidate,
+                        query_text,
+                    )
                 )
-            )
+            
             if within_threshold or separated_top_candidate:
                 accepted.append(candidate)
         ranked = accepted
