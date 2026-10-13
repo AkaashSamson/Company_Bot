@@ -26,9 +26,11 @@ orchestrator: QueryOrchestrator | None = None
 
 def init_orchestrator() -> None:
     global _orchestrator
+    from app.core.settings import SEMANTIC_CACHE_ENABLED
     from app.infrastructure.cache import get_semantic_cache
+    response_cache = get_semantic_cache() if SEMANTIC_CACHE_ENABLED else None
     _orchestrator = QueryOrchestrator(
-        response_cache=get_semantic_cache(),
+        response_cache=response_cache,
     )
     try:
         reranker = getattr(getattr(_orchestrator, "retrieval", None), "reranker", None)

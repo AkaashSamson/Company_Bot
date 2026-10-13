@@ -279,13 +279,16 @@ class QueryOrchestrator:
         self.reranker = reranker or getattr(self.retrieval, "reranker", None)
         self.provenance = provenance or ProvenanceService()
         self.faq_store = faq_store or MongoFAQStore()
+        from app.core import settings
+        faq_cache_enabled = getattr(settings, "FAQ_SIMILARITY_CACHE_ENABLED", False)
         if faq_cache is _UNSET:
-            self.faq_cache = FAQSimilarityCache() if FAQ_SIMILARITY_CACHE_ENABLED else None
+            self.faq_cache = FAQSimilarityCache() if faq_cache_enabled else None
         else:
-            self.faq_cache = faq_cache
+            self.faq_cache = faq_cache if faq_cache_enabled else None
         self.context_builder = context_builder or RAGContextBuilder()
         self.project_contact_lookup = project_contact_lookup
-        self.response_cache = response_cache
+        semantic_cache_enabled = getattr(settings, "SEMANTIC_CACHE_ENABLED", False)
+        self.response_cache = response_cache if semantic_cache_enabled else None
         self.employee_id_provider = employee_id_provider
         self.document_timestamp_lookup = document_timestamp_lookup or _default_doc_timestamp_lookup
 

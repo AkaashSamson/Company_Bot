@@ -6,7 +6,7 @@ from app.domain.services.llm_provider import (
     LLMProvider,
     LLMProviderError,
 )
-from app.core.settings import LLM_CACHE_SIZE
+from app.core import settings
 from app.infrastructure.llm.prompt_cache import PromptLRUCache
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,12 @@ class FallbackLLMProvider(LLMProvider):
     ):
         self.primary = primary
         self.fallback = fallback
-        self.cache = cache or PromptLRUCache(maxsize=LLM_CACHE_SIZE)
+        if cache is not None:
+            self.cache = cache
+        else:
+            cache_enabled = getattr(settings, "LLM_CACHE_ENABLED", False)
+            cache_size = getattr(settings, "LLM_CACHE_SIZE", 0) if cache_enabled else 0
+            self.cache = PromptLRUCache(maxsize=cache_size)
         self._last_tokens: Optional[dict] = None
 
     def generate(self, messages: List[Dict[str, str]]) -> str:
