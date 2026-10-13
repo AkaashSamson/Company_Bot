@@ -97,3 +97,32 @@ def test_cache_lookup_span_recorded_when_cache_enabled(monkeypatch):
     recorded_stages = [span.stage for span in trace.spans]
 
     assert PipelineStage.CACHE_LOOKUP in recorded_stages
+
+
+def test_master_cache_flag_overrides_env_sub_flags(monkeypatch):
+    """Even if sub-flags are set to 'true' in environment variables, CACHE_ENABLED=false overrides and forces all to false."""
+    import importlib
+    from app.core import settings
+
+    monkeypatch.setenv("CACHE_ENABLED", "false")
+    monkeypatch.setenv("SEMANTIC_CACHE_ENABLED", "true")
+    monkeypatch.setenv("FAQ_SIMILARITY_CACHE_ENABLED", "true")
+    monkeypatch.setenv("LLM_CACHE_ENABLED", "true")
+    monkeypatch.setenv("LLM_CACHE_SIZE", "256")
+
+    importlib.reload(settings)
+
+    assert settings.CACHE_ENABLED is False
+    assert settings.SEMANTIC_CACHE_ENABLED is False
+    assert settings.FAQ_SIMILARITY_CACHE_ENABLED is False
+    assert settings.LLM_CACHE_ENABLED is False
+    assert settings.LLM_CACHE_SIZE == 0
+
+    # Clean up reload
+    monkeypatch.delenv("CACHE_ENABLED", raising=False)
+    monkeypatch.delenv("SEMANTIC_CACHE_ENABLED", raising=False)
+    monkeypatch.delenv("FAQ_SIMILARITY_CACHE_ENABLED", raising=False)
+    monkeypatch.delenv("LLM_CACHE_ENABLED", raising=False)
+    monkeypatch.delenv("LLM_CACHE_SIZE", raising=False)
+    importlib.reload(settings)
+
