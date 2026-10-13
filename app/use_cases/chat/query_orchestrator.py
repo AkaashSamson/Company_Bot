@@ -280,14 +280,15 @@ class QueryOrchestrator:
         self.provenance = provenance or ProvenanceService()
         self.faq_store = faq_store or MongoFAQStore()
         from app.core import settings
-        faq_cache_enabled = getattr(settings, "FAQ_SIMILARITY_CACHE_ENABLED", False)
+        cache_master = getattr(settings, "CACHE_ENABLED", True)
+        faq_cache_enabled = cache_master and getattr(settings, "FAQ_SIMILARITY_CACHE_ENABLED", False)
         if faq_cache is _UNSET:
             self.faq_cache = FAQSimilarityCache() if faq_cache_enabled else None
         else:
             self.faq_cache = faq_cache if faq_cache_enabled else None
         self.context_builder = context_builder or RAGContextBuilder()
         self.project_contact_lookup = project_contact_lookup
-        semantic_cache_enabled = getattr(settings, "SEMANTIC_CACHE_ENABLED", False)
+        semantic_cache_enabled = cache_master and getattr(settings, "SEMANTIC_CACHE_ENABLED", False)
         self.response_cache = response_cache if semantic_cache_enabled else None
         self.employee_id_provider = employee_id_provider
         self.document_timestamp_lookup = document_timestamp_lookup or _default_doc_timestamp_lookup
@@ -936,80 +937,132 @@ class QueryOrchestrator:
             caller_role = "admin"
 
         cache_hit_payload = None
-        with self._stage_ctx(PipelineStage.CACHE_LOOKUP, input_metadata={"cache_key": cache_key, "query": question}) as cache_span:
-            if self.response_cache is not None:
-                # Check normalized cache_key first, fall back to raw question with RBAC scoping and doc freshness
-                cache_get_kwargs = {
-                    "role": caller_role,
-                    "roles": caller_roles,
-                    "project_ids": caller_project_ids,
-                    "document_ids": caller_document_ids,
-                    "is_admin": is_admin_flag,
-                    "document_timestamp_lookup": self.document_timestamp_lookup,
-                }
-                try:
-                    cached_entry = self.response_cache.get(cache_key, **cache_get_kwargs)
-                    if cached_entry is None and cache_key != question:
-                        cached_entry = self.response_cache.get(question, **cache_get_kwargs)
-                except TypeError:
-                    cached_entry = self.response_cache.get(cache_key)
-                    if cached_entry is None and cache_key != question:
-                        cached_entry = self.response_cache.get(question)
+        if self.response_cache is not None or self.faq_cache is not None:
+            with self._stage_ctx(PipelineStage.CACHE_LOOKUP, input_metadata={"cache_key": cache_key, "query": question}) as cache_span:
+                if self.response_cache is not None:
+                    # Check normalized cache_key first, fall back to raw question with RBAC scoping and doc freshness
+                    cache_get_kwargs = {
+                        "role": caller_role,
+                        "roles": caller_roles,
+                        "project_ids": caller_project_ids,
+                        "document_ids": caller_document_ids,
+                        "is_admin": is_admin_flag,
+                        "document_timestamp_lookup": self.document_timestamp_lookup,
+                    }
+                    try:
+                        cached_entry = self.response_cache.get(cache_key, **cache_get_kwargs)
+                        if cached_entry is None and cache_key != question:
+                            cached_entry = self.response_cache.get(question, **cache_get_kwargs)
+                    except TypeError:
+                        cached_entry = self.response_cache.get(cache_key)
+                        if cached_entry is None and cache_key != question:
+                            cached_entry = self.response_cache.get(question)
 
-                if cached_entry is not None:
-                    if isinstance(cached_entry, dict):
-                        ans = cached_entry.get("answer") or cached_entry.get("response", "")
-                        cached_citations = cached_entry.get("citations", [])
-                        cached_cache_id = cached_entry.get("cache_id")
-                        cached_assigned_role = cached_entry.get("assigned_role")
-                    elif hasattr(cached_entry, "response") and isinstance(cached_entry.response, str):
-                        ans = cached_entry.response
-                        cached_citations = getattr(cached_entry, "citations", [])
-                        cached_cache_id = getattr(cached_entry, "cache_id", None)
-                        cached_assigned_role = getattr(cached_entry, "assigned_role", None)
-                    elif isinstance(cached_entry, str):
-                        ans = cached_entry
-                        cached_citations = []
-                        cached_cache_id = None
-                        cached_assigned_role = None
-                    else:
-                        ans = str(getattr(cached_entry, "response", cached_entry))
-                        cached_citations = []
-                        cached_cache_id = getattr(cached_entry, "cache_id", None)
-                        cached_assigned_role = getattr(cached_entry, "assigned_role", None)
+                    if cached_entry is not None:
+                        if isinstance(cached_entry, dict):
+                            ans = cached_entry.get("answer") or cached_entry.get("response", "")
+                            cached_citations = cached_entry.get("citations", [])
+                            cached_cache_id = cached_entry.get("cache_id")
+                            cached_assigned_role = cached_entry.get("assigned_role")
+                        elif hasattr(cached_entry, "response") and isinstance(cached_entry.response, str):
+                            ans = cached_entry.response
+                            cached_citations = getattr(cached_entry, "citations", [])
+                            cached_cache_id = getattr(cached_entry, "cache_id", None)
+                            cached_assigned_role = getattr(cached_entry, "assigned_role", None)
+                        elif isinstance(cached_entry, str):
+                            ans = cached_entry
+                            cached_citations = []
+                            cached_cache_id = None
+                            cached_assigned_role = None
+                        else:
+                            ans = str(getattr(cached_entry, "response", cached_entry))
+                            cached_citations = []
+                            cached_cache_id = getattr(cached_entry, "cache_id", None)
+                            cached_assigned_role = getattr(cached_entry, "assigned_role", None)
 
-                    # Cache Read Quality Gate: Never return a cached negative response
-                    if is_negative_response(ans):
-                        logger.info("Evicting/ignoring cached negative response for key '%s'", cache_key)
-                        if hasattr(self.response_cache, "delete"):
-                            try:
-                                self.response_cache.delete(cache_key)
-                                if cache_key != question:
-                                    self.response_cache.delete(question)
-                            except Exception:
-                                pass
-                        cached_entry = None
-                    else:
-                        if "Would you like to see the references for this?" in ans:
-                            ans = ans.replace("Would you like to see the references for this?", RELEVANCE_PROMPT)
-                        # Ensure every cached answer ends with the relevance prompt so feedback buttons appear
-                        if defer_citations and RELEVANCE_PROMPT not in ans and REFERENCES_CONFIRM_PROMPT not in ans:
-                            ans = ans.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
-                        _pending_citations[session_id] = cached_citations
+                        # Cache Read Quality Gate: Never return a cached negative response
+                        if is_negative_response(ans):
+                            logger.info("Evicting/ignoring cached negative response for key '%s'", cache_key)
+                            if hasattr(self.response_cache, "delete"):
+                                try:
+                                    self.response_cache.delete(cache_key)
+                                    if cache_key != question:
+                                        self.response_cache.delete(question)
+                                except Exception:
+                                    pass
+                            cached_entry = None
+                        else:
+                            if "Would you like to see the references for this?" in ans:
+                                ans = ans.replace("Would you like to see the references for this?", RELEVANCE_PROMPT)
+                            # Ensure every cached answer ends with the relevance prompt so feedback buttons appear
+                            if defer_citations and RELEVANCE_PROMPT not in ans and REFERENCES_CONFIRM_PROMPT not in ans:
+                                ans = ans.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
+                            _pending_citations[session_id] = cached_citations
+                            _last_interaction[session_id] = {
+                                "question": question,
+                                "context": ans,
+                                "selected_evidence": [{"text": c.get("text", ""), "metadata": c} for c in cached_citations] if isinstance(cached_citations, list) else [],
+                                "answer": ans,
+                            }
+                            _alternative_answer_given[session_id] = False
+                            _asked_references_confirm[session_id] = False
+                            cache_hit_payload = {
+                                "answer": ans,
+                                "citations": [] if defer_citations else cached_citations,
+                                "cache_hit": True,
+                                "cache_id": cached_cache_id,
+                                "assigned_role": cached_assigned_role,
+                                "tokens": {
+                                    "prompt_tokens": 0,
+                                    "completion_tokens": 0,
+                                    "total_tokens": 0,
+                                    "cache_hit": True,
+                                },
+                            }
+
+                if cache_hit_payload is None:
+                    # ── AB-8: FAQ Check with Normalized Query ─────────────────────────
+                    # FAQ similarity cache uses embeddings so it can catch semantically similar
+                    # queries that the exact-key response_cache missed.
+                    cached = (
+                        (self._faq_search(processed_query) or self._faq_search(question))
+                        if authorized_project_ids is None
+                        else None
+                    )
+                    if cached is not None and is_negative_response(cached.get("answer", "")):
+                        logger.info("Ignoring negative response in FAQ match for '%s'", question)
+                        cached = None
+
+                    if cached is not None:
+                        logger.info(
+                            "FAQ cache hit (similarity=%.4f): '%s' → '%s'",
+                            cached["similarity"],
+                            question,
+                            cached["question"],
+                        )
+                        faq_citation = {
+                            "source": cached.get("source", "HR Policy Handbook"),
+                            "section": cached.get("section", cached["question"]),
+                            "text": cached["answer"],
+                        }
+                        _pending_citations[session_id] = [faq_citation]
                         _last_interaction[session_id] = {
                             "question": question,
-                            "context": ans,
-                            "selected_evidence": [{"text": c.get("text", ""), "metadata": c} for c in cached_citations] if isinstance(cached_citations, list) else [],
-                            "answer": ans,
+                            "context": cached["answer"],
+                            "selected_evidence": [{"text": cached["answer"], "metadata": {"source": cached.get("source", "HR Policy Handbook"), "section": cached.get("section", cached["question"])}}],
+                            "answer": cached["answer"],
+                            "matched_faq": cached.get("question", question),
+                            "matched_faq_id": cached.get("id"),
                         }
                         _alternative_answer_given[session_id] = False
                         _asked_references_confirm[session_id] = False
                         cache_hit_payload = {
-                            "answer": ans,
-                            "citations": [] if defer_citations else cached_citations,
+                            "answer": cached["answer"] + f"\n\n{RELEVANCE_PROMPT}",
+                            "citations": [] if defer_citations else [faq_citation],
                             "cache_hit": True,
-                            "cache_id": cached_cache_id,
-                            "assigned_role": cached_assigned_role,
+                            "matched_faq": cached["question"],
+                            "matched_faq_id": cached.get("id"),
+                            "similarity": cached["similarity"],
                             "tokens": {
                                 "prompt_tokens": 0,
                                 "completion_tokens": 0,
@@ -1018,63 +1071,12 @@ class QueryOrchestrator:
                             },
                         }
 
-            if cache_hit_payload is None:
-                # ── AB-8: FAQ Check with Normalized Query ─────────────────────────
-                # FAQ similarity cache uses embeddings so it can catch semantically similar
-                # queries that the exact-key response_cache missed.
-                cached = (
-                    (self._faq_search(processed_query) or self._faq_search(question))
-                    if authorized_project_ids is None
-                    else None
-                )
-                if cached is not None and is_negative_response(cached.get("answer", "")):
-                    logger.info("Ignoring negative response in FAQ match for '%s'", question)
-                    cached = None
-
-                if cached is not None:
-                    logger.info(
-                        "FAQ cache hit (similarity=%.4f): '%s' → '%s'",
-                        cached["similarity"],
-                        question,
-                        cached["question"],
+                if cache_span:
+                    cache_span.set_output(
+                        cache_hit=cache_hit_payload is not None,
+                        matched_faq=cache_hit_payload.get("matched_faq") if cache_hit_payload else None,
+                        cache_id=cache_hit_payload.get("cache_id") if cache_hit_payload else None,
                     )
-                    faq_citation = {
-                        "source": cached.get("source", "HR Policy Handbook"),
-                        "section": cached.get("section", cached["question"]),
-                        "text": cached["answer"],
-                    }
-                    _pending_citations[session_id] = [faq_citation]
-                    _last_interaction[session_id] = {
-                        "question": question,
-                        "context": cached["answer"],
-                        "selected_evidence": [{"text": cached["answer"], "metadata": {"source": cached.get("source", "HR Policy Handbook"), "section": cached.get("section", cached["question"])}}],
-                        "answer": cached["answer"],
-                        "matched_faq": cached.get("question", question),
-                        "matched_faq_id": cached.get("id"),
-                    }
-                    _alternative_answer_given[session_id] = False
-                    _asked_references_confirm[session_id] = False
-                    cache_hit_payload = {
-                        "answer": cached["answer"] + f"\n\n{RELEVANCE_PROMPT}",
-                        "citations": [] if defer_citations else [faq_citation],
-                        "cache_hit": True,
-                        "matched_faq": cached["question"],
-                        "matched_faq_id": cached.get("id"),
-                        "similarity": cached["similarity"],
-                        "tokens": {
-                            "prompt_tokens": 0,
-                            "completion_tokens": 0,
-                            "total_tokens": 0,
-                            "cache_hit": True,
-                        },
-                    }
-
-            if cache_span:
-                cache_span.set_output(
-                    cache_hit=cache_hit_payload is not None,
-                    matched_faq=cache_hit_payload.get("matched_faq") if cache_hit_payload else None,
-                    cache_id=cache_hit_payload.get("cache_id") if cache_hit_payload else None,
-                )
 
         if cache_hit_payload is not None:
             return _finish(cache_hit_payload)

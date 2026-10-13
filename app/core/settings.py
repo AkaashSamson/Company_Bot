@@ -44,9 +44,11 @@ RAG_FINAL_K = int(os.getenv("RAG_FINAL_K", "4"))
 RERANKER_PROVIDER = os.getenv("RERANKER_PROVIDER", "bge").lower()
 RAG_RERANKER_MODEL = os.getenv("RAG_RERANKER_MODEL", "BAAI/bge-reranker-base")
 RAG_MAX_CONTEXT_CHARS = int(os.getenv("RAG_MAX_CONTEXT_CHARS", "12000"))
-LLM_CACHE_ENABLED = os.getenv("LLM_CACHE_ENABLED", "false").lower() == "true"
+# Master Cache Switch: when false, all cache layers are completely disabled
+CACHE_ENABLED = os.getenv("CACHE_ENABLED", "false").lower() == "true"
+LLM_CACHE_ENABLED = CACHE_ENABLED and (os.getenv("LLM_CACHE_ENABLED", "true" if CACHE_ENABLED else "false").lower() == "true")
 LLM_CACHE_SIZE = int(os.getenv("LLM_CACHE_SIZE", "128")) if LLM_CACHE_ENABLED else 0
-FAQ_SIMILARITY_CACHE_ENABLED = os.getenv("FAQ_SIMILARITY_CACHE_ENABLED", "false").lower() == "true"
+FAQ_SIMILARITY_CACHE_ENABLED = CACHE_ENABLED and (os.getenv("FAQ_SIMILARITY_CACHE_ENABLED", "true" if CACHE_ENABLED else "false").lower() == "true")
 FAQ_SIMILARITY_THRESHOLD = float(os.getenv("FAQ_SIMILARITY_THRESHOLD", "0.92"))
 FAQ_JSON_PATH = os.getenv("FAQ_JSON_PATH", str(BASE_DIR / "data" / "faqs.json"))
 LLM_CACHE_SIMILARITY_THRESHOLD = float(
@@ -184,7 +186,7 @@ QUALITY_GATE_GROUNDING_THRESHOLD = float(os.getenv("QUALITY_GATE_GROUNDING_THRES
 # ============================================
 
 # Quality-Aware Cache (AB-4)
-SEMANTIC_CACHE_ENABLED = os.getenv("SEMANTIC_CACHE_ENABLED", "false").lower() == "true"
+SEMANTIC_CACHE_ENABLED = CACHE_ENABLED and (os.getenv("SEMANTIC_CACHE_ENABLED", "true" if CACHE_ENABLED else "false").lower() == "true")
 SEMANTIC_CACHE_MAX_ENTRIES = int(os.getenv("SEMANTIC_CACHE_MAX_ENTRIES", "1000"))
 # 30 days = 30 * 24 * 3600 = 2,592,000 seconds
 SEMANTIC_CACHE_TTL_SECONDS = float(os.getenv("SEMANTIC_CACHE_TTL_SECONDS", str(30 * 24 * 3600)))

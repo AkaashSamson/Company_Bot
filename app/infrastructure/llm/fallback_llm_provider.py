@@ -29,7 +29,8 @@ class FallbackLLMProvider(LLMProvider):
         if cache is not None:
             self.cache = cache
         else:
-            cache_enabled = getattr(settings, "LLM_CACHE_ENABLED", False)
+            cache_master = getattr(settings, "CACHE_ENABLED", True)
+            cache_enabled = cache_master and getattr(settings, "LLM_CACHE_ENABLED", False)
             cache_size = getattr(settings, "LLM_CACHE_SIZE", 0) if cache_enabled else 0
             self.cache = PromptLRUCache(maxsize=cache_size)
         self._last_tokens: Optional[dict] = None

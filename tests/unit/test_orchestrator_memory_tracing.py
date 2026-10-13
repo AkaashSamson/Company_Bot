@@ -81,12 +81,17 @@ def test_answer_caller_supplied_history_takes_precedence(mock_dependencies):
     mock_dependencies["memory"].add_turn.assert_called_once()
 
 
-def test_answer_instruments_pipeline_stages_and_ends_trace(mock_dependencies):
+def test_answer_instruments_pipeline_stages_and_ends_trace(mock_dependencies, monkeypatch):
+    monkeypatch.setattr("app.core.settings.CACHE_ENABLED", True)
+    monkeypatch.setattr("app.core.settings.SEMANTIC_CACHE_ENABLED", True)
+    mock_cache = MagicMock()
+    mock_cache.get.return_value = None
     orchestrator = QueryOrchestrator(
         retrieval=mock_dependencies["retrieval"],
         llm=mock_dependencies["llm"],
         memory=mock_dependencies["memory"],
         pipeline_tracer=mock_dependencies["pipeline_tracer"],
+        response_cache=mock_cache,
     )
 
     result = orchestrator.answer("What is the leave policy?", session_id="session-trace-test")
@@ -120,6 +125,7 @@ def test_answer_fast_path_negative_reply_ends_trace(mock_dependencies):
 
 
 def test_answer_cache_hit_ends_trace(mock_dependencies, monkeypatch):
+    monkeypatch.setattr("app.core.settings.CACHE_ENABLED", True)
     monkeypatch.setattr("app.core.settings.SEMANTIC_CACHE_ENABLED", True)
     mock_cache = MagicMock()
     mock_cache.get.return_value = {"answer": "Cached answer.", "citations": []}

@@ -88,6 +88,7 @@ class TestCacheFactory:
 
     @pytest.fixture(autouse=True)
     def enable_cache(self, monkeypatch):
+        monkeypatch.setattr("app.core.settings.CACHE_ENABLED", True)
         monkeypatch.setattr("app.core.settings.SEMANTIC_CACHE_ENABLED", True)
         monkeypatch.setattr("app.core.settings.FAQ_SIMILARITY_CACHE_ENABLED", True)
 
