@@ -108,12 +108,16 @@ DOMAIN_VOCABULARY = {
     
     # Conduct terms
     "code of conduct": "code of conduct",
-    "conduct": "code of conduct",
+    "rules of conduct": "code of conduct",
+    "conduct rules": "code of conduct",
+    "conduct policy": "code of conduct",
+    "employee conduct": "code of conduct",
     "harassment": "harassment",
     "sexual harassment": "sexual harassment",
     "posh": "sexual harassment",
     "grievance": "grievance",
-    "disciplinary": "disdisciplinary",
+    "disciplinary": "disciplinary",
+    "disdisciplinary": "disciplinary",
     "misconduct": "misconduct",
     
     # General HR terms
@@ -131,6 +135,10 @@ DOMAIN_VOCABULARY = {
     "termination": "termination",
     "exit": "resignation",
     
+    # Project & Role terms
+    "project roles": "project role",
+    "roles": "role",
+    
     # Knowledge Assistant & Platform terms
     "knowledge": "knowledge",
     "knowlayer": "knowlayer",
@@ -139,6 +147,9 @@ DOMAIN_VOCABULARY = {
     "know leedge": "knowledge",
     "knowledge system": "knowledge assistant",
     "knowledge assistant": "knowledge assistant",
+    "icc": "icc",
+    "internal complaints committee": "icc",
+    "nexora": "nexora",
 }
 
 
@@ -153,11 +164,12 @@ COMMON_TYPOS = {
     "payment": ["pyment", "paymnet", "pymnt", "paymet", "paymnt"],
     "bonus": ["bonas", "bonous", "bonnus"],
     "insurance": ["insuarance", "insurence", "insurans"],
-    "harassment": ["harasment", "harassment", "harasment"],
-    "benefits": ["benifits", "benefites", "benfits", "benefit"],
-    "provident": ["provident", "providnt"],
-    "maternity": ["maternity", "materinity"],
-    "paternity": ["paternity", "paterinity"],
+    "harassment": ["harasment", "harrasment", "harrassment"],
+    "benefits": ["benifits", "benefites", "benfits"],
+    "provident": ["providnt", "providend"],
+    "maternity": ["materinity", "matarnity", "maternty"],
+    "paternity": ["paterinity", "patarnity", "paternty"],
+    "disciplinary": ["disiplinary", "disiplinery", "discipinary", "disciplinery"],
     "resignation": ["resignaton", "resigantion", "resigntion"],
     "attendance": ["attendace", "attenddance", "atendence"],
     "annual": ["annul", "anual", "annuel"],
@@ -169,7 +181,8 @@ COMMON_TYPOS = {
 TYPO_CORRECTIONS: dict[str, str] = {}
 for correct, typos in COMMON_TYPOS.items():
     for typo in typos:
-        TYPO_CORRECTIONS[typo] = correct
+        if typo.lower() != correct.lower():
+            TYPO_CORRECTIONS[typo.lower()] = correct
 
 
 # ============================================================
@@ -189,6 +202,7 @@ QWERTY_MISTAKES = {
     "woek": "work",
     "requst": "request",
     "reques": "request",
+    "u": "you",
 }
 
 
@@ -198,8 +212,18 @@ QWERTY_MISTAKES = {
 
 # Common HR entities that should not be modified
 PRESERVED_ENTITIES: Set[str] = {
-    # Company names (example)
+    # Company names and products
     "nexora",
+    "nexorians",
+    "knowlayer",
+    # Committees & acronyms
+    "icc",
+    "ic",
+    "posh",
+    "hr",
+    "wfh",
+    "pto",
+    "pf",
     # Month names
     "january", "february", "march", "april", "may", "june",
     "july", "august", "september", "october", "november", "december",
@@ -302,12 +326,16 @@ class QueryNormalizer:
         for k, v in DOMAIN_VOCABULARY.items():
             for w in k.split() + v.split():
                 clean_w = re.sub(r'[^a-z0-9]', '', w.lower())
-                if len(clean_w) >= 3:
+                if len(clean_w) >= 2:
                     self._domain_keywords.add(clean_w)
         for term in COMMON_TYPOS.keys():
             clean_term = re.sub(r'[^a-z0-9]', '', term.lower())
-            if len(clean_term) >= 3:
+            if len(clean_term) >= 2:
                 self._domain_keywords.add(clean_term)
+        for entity in PRESERVED_ENTITIES:
+            clean_entity = re.sub(r'[^a-z0-9]', '', entity.lower())
+            if len(clean_entity) >= 2:
+                self._domain_keywords.add(clean_entity)
 
         # Standard vocabulary words commonly found in HR queries
         self._common_query_words = {
@@ -318,7 +346,8 @@ class QueryNormalizer:
             "can", "how", "what", "when", "who", "where", "why", "get", "take",
             "need", "have", "check", "view", "many", "much", "time", "off", "from",
             "work", "home", "office", "holiday", "holidays", "leave", "leaves",
-            "policy", "policies", "salary", "pay", "bonus", "benefits", "insurance"
+            "policy", "policies", "salary", "pay", "bonus", "benefits", "insurance",
+            "maternity", "paternity", "harassment", "provident", "disciplinary", "conduct"
         }
         self._known_words = self._domain_keywords | self._common_query_words
 
@@ -327,6 +356,7 @@ class QueryNormalizer:
         if self._spell:
             try:
                 self._spell.word_frequency.load_words(self._domain_keywords)
+                self._spell.word_frequency.load_words([e.lower() for e in PRESERVED_ENTITIES])
             except Exception as e:
                 logger.debug("Could not load domain words into spellchecker: %s", e)
         
@@ -527,19 +557,19 @@ class QueryNormalizer:
             query, keyboard_fixes = self._fix_keyboard_layout(query)
             corrections_made.extend(keyboard_fixes)
         
-        # Stage 7: Spelling/Typo Correction
+        # Stage 7: Entity Preservation (identify early to protect from spellcheck/lemmatization)
+        if self.config["entity_preservation"]:
+            preserved_words = self._identify_entities(query)
+            entities_preserved.extend(preserved_words)
+        
+        # Stage 8: Spelling/Typo Correction
         if self.config["typo_correction"]:
             query, typo_fixes = self._correct_typos(query)
             corrections_made.extend(typo_fixes)
         
         if self.config["spellcheck"] and self._spell:
-            query, spell_fixes = self._spellcheck(query)
+            query, spell_fixes = self._spellcheck(query, entities_preserved)
             corrections_made.extend(spell_fixes)
-        
-        # Stage 8: Entity Preservation (identify before vocabulary mapping)
-        if self.config["entity_preservation"]:
-            preserved_words = self._identify_entities(query)
-            entities_preserved.extend(preserved_words)
         
         # Stage 9: Domain Vocabulary Mapping
         if self.config["vocabulary_mapping"]:
@@ -832,11 +862,12 @@ class QueryNormalizer:
                 best_term = term
         return best_term
 
-    def _spellcheck(self, query: str) -> tuple[str, list[str]]:
+    def _spellcheck(self, query: str, preserved_entities: Optional[list[str]] = None) -> tuple[str, list[str]]:
         """Use dynamic domain fuzzy matching and pyspellchecker for unknown words."""
         fixes = []
         words = query.split()
         corrected_words = []
+        preserved_set = set(preserved_entities or []) | PRESERVED_ENTITIES
         
         for word in words:
             # Check words already handled by custom corrections
@@ -844,8 +875,14 @@ class QueryNormalizer:
                 corrected_words.append(word)
                 continue
             
-            # If word is already a valid known English word or domain word, keep it as is
             clean_w = re.sub(r'[^a-z0-9]', '', word.lower())
+            
+            # If word is in preserved entities, keep it as is
+            if clean_w in preserved_set:
+                corrected_words.append(word)
+                continue
+
+            # If word is already a valid known English word or domain word, keep it as is
             if (self._spell and clean_w in self._spell) or clean_w in self._domain_keywords:
                 corrected_words.append(word)
                 continue
@@ -876,8 +913,9 @@ class QueryNormalizer:
         preserved = []
         
         for word in words:
-            if word in PRESERVED_ENTITIES:
-                preserved.append(word)
+            clean_w = re.sub(r'[^a-z0-9]', '', word)
+            if clean_w in PRESERVED_ENTITIES:
+                preserved.append(clean_w)
         
         return preserved
     
@@ -887,17 +925,40 @@ class QueryNormalizer:
         
         # Sort by length descending to match longer phrases first
         for pattern, canonical in self._sorted_vocab:
-            # Use word boundary matching
-            if re.search(r'\b' + re.escape(pattern) + r'\b', query):
-                # Only replace if not already the canonical form
-                if pattern.lower() != canonical.lower():
-                    query = re.sub(
-                        r'\b' + re.escape(pattern) + r'\b',
-                        canonical,
-                        query,
-                        flags=re.IGNORECASE
-                    )
+            # Only replace if not already the canonical form
+            if pattern.lower() == canonical.lower():
+                continue
+
+            regex = re.compile(r'\b' + re.escape(pattern) + r'\b', re.IGNORECASE)
+            if not regex.search(query):
+                continue
+
+            # If pattern is a subphrase of canonical, do not replace if it is already part of canonical
+            if pattern.lower() in canonical.lower():
+                canonical_spans = [
+                    m.span()
+                    for m in re.finditer(r'\b' + re.escape(canonical) + r'\b', query, re.IGNORECASE)
+                ]
+                new_query = []
+                last_idx = 0
+                replaced_any = False
+                for m in regex.finditer(query):
+                    start, end = m.span()
+                    inside_canonical = any(c_start <= start and end <= c_end for c_start, c_end in canonical_spans)
+                    if inside_canonical:
+                        new_query.append(query[last_idx:end])
+                    else:
+                        new_query.append(query[last_idx:start])
+                        new_query.append(canonical)
+                        replaced_any = True
+                    last_idx = end
+                new_query.append(query[last_idx:])
+                if replaced_any:
+                    query = "".join(new_query)
                     mappings.append(f"vocab: {pattern} -> {canonical}")
+            else:
+                query = regex.sub(canonical, query)
+                mappings.append(f"vocab: {pattern} -> {canonical}")
         
         return query, mappings
     
@@ -912,7 +973,7 @@ class QueryNormalizer:
         
         for word in words:
             # Skip if it's a preserved entity
-            if word.lower() in preserved_entities:
+            if word.lower() in preserved_entities or word.lower() in PRESERVED_ENTITIES:
                 lemmatized_words.append(word)
                 continue
             
@@ -955,6 +1016,7 @@ class QueryNormalizer:
         # Simple hash - just use the normalized query lowercased
         key = normalized_query.lower().strip()
         # Canonicalize leading question prefixes for policy/informational questions
+        key = re.sub(r'^(?:can\s+(?:you|u)\s+)?(?:please\s+)?(?:list\s+out|list\s+down|list)\s+(?:the\s+|all\s+)?', 'list_the_', key)
         key = re.sub(r'^(?:what|how)\s+is\s+(?:the\s+)?', 'what_is_the_', key)
         key = re.sub(r'^(?:what|how)\s+are\s+(?:the\s+)?', 'what_are_the_', key)
         key = re.sub(r'^(?:tell\s+me\s+about\s+(?:the\s+)?|explain\s+(?:the\s+)?)', 'what_is_the_', key)

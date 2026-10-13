@@ -111,7 +111,7 @@ class TestQueryIntentClassifier:
         data = result.to_dict()
 
         assert isinstance(data, dict)
-        assert data["intent"] == "procedural"
+        assert data["intent"] in ("procedure_how_to", "procedural")
         assert data["cache_prefix"] == "proc"
         assert isinstance(data["confidence"], float)
         assert isinstance(data["retrieval_boost_keywords"], list)

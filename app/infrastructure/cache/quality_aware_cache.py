@@ -780,6 +780,13 @@ class InMemoryQualityAwareCache:
         Returns:
             QualityAwareCacheEntry if found, unexpired, RBAC-authorized, and document is fresh, else None.
         """
+        # Personal data isolation gate: queries asking for personal status/balances must never read shared cache
+        from app.use_cases.chat.query_intent_classifier import get_query_intent_classifier, CachePolicy
+        q_policy = get_query_intent_classifier().classify(cache_key).cache_policy
+        if q_policy == CachePolicy.NO_SHARED_CACHE:
+            logger.debug("cache_bypassed key=%s reason=personal_status_no_shared_cache", cache_key)
+            return None
+
         with self._lock:
             entry = self._cache.get(cache_key)
             semantic_matched = False
@@ -802,11 +809,39 @@ class InMemoryQualityAwareCache:
                     if matched_key is not None and best_sim >= self.semantic_similarity_threshold:
                         entry = self._cache.get(matched_key)
                         if entry is not None:
-                            semantic_matched = True
-                            logger.info(
-                                "semantic_cache_hit query=%s matched_key=%s confidence=%.2f%% (threshold=%.2f%%)",
-                                cache_key, matched_key, best_sim * 100.0, self.semantic_similarity_threshold * 100.0
-                            )
+                            # --- DYNAMIC INTENT & LEXICAL GATE ---
+                            # 1. Intent Compatibility Check: Prevent mixing distinct intents (e.g. explain vs list vs change)
+                            from app.core.cache_quality import check_cache_intent_compatibility, calculate_content_token_overlap
+                            import difflib
+                            original_q = entry.original_query or matched_key
+
+                            if not check_cache_intent_compatibility(cache_key, original_q):
+                                logger.debug(
+                                    "semantic_cache_rejected query='%s' matched='%s' reason='Intent mismatch'",
+                                    cache_key, original_q
+                                )
+                                entry = None
+                                semantic_matched = False
+                            else:
+                                lexical_ratio = difflib.SequenceMatcher(
+                                    None, cache_key.lower(), original_q.lower()
+                                ).ratio()
+                                token_overlap = calculate_content_token_overlap(cache_key, original_q)
+
+                                # Accept hit if either content tokens strongly overlap (>= 0.65) or sequence ratio is high (>= 0.70)
+                                if lexical_ratio >= 0.70 or token_overlap >= 0.65:
+                                    semantic_matched = True
+                                    logger.info(
+                                        "semantic_cache_hit query='%s' matched_key='%s' semantic_conf=%.2f%% lexical_ratio=%.2f token_overlap=%.2f",
+                                        cache_key, matched_key, best_sim * 100.0, lexical_ratio, token_overlap
+                                    )
+                                else:
+                                    logger.debug(
+                                        "semantic_cache_rejected query='%s' matched='%s' reason='Lexical ratio and token overlap too low (lex=%.2f, tok=%.2f)'",
+                                        cache_key, original_q, lexical_ratio, token_overlap
+                                    )
+                                    entry = None
+                                    semantic_matched = False
             
             if entry is None:
                 self._stats["misses"] += 1
@@ -937,6 +972,13 @@ class InMemoryQualityAwareCache:
         (Only stores if CacheQualityValidator approves).
         """
         source_enum = CacheEntrySource(source) if isinstance(source, str) else source
+
+        # Personal data isolation gate: never store user-specific personal status answers in shared cache
+        from app.use_cases.chat.query_intent_classifier import get_query_intent_classifier, CachePolicy
+        q_policy = get_query_intent_classifier().classify(original_query).cache_policy
+        if q_policy == CachePolicy.NO_SHARED_CACHE:
+            logger.debug("cache_storage_skipped key=%s reason=personal_status_no_shared_cache", cache_key)
+            return False
 
         # Run CacheQualityValidator
         validation = self.validator.validate(
