@@ -119,7 +119,8 @@ def test_answer_fast_path_negative_reply_ends_trace(mock_dependencies):
     mock_dependencies["pipeline_tracer"].end_trace.assert_called_once()
 
 
-def test_answer_cache_hit_ends_trace(mock_dependencies):
+def test_answer_cache_hit_ends_trace(mock_dependencies, monkeypatch):
+    monkeypatch.setattr("app.core.settings.SEMANTIC_CACHE_ENABLED", True)
     mock_cache = MagicMock()
     mock_cache.get.return_value = {"answer": "Cached answer.", "citations": []}
 

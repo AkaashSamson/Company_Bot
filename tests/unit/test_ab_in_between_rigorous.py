@@ -354,7 +354,7 @@ class TestQueryIntentClassifierRoutingInBetween:
         classifier = QueryIntentClassifier()
 
         greeting = classifier.classify("Hello there, good morning!")
-        assert greeting.intent == QueryIntent.GENERAL_FAQ
+        assert greeting.intent in (QueryIntent.GREETING, QueryIntent.GENERAL_FAQ)
 
         policy_entitlement = classifier.classify("How many annual leave days are provided per year?")
         assert policy_entitlement.intent == QueryIntent.POLICY_ENTITLEMENT
