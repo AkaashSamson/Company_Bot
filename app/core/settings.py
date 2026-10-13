@@ -168,7 +168,7 @@ LOG_CLEANUP_INTERVAL_SECONDS = int(os.getenv("LOG_CLEANUP_INTERVAL_SECONDS", "86
 # ============================================
 
 # Query Normalization (AB-3)
-ENABLE_QUERY_NORMALIZATION = os.getenv("ENABLE_QUERY_NORMALIZATION", "true").lower() == "true"
+ENABLE_QUERY_NORMALIZATION = os.getenv("ENABLE_QUERY_NORMALIZATION", "false").lower() == "true"
 QUERY_NORMALIZER_TYPO_CORRECTION = os.getenv("QUERY_NORMALIZER_TYPO_CORRECTION", "true").lower() == "true"
 QUERY_NORMALIZER_VOCABULARY = os.getenv("QUERY_NORMALIZER_VOCABULARY", "true").lower() == "true"
 QUERY_NORMALIZER_EXPANSION = os.getenv("QUERY_NORMALIZER_EXPANSION", "false").lower() == "true"

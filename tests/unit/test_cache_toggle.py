@@ -63,9 +63,34 @@ def test_cache_lookup_span_not_recorded_when_cache_disabled(monkeypatch):
     trace = tracer.get_recent_traces(limit=1)[0]
     recorded_stages = [span.stage for span in trace.spans]
 
-    # NORMALIZATION and retrieval stages run, but CACHE_LOOKUP must NOT be recorded
-    assert PipelineStage.NORMALIZATION in recorded_stages
+    # When normalization and cache are disabled, neither NORMALIZATION nor CACHE_LOOKUP is recorded
+    assert PipelineStage.NORMALIZATION not in recorded_stages
     assert PipelineStage.CACHE_LOOKUP not in recorded_stages
+
+
+def test_normalization_span_recorded_when_enabled(monkeypatch):
+    """When ENABLE_QUERY_NORMALIZATION is true, QueryOrchestrator must record the NORMALIZATION span."""
+    monkeypatch.setattr("app.use_cases.chat.query_orchestrator.ENABLE_QUERY_NORMALIZATION", True)
+
+    tracer = PipelineTracer.create_new(enable_tracing=True)
+    mock_retrieval = MagicMock()
+    mock_retrieval.retrieve.return_value = [{"text": "Company policy info.", "metadata": {"source": "Handbook.pdf"}}]
+    mock_llm = MagicMock()
+    mock_llm.generate.return_value = "Here is the policy answer."
+    mock_memory = MagicMock()
+
+    orchestrator = QueryOrchestrator(
+        retrieval=mock_retrieval,
+        llm=mock_llm,
+        memory=mock_memory,
+        pipeline_tracer=tracer,
+    )
+
+    res = orchestrator.answer("What is the leave policy?", session_id="test-sess-norm")
+    trace = tracer.get_recent_traces(limit=1)[0]
+    recorded_stages = [span.stage for span in trace.spans]
+
+    assert PipelineStage.NORMALIZATION in recorded_stages
 
 
 def test_cache_lookup_span_recorded_when_cache_enabled(monkeypatch):

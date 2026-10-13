@@ -6,6 +6,7 @@ import time
 from typing import Any, Callable, Optional, Sequence
 
 from app.core.settings import (
+    ENABLE_QUERY_NORMALIZATION,
     FAQ_SIMILARITY_CACHE_ENABLED,
     RAG_CANDIDATE_COUNT,
     RAG_FINAL_K,
@@ -892,17 +893,21 @@ class QueryOrchestrator:
 
 
         # ── AB-3: Query Normalization Stage ─────────────────────────────
-        with self._stage_ctx(PipelineStage.NORMALIZATION, input_metadata={"raw_query": question}) as norm_span:
-            normalized_result = self.query_normalizer.normalize(question)
-            processed_query = normalized_result.normalized_query
-            cache_key = normalized_result.cache_key
-            query_corrections.extend(getattr(normalized_result, "corrections_made", []))
-            if norm_span:
-                norm_span.set_output(
-                    normalized_query=processed_query,
-                    cache_key=cache_key,
-                    intent=getattr(normalized_result, "intent", None),
-                )
+        if ENABLE_QUERY_NORMALIZATION:
+            with self._stage_ctx(PipelineStage.NORMALIZATION, input_metadata={"raw_query": question}) as norm_span:
+                normalized_result = self.query_normalizer.normalize(question)
+                processed_query = normalized_result.normalized_query
+                cache_key = normalized_result.cache_key
+                query_corrections.extend(getattr(normalized_result, "corrections_made", []))
+                if norm_span:
+                    norm_span.set_output(
+                        normalized_query=processed_query,
+                        cache_key=cache_key,
+                        intent=getattr(normalized_result, "intent", None),
+                    )
+        else:
+            processed_query = question
+            cache_key = question
 
         # ── AB-9: Semantic Cache Check with RBAC Isolation & Cache ID ───
         # Resolve caller authorization & role for RBAC cache checking

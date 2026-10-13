@@ -123,20 +123,6 @@ with col_cache:
 
 chat_service = ChatService()
 
-with st.sidebar.expander("📊 Token Metrics"):
-    if st.button("Refresh Stats", use_container_width=True):
-        st.rerun()
-    try:
-        token_res = requests.get(f"{chat_service.base_url}/api/tokens/stats", timeout=3)
-        if token_res.status_code == 200:
-            stats = token_res.json()
-            st.write(f"**Total Tokens:** {stats.get('total_tokens', 0):,}")
-            st.write(f"**API Calls:** {stats.get('call_count', 0)}")
-            st.write(f"**Cache Hit Rate:** {stats.get('cache_hit_rate_percent', 0.0):.1f}%")
-            st.write(f"**Prompt:** {stats.get('prompt_tokens', 0):,} | **Completion:** {stats.get('completion_tokens', 0):,}")
-    except requests.exceptions.RequestException:
-        st.caption("Token stats unavailable")
-
 with st.sidebar.expander("🩺 Provider Health & Circuits"):
     col_ref, col_rst = st.columns([1, 1])
     with col_ref:
@@ -258,51 +244,6 @@ def _format_citations(citations: list, answer: str = "") -> str:
     return "\n".join(lines)
 
 
-def _format_corrections(corrections: list) -> str:
-    """Format spelling / typo corrections for display (excluding internal lemmas)."""
-    if not corrections:
-        return ""
-    cleaned = []
-    for c in corrections:
-        # e.g. "spell: compilance -> compliance" -> "compilance → compliance"
-        clean_c = re.sub(r'^[a-z_]+:\s*', '', str(c)).replace("->", "→").strip()
-        if clean_c and clean_c not in cleaned:
-            cleaned.append(clean_c)
-    if not cleaned:
-        return ""
-    return f"\n\n✏️ *Auto-corrected spelling:* `{', '.join(cleaned)}`"
-
-
-def _format_token_info(
-    tokens: dict | None,
-    cache_id: str | None = None,
-    assigned_role: str | None = None,
-) -> str:
-    """Format token usage and cache info for display."""
-    if not tokens and not cache_id:
-        return ""
-    
-    prompt = tokens.get("prompt_tokens", 0) if tokens else 0
-    completion = tokens.get("completion_tokens", 0) if tokens else 0
-    total = tokens.get("total_tokens", 0) if tokens else 0
-    cached = tokens.get("cache_hit", False) if tokens else False
-    
-    if cached:
-        text = "💾 *Response from cache (0 tokens used)*"
-        if cache_id:
-            text += f" • `ID: {cache_id}`"
-        if assigned_role:
-            text += f" • `Role: {assigned_role}`"
-        return f"\n\n{text}"
-    elif total > 0 or cache_id:
-        text = "🤖 *Generated via LLM*"
-        if total > 0:
-            text += f" (Tokens: {prompt}P + {completion}C = {total}T)"
-        if cache_id:
-            text += f" • `Cache ID: {cache_id}`"
-        return f"\n\n{text}"
-    return ""
-
 
 feedback_input = None
 
@@ -398,13 +339,8 @@ if user_input:
         corrections = []
         action_type = None
 
-    # Embed citations and token info as plain markdown into the answer so they persist in history
-    full_content = (
-        answer
-        + _format_citations(citations, answer=answer)
-        + _format_corrections(corrections)
-        + _format_token_info(tokens, cache_id=cache_id, assigned_role=assigned_role)
-    )
+    # Embed citations as plain markdown into the answer so they persist in history
+    full_content = answer + _format_citations(citations, answer=answer)
 
     st.session_state.messages.append({
         "role": "assistant",
