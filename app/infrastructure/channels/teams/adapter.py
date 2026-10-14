@@ -114,7 +114,6 @@ class TeamsChannelAdapter(BaseChannelAdapter):
 
         activity_payload = {
             "type": "message",
-            "text": plain_text,
             "attachments": [
                 {
                     "contentType": "application/vnd.microsoft.card.adaptive",
@@ -130,6 +129,5 @@ class TeamsChannelAdapter(BaseChannelAdapter):
 
         return ChannelResponse(
             status_code=200,
-            text=plain_text,
             card_payload=response_payload,
         )
