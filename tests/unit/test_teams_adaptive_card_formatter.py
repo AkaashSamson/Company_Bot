@@ -30,7 +30,17 @@ def test_format_teams_adaptive_card_schema():
     assert "$schema" in card
     body = card["body"]
     assert any("Yes, bereavement leave is 5 days." in item.get("text", "") for item in body)
-    assert any(item.get("type") == "FactSet" for item in body)
+    assert any(
+        item.get("type") == "ActionSet"
+        and any(act.get("type") == "Action.ToggleVisibility" for act in item.get("actions", []))
+        for item in body
+    )
+    assert any(
+        item.get("type") == "Container"
+        and item.get("isVisible") is False
+        and any(sub.get("type") == "FactSet" for sub in item.get("items", []))
+        for item in body
+    )
 
 
 def test_format_teams_adaptive_card_without_citations():

@@ -19,7 +19,7 @@ def format_teams_text(result: Dict[str, Any]) -> str:
 
 
 def format_teams_adaptive_card(result: Dict[str, Any]) -> Dict[str, Any]:
-    """Generate a Microsoft Adaptive Card (schema v1.4) JSON payload."""
+    """Generate a Microsoft Adaptive Card (schema v1.4) JSON payload with collapsible citations."""
     answer = result.get("answer", "I could not generate an answer.")
     citations: List[Dict[str, Any]] = result.get("citations") or []
 
@@ -33,17 +33,6 @@ def format_teams_adaptive_card(result: Dict[str, Any]) -> Dict[str, Any]:
     ]
 
     if citations:
-        body.append(
-            {
-                "type": "TextBlock",
-                "text": "Sources & References",
-                "weight": "Bolder",
-                "size": "Small",
-                "separator": True,
-                "spacing": "Medium",
-            }
-        )
-
         facts = []
         for cite in citations:
             src = cite.get("source") or "Document"
@@ -52,7 +41,32 @@ def format_teams_adaptive_card(result: Dict[str, Any]) -> Dict[str, Any]:
             title = f"{src} [{sec}]" if sec else src
             facts.append({"title": title, "value": txt[:250] + ("..." if len(txt) > 250 else "")})
 
-        body.append({"type": "FactSet", "facts": facts})
+        container_id = "citationsContainer"
+        body.append(
+            {
+                "type": "ActionSet",
+                "actions": [
+                    {
+                        "type": "Action.ToggleVisibility",
+                        "title": f"📚 Sources & References ({len(citations)})",
+                        "targetElements": [container_id],
+                    }
+                ],
+            }
+        )
+        body.append(
+            {
+                "type": "Container",
+                "id": container_id,
+                "isVisible": False,
+                "items": [
+                    {
+                        "type": "FactSet",
+                        "facts": facts,
+                    }
+                ],
+            }
+        )
 
     return {
         "type": "AdaptiveCard",

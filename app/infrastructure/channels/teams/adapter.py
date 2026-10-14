@@ -110,10 +110,17 @@ class TeamsChannelAdapter(BaseChannelAdapter):
 
     def format_response(self, message: ChannelMessage, result: Dict[str, Any]) -> ChannelResponse:
         plain_text = format_teams_text(result)
+        adaptive_card = format_teams_adaptive_card(result)
 
         activity_payload = {
             "type": "message",
             "text": plain_text,
+            "attachments": [
+                {
+                    "contentType": "application/vnd.microsoft.card.adaptive",
+                    "content": adaptive_card,
+                }
+            ],
         }
 
         response_payload = {
