@@ -7,10 +7,20 @@ from app.domain.ports.channel_adapter import ChannelMessage
 from app.infrastructure.channels.identity_bridge import ChannelIdentityBridge
 from app.infrastructure.channels.registry import get_channel_adapter
 
+import os
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/channels", tags=["channels"])
 
-_identity_bridge = ChannelIdentityBridge()
+_playground_user_id = os.getenv("TEAMS_PLAYGROUND_USER_ID", "").strip()
+_playground_username = os.getenv("TEAMS_PLAYGROUND_USERNAME", "").strip()
+_identity_bridge = ChannelIdentityBridge(
+    channel_user_aliases=(
+        {_playground_user_id: _playground_username}
+        if _playground_user_id and _playground_username
+        else None
+    )
+)
 
 
 def _get_orchestrator():
@@ -41,7 +51,19 @@ async def channel_webhook(channel_name: str, request: Request) -> Response:
             from app.api.dependencies import get_authorization_service
             authz_service = get_authorization_service()
             if authz_service:
-                scope = authz_service.authorization_scope(principal)
+                resolved_scope = authz_service.authorization_scope(principal)
+                if resolved_scope.include_unassigned or resolved_scope.is_admin:
+                    scope = resolved_scope
+                else:
+                    # Guest or unmapped channel user: allow organization-wide unassigned docs
+                    scope = AuthorizationScope(
+                        is_admin=False,
+                        project_ids=resolved_scope.project_ids or [],
+                        document_ids=resolved_scope.document_ids,
+                        include_unassigned=True,
+                    )
+                if hasattr(authz_service, "project_access_contact"):
+                    orchestrator.project_contact_lookup = authz_service.project_access_contact
         except Exception as exc:
             logger.debug("Failed to calculate channel scope: %s", exc)
 

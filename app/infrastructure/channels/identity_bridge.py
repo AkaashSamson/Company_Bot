@@ -10,8 +10,13 @@ logger = logging.getLogger(__name__)
 class ChannelIdentityBridge:
     """Maps channel-specific user identities (UPN/email/ID) to domain AuthenticatedPrincipal."""
 
-    def __init__(self, user_repo_provider: Optional[Callable[[], UserRepository]] = None):
+    def __init__(
+        self,
+        user_repo_provider: Optional[Callable[[], UserRepository]] = None,
+        channel_user_aliases: Optional[dict[str, str]] = None,
+    ):
         self._user_repo_provider = user_repo_provider
+        self._channel_user_aliases = dict(channel_user_aliases or {})
 
     def _get_user_repo(self) -> Optional[UserRepository]:
         if self._user_repo_provider:
@@ -26,10 +31,17 @@ class ChannelIdentityBridge:
             return None
 
     def resolve_principal(self, sender: ChannelUser) -> AuthenticatedPrincipal:
-        """Resolves sender into AuthenticatedPrincipal, checking email then username."""
+        """Resolves sender into AuthenticatedPrincipal, checking alias, email, then username."""
         repo = self._get_user_repo()
         if repo:
             try:
+                # 0. Local Teams playgrounds use synthetic IDs (for example, user-id-0).
+                mapped_username = self._channel_user_aliases.get(sender.user_id)
+                if mapped_username:
+                    db_user = repo.get_by_username(mapped_username)
+                    if db_user:
+                        return AuthenticatedPrincipal(uid=db_user.uid)
+
                 # 1. Look up by email (Teams userPrincipalName or email)
                 if sender.email:
                     db_user = repo.get_by_email(sender.email.strip().lower())

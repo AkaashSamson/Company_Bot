@@ -29,3 +29,21 @@ def test_resolve_principal_unknown_user_fallback():
     principal = bridge.resolve_principal(user)
     assert principal.uid.startswith("channel_guest:")
     assert "29:teams_id" in principal.uid
+
+
+def test_resolve_principal_playground_alias():
+    user_repo = MagicMock()
+    mock_db_user = MagicMock()
+    mock_db_user.uid = "usr_real_123"
+    user_repo.get_by_username.return_value = mock_db_user
+
+    bridge = ChannelIdentityBridge(
+        user_repo_provider=lambda: user_repo,
+        channel_user_aliases={"user-id-0": "jane.doe"},
+    )
+    user = ChannelUser(user_id="user-id-0")
+
+    principal = bridge.resolve_principal(user)
+
+    assert principal.uid == "usr_real_123"
+    user_repo.get_by_username.assert_called_once_with("jane.doe")
