@@ -451,10 +451,6 @@ class QueryOrchestrator:
                     "relevant information exists in a document that you do not",
                     "i could not find that information in the available documents",
                 ]) or is_negative_response(ans_str)
-                if defer_citations and not is_terminal and RELEVANCE_PROMPT.lower() not in ans_lower:
-                    ans_str = ans_str.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
-                    res["answer"] = ans_str
-                    ans_lower = ans_str.lower()
 
                 if "would you like to see the source references" in ans_lower:
                     res["action_type"] = "references_prompt"
@@ -998,10 +994,9 @@ class QueryOrchestrator:
                             cached_entry = None
                         else:
                             if "Would you like to see the references for this?" in ans:
-                                ans = ans.replace("Would you like to see the references for this?", RELEVANCE_PROMPT)
-                            # Ensure every cached answer ends with the relevance prompt so feedback buttons appear
-                            if defer_citations and RELEVANCE_PROMPT not in ans and REFERENCES_CONFIRM_PROMPT not in ans:
-                                ans = ans.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
+                                ans = ans.replace("Would you like to see the references for this?", "").rstrip()
+                            if RELEVANCE_PROMPT in ans:
+                                ans = ans.replace(f"\n\n{RELEVANCE_PROMPT}", "").replace(RELEVANCE_PROMPT, "").rstrip()
                             _pending_citations[session_id] = cached_citations
                             _last_interaction[session_id] = {
                                 "question": question,
@@ -1498,12 +1493,9 @@ class QueryOrchestrator:
             except Exception:
                 pass
 
-        # Ensure answer ends with RELEVANCE_PROMPT so feedback buttons always render
-        if not is_negative:
-            if "Would you like to see the references for this?" in answer:
-                answer = answer.replace("Would you like to see the references for this?", RELEVANCE_PROMPT)
-            if RELEVANCE_PROMPT not in answer and REFERENCES_CONFIRM_PROMPT not in answer:
-                answer = answer.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
+        # Clean up any trailing legacy prompt text from answer
+        if "Would you like to see the references for this?" in answer:
+            answer = answer.replace("Would you like to see the references for this?", "").rstrip()
 
 
         # Store interaction state for feedback

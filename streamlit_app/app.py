@@ -196,97 +196,24 @@ def _strip_citation_numbering(text: str) -> str:
     return "\n".join(cleaned_lines).strip()
 
 
-def _format_citations(citations: list, answer: str = "") -> str:
-    """Convert citations list to a plain markdown string that persists in chat history.
 
-    If the response was already created from the references (the reference text is already
-    contained in the answer), skip showing the references again.
-    """
-    if not citations:
-        return ""
-
-    if answer:
-        answer_clean = re.sub(r"\s+", " ", answer).strip().lower()
-        is_intro = any(
-            intro in answer_clean
-            for intro in [
-                "here are the references from the documents",
-                "here are the references for my previous answer",
-                "here are the references for your review",
-            ]
-        )
-        if not is_intro:
-            # Check if citation text is already contained in the answer
-            for c in citations:
-                raw = re.sub(r"\s+", " ", c.get("text", "")).strip().lower()
-                if raw and (raw[:40] in answer_clean if len(raw) >= 40 else raw in answer_clean):
-                    return ""
-
-    lines = ["\n\n---\n**References:**"]
-    for c in citations:
-        source = c.get("source", "Policy")
-        section = c.get("section", "")
-        # Clean section as well if it starts with numbering
-        clean_section = re.sub(
-            r"^\s*(?:(?:Section|Article|Clause)\s+)?\d+(?:\.\d+)*[:\s-]*",
-            "",
-            section,
-            flags=re.IGNORECASE,
-        ).strip() or section
-        raw_text = c.get("text", "")
-        cleaned_text = _strip_citation_numbering(raw_text)
-        if clean_section:
-            lines.append(f"\n📄 **{source}** — {clean_section}")
-        else:
-            lines.append(f"\n📄 **{source}**")
-        if cleaned_text:
-            lines.append(f"\n> {cleaned_text}")
-    return "\n".join(lines)
-
-
-
-feedback_input = None
-
-# Replay full chat history with buttons embedded directly inside the latest assistant response
-total_messages = len(st.session_state.messages)
-for i, message in enumerate(st.session_state.messages):
+# Replay full chat history with citations collapsed in an expander
+for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
-
-        # Display interactive action buttons directly with the response
-        is_last_message = (i == total_messages - 1)
-        if is_last_message and message.get("role") == "assistant":
-            content_lower = (message.get("content", "")).lower()
-            action_type = message.get("action_type")
-
-            show_relevance = action_type == "relevance_feedback" or (
-                not action_type and "relevant to your question" in content_lower
-            )
-            show_references = action_type == "references_prompt" or (
-                not action_type and "would you like to see the source references" in content_lower
-            )
-
-            if show_relevance:
-                col_fb1, col_fb2, _ = st.columns([1.2, 1.6, 2.5])
-                with col_fb1:
-                    if st.button("👍 Yes, relevant", key=f"fb_yes_{i}", help="Confirm response was relevant"):
-                        feedback_input = "Yes"
-                with col_fb2:
-                    if st.button("👎 No, not relevant", key=f"fb_no_{i}", help="Mark as not relevant to generate an alternative answer"):
-                        feedback_input = "No, not relevant"
-
-            elif show_references:
-                col_ref1, col_ref2, _ = st.columns([1.5, 1.2, 2.5])
-                with col_ref1:
-                    if st.button("📄 Yes, show references", key=f"ref_yes_{i}", help="Show source document references"):
-                        feedback_input = "Yes"
-                with col_ref2:
-                    if st.button("🚫 No thanks", key=f"ref_no_{i}", help="Skip references"):
-                        feedback_input = "No"
+        citations = message.get("citations") or []
+        if citations:
+            with st.expander(f"📚 Sources & References ({len(citations)})", expanded=False):
+                for c in citations:
+                    src = c.get("source") or "Policy"
+                    sec = c.get("section") or ""
+                    txt = c.get("text") or ""
+                    sec_lbl = f" — *{sec}*" if sec else ""
+                    st.markdown(f"📄 **{src}**{sec_lbl}")
+                    if txt:
+                        st.markdown(f"> {_strip_citation_numbering(txt)}")
 
 user_input = st.chat_input("Ask about the HR policy...")
-if feedback_input:
-    user_input = feedback_input
 
 if user_input:
     question_timestamp = datetime.now(timezone.utc).isoformat()
@@ -339,21 +266,25 @@ if user_input:
         corrections = []
         action_type = None
 
-    # Embed citations as plain markdown into the answer so they persist in history
-    full_content = answer + _format_citations(citations, answer=answer)
-
     st.session_state.messages.append({
         "role": "assistant",
-        "content": full_content,
+        "content": answer,
+        "citations": citations,
         "raw_answer": answer,
         "action_type": action_type,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
     with st.chat_message("assistant"):
-        st.markdown(full_content)
-
-    # Always rerun so feedback buttons (and any post-reply widgets) appear
-    # immediately after the bot response, not only on the next user query.
-    st.rerun()
+        st.markdown(answer)
+        if citations:
+            with st.expander(f"📚 Sources & References ({len(citations)})", expanded=False):
+                for c in citations:
+                    src = c.get("source") or "Policy"
+                    sec = c.get("section") or ""
+                    txt = c.get("text") or ""
+                    sec_lbl = f" — *{sec}*" if sec else ""
+                    st.markdown(f"📄 **{src}**{sec_lbl}")
+                    if txt:
+                        st.markdown(f"> {_strip_citation_numbering(txt)}")
 
 

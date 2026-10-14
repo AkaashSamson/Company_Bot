@@ -140,8 +140,12 @@ def test_similar_questions_return_the_exact_previous_response(monkeypatch):
         }
     ]
 
+    monkeypatch.setattr("app.core.settings.CACHE_ENABLED", True)
+    monkeypatch.setattr("app.core.settings.SEMANTIC_CACHE_ENABLED", True)
+
     def embed_question(key):
-        return [1.0, 0.0] if "annual leave" in key or "vacation days" in key else [0.0, 1.0]
+        k = key.replace("_", " ")
+        return [1.0, 0.0] if "annual leave" in k or "vacation" in k else [0.0, 1.0]
 
     response_cache = PromptLRUCache(
         maxsize=4,
@@ -173,6 +177,8 @@ def test_similar_questions_return_the_exact_previous_response(monkeypatch):
 
 
 def test_faq_endpoint_reads_json_cache_without_llm(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.core.settings.CACHE_ENABLED", True)
+    monkeypatch.setattr("app.core.settings.FAQ_SIMILARITY_CACHE_ENABLED", True)
     llm = Mock()
     retrieval = Mock()
     faq_cache = JsonFAQCache(tmp_path / "faqs_cache.json")

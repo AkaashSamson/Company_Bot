@@ -143,7 +143,7 @@ class RAGContextBuilder:
         if include_references:
             instructions = prompts_config.get(
                 "user_instructions",
-                "Instructions: Answer using ONLY the document context above. End with: 'Was this response relevant to your question?'"
+                "Instructions: Answer using ONLY the document context above."
             ).strip()
             prompt_parts.append(f"\n{instructions}")
 
