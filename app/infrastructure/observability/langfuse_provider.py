@@ -288,8 +288,14 @@ class LangfuseProvider(BaseObservabilityProvider):
 
                 # Attach generation model & token metrics for LLM stages
                 if obs_type == "generation" or "generation" in stage_val.lower():
-                    model_name = getattr(span, "input_metadata", {}).get("model", "unknown")
+                    in_meta = getattr(span, "input_metadata", {}) or {}
+                    out_meta = getattr(span, "output_metadata", {}) or {}
+                    model_name = in_meta.get("model", "unknown")
                     span_kwargs["model"] = model_name
+                    if "messages" in in_meta:
+                        span_kwargs["input"] = in_meta["messages"]
+                    if "completion" in out_meta:
+                        span_kwargs["output"] = out_meta["completion"]
                     p_tok = getattr(span, "prompt_tokens", 0)
                     c_tok = getattr(span, "completion_tokens", 0)
                     t_tok = getattr(span, "tokens_used", 0) or (p_tok + c_tok)

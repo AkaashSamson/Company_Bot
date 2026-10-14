@@ -50,13 +50,14 @@ def sample_pipeline_trace():
     trace.add_span(span_retrieval)
 
     # 3. LLM generation span
+    sample_messages = [{"role": "user", "content": "how many sick leaves I have?"}]
     span_llm = StageSpan(
         stage=PipelineStage.LLM_GENERATION,
         start_time=t_start + 0.35,
         end_time=t_start + 1.25,
         duration_ms=900.0,
-        input_metadata={"model": "llama-3.3-70b-versatile"},
-        output_metadata={"finish_reason": "stop"},
+        input_metadata={"model": "llama-3.3-70b-versatile", "messages": sample_messages},
+        output_metadata={"finish_reason": "stop", "completion": "You have 12 sick leaves remaining."},
         prompt_tokens=500,
         completion_tokens=201,
         tokens_used=701,
@@ -147,5 +148,7 @@ def test_langfuse_provider_exports_root_and_child_spans_with_timestamps(sample_p
     assert child_calls[2][1]["as_type"] == "generation"
     assert child_calls[2][1]["usage_details"] == {"input": 500, "output": 201, "total": 701}
     assert child_calls[2][1]["model"] == "llama-3.3-70b-versatile"
+    assert child_calls[2][1]["input"] == [{"role": "user", "content": "how many sick leaves I have?"}]
+    assert child_calls[2][1]["output"] == "You have 12 sick leaves remaining."
 
     mock_client.flush.assert_called_once()

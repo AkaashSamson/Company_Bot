@@ -1285,12 +1285,27 @@ class QueryOrchestrator:
         try:
             with self._stage_ctx(
                 PipelineStage.LLM_GENERATION,
-                input_metadata={"model": model_name, "messages_count": len(messages)}
+                input_metadata={
+                    "model": model_name,
+                    "messages": messages,
+                    "messages_count": len(messages),
+                }
             ) as gen_span:
                 answer = self._generate(messages, session_id=session_id)
                 if gen_span:
+                    toks = None
+                    if hasattr(self.llm, "get_last_tokens"):
+                        toks = self.llm.get_last_tokens()
+                    elif hasattr(getattr(self.llm, "primary", None), "get_last_tokens"):
+                        toks = self.llm.primary.get_last_tokens()
+                    if isinstance(toks, dict):
+                        gen_span.record_tokens(
+                            prompt_tokens=toks.get("prompt_tokens", 0),
+                            completion_tokens=toks.get("completion_tokens", 0),
+                        )
                     gen_span.set_output(
                         finish_reason="stop",
+                        completion=answer,
                         answer_preview=answer[:100] if answer else "",
                     )
         except (LLMProviderError, Exception) as llm_error:
@@ -1586,34 +1601,6 @@ class QueryOrchestrator:
                 self.llm.session_id = old_session
         else:
             result = self.llm.generate(messages)
-
-        latency_ms = (time.perf_counter() - start_t) * 1000.0
-
-        # Langfuse generation metric tracking (Langfuse Best Practice)
-        try:
-            tokens_dict = None
-            if hasattr(self.llm, "get_last_tokens"):
-                tokens_dict = self.llm.get_last_tokens()
-            elif hasattr(getattr(self.llm, "primary", None), "get_last_tokens"):
-                tokens_dict = self.llm.primary.get_last_tokens()
-
-            if tokens_dict:
-                from app.domain.ports.observability import TokenUsage
-                from app.infrastructure.observability.manager import get_observability_manager
-                u = TokenUsage(
-                    prompt_tokens=tokens_dict.get("prompt_tokens", 0),
-                    completion_tokens=tokens_dict.get("completion_tokens", 0),
-                    total_tokens=tokens_dict.get("total_tokens", 0),
-                )
-                get_observability_manager().record_llm_call(
-                    model=tokens_dict.get("model", "unknown-model"),
-                    token_usage=u,
-                    latency_ms=latency_ms,
-                    prompt=messages,
-                    completion=result,
-                )
-        except Exception as exc:
-            logger.debug("Failed recording LLM generation in Langfuse: %s", exc)
 
         return result
 
