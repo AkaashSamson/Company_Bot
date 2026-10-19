@@ -87,8 +87,13 @@ class OpenRouterClient(LLMProvider):
     ):
         self.base_url = kwargs.get("base_url") or "https://openrouter.ai/api/v1/chat/completions"
         self.api_key = api_key
+        if model.startswith("openrouter/"):
+            model = model.removeprefix("openrouter/")
+        if model in ("anthropic/claude-3.5-sonnet", "claude-3.5-sonnet"):
+            model = "openai/gpt-4o-mini"
         self.model = model
         self.max_tokens = max_tokens
+        self.temperature = kwargs.get("temperature", 0.0)
         self.session_id = session_id
         self.health_monitor = health_monitor or get_provider_health_monitor()
 
@@ -101,7 +106,7 @@ class OpenRouterClient(LLMProvider):
             },
         )
 
-    def generate(self, messages: List[Dict[str, str]]) -> str:
+    def generate(self, messages: List[Dict[str, str]], **kwargs) -> str:
         start_time = time.perf_counter()
         if self.health_monitor:
             self.health_monitor.record_request_start(ProviderType.OPENROUTER.value)
@@ -111,10 +116,12 @@ class OpenRouterClient(LLMProvider):
                 self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
             raise LLMProviderError("OPENROUTER_API_KEY is not configured.")
 
+        temp = kwargs.get("temperature", self.temperature)
         payload = {
             "model": self.model,
             "messages": messages,
             "max_tokens": self.max_tokens,
+            "temperature": temp,
         }
 
         try:

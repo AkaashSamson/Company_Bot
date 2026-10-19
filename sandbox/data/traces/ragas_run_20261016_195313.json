@@ -1,0 +1,57 @@
+{
+  "timestamp": 1792160593.6532695,
+  "cases_count": 4,
+  "avg_faithfulness": 1.0,
+  "avg_factual": 0.75,
+  "avg_relevancy": 1.0,
+  "results": [
+    {
+      "ID": "USER-9142",
+      "Query": "what does Rikalp capital private Limited Do?",
+      "Live Response": "The provided policy documents do not specify the exact business activities or services that Rikalp Capital Private Limited engages in. They primarily focus on HR policies such as maternity and paternity leave, and whistleblower policies. For detailed information about the company's operations, you may need to refer to other company resources or documents that outline the business activities.\n\nWould you like to see the references for this?",
+      "Faithfulness": 1.0,
+      "Factual Correctness": 1.0,
+      "Answer Relevancy": 1.0,
+      "Status": "PASS",
+      "Diagnosis": "The response accurately reflects the retrieved context, which primarily discusses HR policies without detailing the company's business activities. Therefore, it is faithful to the context and relevant to the user's inquiry. However, the context precision is low because the most relevant information about the company's operations is not present in the top passages retrieved. Context recall is high as the response acknowledges the absence of specific business activity details, aligning with the reference answer.",
+      "Evaluator": "openai/gpt-4o-mini",
+      "Timestamp": "19:29:04"
+    },
+    {
+      "ID": "USER-9379",
+      "Query": "I am working with rikalp capital , I wanted to know if I miss a flight to a business meeting ,then will the newly made ticket get reimbursed?",
+      "Live Response": "The provided company policy documents do not specify any guidelines regarding the reimbursement of newly made tickets in the event of missing a flight to a business meeting. Therefore, it is unclear whether such expenses would be covered under company policy. It is advisable to consult your manager or the HR department for clarification on this matter.\n\nWould you like to see the references for this?",
+      "Faithfulness": 1.0,
+      "Factual Correctness": 0.0,
+      "Answer Relevancy": 1.0,
+      "Status": "PASS",
+      "Diagnosis": "The response accurately states that the company policy does not provide information on ticket reimbursement for missed flights, which aligns with the retrieved context. However, it fails to mention any relevant details from the retrieved passages, leading to a factual correctness score of 0.0. The context precision score is also 0.0 because the most relevant passages did not address the user's inquiry directly. The context recall is 1.0 since the response correctly identifies the absence of specific information in the retrieved context.",
+      "Evaluator": "openai/gpt-4o-mini",
+      "Timestamp": "19:33:08"
+    },
+    {
+      "ID": "USER-9646",
+      "Query": "I am working with rikalp capital , I am feeling Like I am being treated differently amongst my Peers. ",
+      "Live Response": "If you feel that you are being treated differently among your peers, it is important to address this concern appropriately. You may consider discussing your feelings with your reporting manager or HR department to seek clarification and support. If the issue persists and you believe it constitutes a grievance, you can follow the grievance procedure outlined in the company policy.\n\nAccording to the policy, if your complaint is not addressed within 15 days, you may escalate it to the HR Department. If it remains unresolved after one month, you can approach the Vigilance Officer. \n\nWould you like to see the references for this?",
+      "Faithfulness": 1.0,
+      "Factual Correctness": 1.0,
+      "Answer Relevancy": 1.0,
+      "Status": "PASS",
+      "Diagnosis": "The generated response accurately addresses the user's concern about feeling treated differently among peers by suggesting appropriate actions to take, such as discussing the issue with the reporting manager or HR department. It correctly references the grievance procedure outlined in the retrieved context, ensuring that all claims made in the response are supported by the context. The response is relevant and directly addresses the user's inquiry without extraneous information. The most relevant passages were ranked appropriately, and all necessary facts were included in the retrieved context.",
+      "Evaluator": "openai/gpt-4o-mini",
+      "Timestamp": "19:37:31"
+    },
+    {
+      "ID": "USER-0514",
+      "Query": "I am working with rikalp capital , I have run out of sick leaves and I have met with an Accident, and will not be able to work for a Month . What is the steps to be followed??",
+      "Live Response": "If you have run out of sick leaves and are unable to work for a month due to an accident, you should follow these steps based on the company policies:\n\n1. **Inform Your Manager**: Notify your reporting manager about your situation as soon as possible. It is important to communicate your absence.\n\n2. **Medical Certificate**: Since you will be absent for more than three consecutive working days, you may be required to provide a medical certificate. Ensure that you obtain this documentation from your healthcare provider.\n\n3. **Submit Documentation**: Once you have the medical certificate, submit it through the designated HR process within the specified timeline.\n\n4. **Leave of Absence**: Since you have exhausted your sick leave, you may need to discuss the possibility of a leave of absence with your HR department or manager. \n\n5. **Follow Up**: Keep in touch with your HR department to ensure that your leave is processed correctly and to understand any implications regarding your employment status.\n\nPlease note that if you remain absent without any intimation for more than 5 days, your contract may be liable to termination as per company policy.\n\nWould you like to see the references for this?",
+      "Faithfulness": 1.0,
+      "Factual Correctness": 1.0,
+      "Answer Relevancy": 1.0,
+      "Status": "PASS",
+      "Diagnosis": "The response is fully supported by the retrieved context, addressing the user's situation regarding sick leave and absence due to an accident. It provides clear steps to follow, including notifying the manager, obtaining a medical certificate, and submitting documentation. The response is relevant and factual, aligning with the reference answer. However, the context precision is low because the most relevant information regarding sick leave and medical documentation is not found in the top passages retrieved, which affects the context precision score.",
+      "Evaluator": "openai/gpt-4o-mini",
+      "Timestamp": "19:51:59"
+    }
+  ]
+}

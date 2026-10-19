@@ -1,0 +1,430 @@
+{
+  "run_id": "run_20261015_112430_fed4",
+  "suite_id": "ragas_edge_cases_openrouter",
+  "config": {
+    "run_id": "run_20261015_112430_fed4",
+    "suite_id": "ragas_edge_cases_openrouter",
+    "execution_mode": "remote_provider_allowed",
+    "components": [
+      "retrieval",
+      "reranking",
+      "generation",
+      "policy_eval",
+      "ragas_eval"
+    ],
+    "retrieval_k": 13,
+    "reranker_top_k": 4,
+    "reranker_model": "BAAI/bge-reranker-base",
+    "llm_provider": "openrouter",
+    "llm_model": "openrouter/anthropic/claude-3.5-sonnet",
+    "nli_evaluator": "local_nli",
+    "enforce_rbac": true,
+    "evidence_mode": "any",
+    "created_at": "2026-10-15T11:24:30.446963+00:00"
+  },
+  "created_at": "2026-10-15T11:24:30.446963+00:00",
+  "total_tests": 3,
+  "passed": 3,
+  "failed": 0,
+  "errors": 0,
+  "inconclusive": 0,
+  "pass_rate": 100.0,
+  "component_metrics": {
+    "retrieval": {
+      "mean_recall_at_k": 100.0,
+      "tested_cases": 0
+    },
+    "reranking": {
+      "needle_retention_rate": 100.0,
+      "tested_needles": 3
+    },
+    "policy_eval": {
+      "prohibited_claim_free_rate": 100.0,
+      "policies_tested": 3
+    }
+  },
+  "failed_cases": [],
+  "test_results": [
+    {
+      "test_id": "EDGE-01",
+      "status": "PASS",
+      "failure_stage": null,
+      "assertion_results": [
+        {
+          "component": "reranking",
+          "type": "needle_present",
+          "passed": true,
+          "actual_value": [
+            "NEXORA TECHNOLOGIES PVT-55",
+            "HR_Policy_Manual-8",
+            "NEXORA TECHNOLOGIES PVT-75",
+            "NEXORA TECHNOLOGIES PVT-79"
+          ],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Needle or required chunk in top 4: False"
+        },
+        {
+          "component": "generation",
+          "type": "non_empty_response",
+          "passed": true,
+          "actual_value": "97 tokens",
+          "expected_value": null,
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "LLM generated a non-empty response."
+        },
+        {
+          "component": "policy_eval",
+          "type": "no_prohibited_claims",
+          "passed": true,
+          "actual_value": [],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "No prohibited policy claims detected."
+        },
+        {
+          "component": "policy_eval",
+          "type": "evidence_coverage",
+          "passed": true,
+          "actual_value": "2/2 (100%)",
+          "expected_value": ">=50%",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Covered 2/2 required policy steps/topics."
+        }
+      ],
+      "trace": {
+        "test_id": "EDGE-01",
+        "total_latency_ms": 14943.27,
+        "stages": {
+          "retrieval": {
+            "stage": "retrieval",
+            "status": "PASS",
+            "latency_ms": 6363.6,
+            "inputs": {
+              "question": "I need leave next week. What should I do first?",
+              "role": "EMPLOYEE",
+              "top_k": 13
+            },
+            "outputs": {
+              "candidate_count": 13,
+              "recall": 1.0
+            },
+            "error_message": null
+          },
+          "reranking": {
+            "stage": "reranking",
+            "status": "PASS",
+            "latency_ms": 8456.57,
+            "inputs": {
+              "candidate_count": 13,
+              "top_k": 4
+            },
+            "outputs": {
+              "reranked_count": 4,
+              "needle_found": true
+            },
+            "error_message": null
+          },
+          "generation": {
+            "stage": "generation",
+            "status": "PASS",
+            "latency_ms": 0.63,
+            "inputs": {
+              "model": "fallback_heuristic (err: AttributeError)",
+              "context_tokens": 304
+            },
+            "outputs": {
+              "response_text": "Employees should plan leave in advance whenever reasonably possible. Emergency or sick leave should be communicated promptly. Employees should contact People & Culture for the applicable rules regardi",
+              "response_tokens": 97
+            },
+            "error_message": null
+          },
+          "policy_eval": {
+            "stage": "policy_eval",
+            "status": "PASS",
+            "latency_ms": 0.0,
+            "inputs": {
+              "required_claims": 2,
+              "prohibited": 1
+            },
+            "outputs": {
+              "prohibited_leaks": [],
+              "coverage": 1.0
+            },
+            "error_message": null
+          },
+          "ragas_eval": {
+            "stage": "ragas_eval",
+            "status": "ERROR",
+            "latency_ms": 0.0,
+            "inputs": {},
+            "outputs": {},
+            "error_message": "'ExpectedBehavior' object has no attribute 'expected_guidance'"
+          }
+        }
+      },
+      "metrics": {
+        "latency_ms": 14943.27,
+        "response_text": "Employees should plan leave in advance whenever reasonably possible. Emergency or sick leave should be communicated promptly. Employees should contact People & Culture for the applicable rules regarding leave encashment at\nthe time of separation or other eligible circumstances. Employees are expected to use leave responsibly and follow the applicable approval and\ndocumentation procedures. Leave entitlements may vary depending on an employee's employment category, length of service,\nand applicable law. Sources: [HR_Policy_Manual.docx], [NEXORA TECHNOLOGIES PVT.pdf]"
+      }
+    },
+    {
+      "test_id": "EDGE-21",
+      "status": "PASS",
+      "failure_stage": null,
+      "assertion_results": [
+        {
+          "component": "reranking",
+          "type": "needle_present",
+          "passed": true,
+          "actual_value": [
+            "NEXORA TECHNOLOGIES PVT-3",
+            "NEXORA TECHNOLOGIES PVT-1",
+            "NEXORA TECHNOLOGIES PVT-6",
+            "NEXORA TECHNOLOGIES PVT-2"
+          ],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Needle or required chunk in top 4: False"
+        },
+        {
+          "component": "generation",
+          "type": "non_empty_response",
+          "passed": true,
+          "actual_value": "187 tokens",
+          "expected_value": null,
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "LLM generated a non-empty response."
+        },
+        {
+          "component": "policy_eval",
+          "type": "no_prohibited_claims",
+          "passed": true,
+          "actual_value": [],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "No prohibited policy claims detected."
+        },
+        {
+          "component": "policy_eval",
+          "type": "evidence_coverage",
+          "passed": true,
+          "actual_value": "1/2 (50%)",
+          "expected_value": ">=50%",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Covered 1/2 required policy steps/topics."
+        }
+      ],
+      "trace": {
+        "test_id": "EDGE-21",
+        "total_latency_ms": 1793.9,
+        "stages": {
+          "retrieval": {
+            "stage": "retrieval",
+            "status": "PASS",
+            "latency_ms": 18.66,
+            "inputs": {
+              "question": "The handbook says one thing, but the HR portal says another. What should I do?",
+              "role": "EMPLOYEE",
+              "top_k": 13
+            },
+            "outputs": {
+              "candidate_count": 13,
+              "recall": 1.0
+            },
+            "error_message": null
+          },
+          "reranking": {
+            "stage": "reranking",
+            "status": "PASS",
+            "latency_ms": 1771.44,
+            "inputs": {
+              "candidate_count": 13,
+              "top_k": 4
+            },
+            "outputs": {
+              "reranked_count": 4,
+              "needle_found": true
+            },
+            "error_message": null
+          },
+          "generation": {
+            "stage": "generation",
+            "status": "PASS",
+            "latency_ms": 0.37,
+            "inputs": {
+              "model": "fallback_heuristic (err: AttributeError)",
+              "context_tokens": 274
+            },
+            "outputs": {
+              "response_text": "The handbook covers areas including:\n Working hours and attendance\n Leave and holidays\n Remote and hybrid work\n Compensation and payroll\n Employee benefits\n Workplace conduct\n Information secur",
+              "response_tokens": 187
+            },
+            "error_message": null
+          },
+          "policy_eval": {
+            "stage": "policy_eval",
+            "status": "PASS",
+            "latency_ms": 0.0,
+            "inputs": {
+              "required_claims": 2,
+              "prohibited": 1
+            },
+            "outputs": {
+              "prohibited_leaks": [],
+              "coverage": 0.5
+            },
+            "error_message": null
+          },
+          "ragas_eval": {
+            "stage": "ragas_eval",
+            "status": "ERROR",
+            "latency_ms": 0.0,
+            "inputs": {},
+            "outputs": {},
+            "error_message": "'ExpectedBehavior' object has no attribute 'expected_guidance'"
+          }
+        }
+      },
+      "metrics": {
+        "latency_ms": 1793.9,
+        "response_text": "The handbook covers areas including:\n Working hours and attendance\n Leave and holidays\n Remote and hybrid work\n Compensation and payroll\n Employee benefits\n Workplace conduct\n Information security\n Performance management\n Employee grievances\n Disciplinary procedures\n Resignation and separation\nEmployees are expected to read and understand the policies applicable to their role. This Employee Handbook provides employees with information about the company's workplace\npolicies, procedures, benefits, expectations, and employee responsibilities. The handbook is intended to serve as a practical reference for employees throughout their\nemployment with Nexora. 2.1 Using This Handbook\nThis handbook is intended as a general guide and does not contain every rule or procedure\napplicable to employees. Employees should refer to the relevant policy section before making decisions related to leave,\nattendance, expenses, company equipment, information security, or other employment matters. Sources: [NEXORA TECHNOLOGIES PVT.pdf]"
+      }
+    },
+    {
+      "test_id": "EDGE-34",
+      "status": "PASS",
+      "failure_stage": null,
+      "assertion_results": [
+        {
+          "component": "reranking",
+          "type": "needle_present",
+          "passed": true,
+          "actual_value": [
+            "NEXORA TECHNOLOGIES PVT-290",
+            "NEXORA TECHNOLOGIES PVT-274",
+            "POSH_Policy-3",
+            "NEXORA TECHNOLOGIES PVT-110"
+          ],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Needle or required chunk in top 4: False"
+        },
+        {
+          "component": "generation",
+          "type": "non_empty_response",
+          "passed": true,
+          "actual_value": "24 tokens",
+          "expected_value": null,
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "LLM generated a non-empty response."
+        },
+        {
+          "component": "policy_eval",
+          "type": "no_prohibited_claims",
+          "passed": true,
+          "actual_value": [],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "No prohibited policy claims detected."
+        },
+        {
+          "component": "policy_eval",
+          "type": "evidence_coverage",
+          "passed": true,
+          "actual_value": "2/2 (100%)",
+          "expected_value": ">=50%",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Covered 2/2 required policy steps/topics."
+        }
+      ],
+      "trace": {
+        "test_id": "EDGE-34",
+        "total_latency_ms": 1588.36,
+        "stages": {
+          "retrieval": {
+            "stage": "retrieval",
+            "status": "PASS",
+            "latency_ms": 17.41,
+            "inputs": {
+              "question": "I need an answer, but the policy does not state the approval timeline. What can you tell me?",
+              "role": "EMPLOYEE",
+              "top_k": 13
+            },
+            "outputs": {
+              "candidate_count": 13,
+              "recall": 1.0
+            },
+            "error_message": null
+          },
+          "reranking": {
+            "stage": "reranking",
+            "status": "PASS",
+            "latency_ms": 1568.1,
+            "inputs": {
+              "candidate_count": 13,
+              "top_k": 4
+            },
+            "outputs": {
+              "reranked_count": 4,
+              "needle_found": true
+            },
+            "error_message": null
+          },
+          "generation": {
+            "stage": "generation",
+            "status": "PASS",
+            "latency_ms": 0.02,
+            "inputs": {
+              "model": "fallback_heuristic (err: AttributeError)",
+              "context_tokens": 280
+            },
+            "outputs": {
+              "response_text": "Based on the provided company policy documents, this action or inquiry is not supported or falls outside established guidelines.",
+              "response_tokens": 24
+            },
+            "error_message": null
+          },
+          "policy_eval": {
+            "stage": "policy_eval",
+            "status": "PASS",
+            "latency_ms": 0.0,
+            "inputs": {
+              "required_claims": 2,
+              "prohibited": 1
+            },
+            "outputs": {
+              "prohibited_leaks": [],
+              "coverage": 1.0
+            },
+            "error_message": null
+          },
+          "ragas_eval": {
+            "stage": "ragas_eval",
+            "status": "ERROR",
+            "latency_ms": 0.0,
+            "inputs": {},
+            "outputs": {},
+            "error_message": "'ExpectedBehavior' object has no attribute 'expected_guidance'"
+          }
+        }
+      },
+      "metrics": {
+        "latency_ms": 1588.36,
+        "response_text": "Based on the provided company policy documents, this action or inquiry is not supported or falls outside established guidelines."
+      }
+    }
+  ]
+}

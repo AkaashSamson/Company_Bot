@@ -1,0 +1,2973 @@
+[
+  {
+    "id": "RAG-VAL-01",
+    "category": "FACTUAL_POLICY_LOOKUP",
+    "question": "How many annual leave days are provided per calendar year?",
+    "expected_answer_keywords": [
+      "18",
+      "annual leave",
+      "calendar year"
+    ],
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "required_chunk_ids": [
+      "NEXORA TECHNOLOGIES PVT-57"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "RAG-VAL-02",
+    "category": "FACTUAL_POLICY_LOOKUP",
+    "question": "What is the standard probation period duration for new employees?",
+    "expected_answer_keywords": [
+      "3 months",
+      "probation"
+    ],
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "required_chunk_ids": [
+      "NEXORA TECHNOLOGIES PVT-12"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "RAG-VAL-03",
+    "category": "FACTUAL_POLICY_LOOKUP",
+    "question": "Can an employee carry forward unused annual leaves to the next calendar year?",
+    "expected_answer_keywords": [
+      "carry forward",
+      "5"
+    ],
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "required_chunk_ids": [
+      "NEXORA TECHNOLOGIES PVT-283"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "RAG-VAL-04",
+    "category": "FACTUAL_POLICY_LOOKUP",
+    "question": "What are the standard core working hours of the company?",
+    "expected_answer_keywords": [
+      "9:30 AM",
+      "6:30 PM"
+    ],
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "required_chunk_ids": [
+      "NEXORA TECHNOLOGIES PVT-33"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "RAG-VAL-05",
+    "category": "FACTUAL_POLICY_LOOKUP",
+    "question": "What is the notice period required during probation versus after confirmation?",
+    "expected_answer_keywords": [
+      "15 days",
+      "30 days",
+      "probation"
+    ],
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "required_chunk_ids": [
+      "NEXORA TECHNOLOGIES PVT-272"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "RAG-VAL-06",
+    "category": "PROCEDURE_WORKFLOW",
+    "question": "How do I apply for annual leave?",
+    "expected_answer_keywords": [
+      "portal",
+      "approval",
+      "advance",
+      "manager"
+    ],
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "required_chunk_ids": [
+      "NEXORA TECHNOLOGIES PVT-57"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "RAG-VAL-07",
+    "category": "PROCEDURE_WORKFLOW",
+    "question": "What is the procedure for reporting sexual harassment under the POSH policy?",
+    "expected_answer_keywords": [
+      "Internal Complaints Committee",
+      "written complaint",
+      "ICC"
+    ],
+    "expected_document": "POSH_Policy",
+    "required_chunk_ids": [
+      "POSH_Policy-31"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "RAG-VAL-08",
+    "category": "INTENT_PERSONAL_BALANCE",
+    "question": "How many leaves do I have?",
+    "expected_answer_keywords": [
+      "HRMS portal",
+      "People & Culture",
+      "balance"
+    ],
+    "expected_document": null,
+    "required_chunk_ids": [],
+    "expected_intent": "personal_status",
+    "should_succeed": true,
+    "notes": "Must direct user to live HRMS portal and must NOT store in shared cache."
+  },
+  {
+    "id": "RAG-VAL-09",
+    "category": "INTENT_PERSONAL_BALANCE",
+    "question": "Check my leave balance",
+    "expected_answer_keywords": [
+      "HRMS portal",
+      "balance"
+    ],
+    "expected_document": null,
+    "required_chunk_ids": [],
+    "expected_intent": "personal_status",
+    "should_succeed": true
+  },
+  {
+    "id": "RAG-VAL-10",
+    "category": "NEGATIVE_HALLUCINATION_GUARD",
+    "question": "What is the company stock option (ESOP) vesting cliff percentage?",
+    "expected_refusal": true,
+    "expected_refusal_substring": "could not find that information",
+    "expected_document": null,
+    "required_chunk_ids": [],
+    "should_succeed": true,
+    "notes": "Information not in documents; system MUST refuse and NOT hallucinate."
+  },
+  {
+    "id": "RAG-VAL-11",
+    "category": "NEGATIVE_HALLUCINATION_GUARD",
+    "question": "What is the company pet policy for bringing dogs to the office?",
+    "expected_refusal": true,
+    "expected_refusal_substring": "could not find that information",
+    "expected_document": null,
+    "required_chunk_ids": [],
+    "should_succeed": true
+  },
+  {
+    "id": "RAG-VAL-12",
+    "category": "NEGATIVE_HALLUCINATION_GUARD",
+    "question": "Who won the 2026 FIFA World Cup final match?",
+    "expected_refusal": true,
+    "expected_refusal_substring": "could not find that information",
+    "expected_document": null,
+    "required_chunk_ids": [],
+    "should_succeed": true
+  },
+  {
+    "id": "RAG-VAL-13",
+    "category": "MULTI_SECTION_SYNTHESIS",
+    "question": "Can an employee take annual leave while on probation?",
+    "expected_answer_keywords": [
+      "probation",
+      "manager approval",
+      "discretion"
+    ],
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "required_chunk_ids": [
+      "NEXORA TECHNOLOGIES PVT-69"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "RAG-VAL-14",
+    "category": "RBAC_CONFIDENTIAL_ISOLATION",
+    "question": "What is the architecture and deployment SOP for Project Apollo?",
+    "project_id": "121",
+    "expected_document": "TEST-001",
+    "required_chunk_ids": [
+      "TEST-001-0"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Authorized when project_id=121; Access Denied when unauthorized."
+  },
+  {
+    "id": "RAG-VAL-15",
+    "category": "SYNONYM_ROBUSTNESS",
+    "question": "What are the rules regarding WFH and telecommuting?",
+    "expected_answer_keywords": [
+      "remote",
+      "approval",
+      "hybrid"
+    ],
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "required_chunk_ids": [
+      "NEXORA TECHNOLOGIES PVT-92"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "RAG-VAL-16",
+    "category": "FACTOID_POLICY",
+    "question": "what is the Payment policy",
+    "expected_intent": "general_inquiry",
+    "should_succeed": true,
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_answer_keywords": [
+      "contact",
+      "payment"
+    ],
+    "required_chunk_ids": []
+  },
+  {
+    "id": "RAG-VAL-17",
+    "category": "FACTOID_POLICY",
+    "question": "what is the Payment policy",
+    "expected_intent": "general_inquiry",
+    "should_succeed": true,
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_answer_keywords": [
+      "contact",
+      "payment"
+    ],
+    "required_chunk_ids": []
+  },
+  {
+    "id": "NEX-01",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "I want to apply for a leave on 20th Oct 2026. what are the steps to be followed.",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Employees should generally submit Annual Leave requests at least five working days in advance",
+    "expected_answer_keywords": [
+      "Annual Leave",
+      "five working days",
+      "advance",
+      "approval",
+      "portal"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true,
+    "notes": "Translates arbitrary future date to general rule: 5-day advance notice + manager approval."
+  },
+  {
+    "id": "NEX-02",
+    "category": "USER_CENTRIC_GRIEVANCE",
+    "question": "I feel like I am being treated differently amonst my peers. what are the Policies that can help me mentioned in the Documents.",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Nexora does not tolerate unlawful discrimination in the workplace",
+    "expected_answer_keywords": [
+      "discrimination",
+      "Code of Conduct",
+      "Grievance",
+      "dignity and respect"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Maps emotional sentiment to Section 9.4 (Discrimination) and Section 16 (Grievance)."
+  },
+  {
+    "id": "NEX-03",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "I woke up with severe fever today and cannot attend standup. How do I notify my manager and apply for sick leave?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Eligible employees receive 10 days of Sick Leave per calendar year.",
+    "expected_answer_keywords": [
+      "Sick Leave",
+      "notify",
+      "manager",
+      "medical certificate"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-04",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "Can I work remotely from my hometown for two weeks next month while traveling?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Employees must obtain prior approval before working remotely from a location different from their approved remote work location",
+    "expected_answer_keywords": [
+      "prior approval",
+      "remote",
+      "different",
+      "location"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-05",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How long is my probation period, and will I be confirmed automatically when it ends?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Newly hired regular employees are generally placed on probation for six months from their date of joining.",
+    "expected_answer_keywords": [
+      "six months",
+      "Confirmation is not automatic",
+      "formal confirmation"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-06",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "I have 14 days of unused annual leave left on December 31st. How many can I carry forward to next year?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "A maximum of 10 unused Annual Leave days may be carried forward.",
+    "expected_answer_keywords": [
+      "maximum of 10",
+      "carried forward",
+      "expire"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-07",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "If a public holiday falls on a Wednesday during my approved annual leave, does it deduct from my leave balance?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "A company holiday that falls within an employee's approved period of Annual Leave will not normally be deducted from the employee's Annual Leave balance.",
+    "expected_answer_keywords": [
+      "holiday",
+      "not normally be deducted",
+      "leave balance"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-08",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "Can I combine my annual leave with sick leave if I need extra time to recover from surgery?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "For example, an employee may be permitted to combine Annual Leave with Sick Leave when the relevant eligibility and documentation requirements are satisfied.",
+    "expected_answer_keywords": [
+      "combine",
+      "Annual Leave",
+      "Sick Leave",
+      "documentation"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-09",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What is the standard working hours and grace period for morning attendance at Nexora?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "The grace period is intended for occasional unforeseen delays and should not be treated as a revised daily start time.",
+    "expected_answer_keywords": [
+      "grace period",
+      "working hours",
+      "delays"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-10",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Does completing my probation period automatically guarantee me a salary increase?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Completion of probation does not automatically result in a salary increase unless such an increase is specifically stated in the employee's employment terms",
+    "expected_answer_keywords": [
+      "Completion of probation",
+      "does not automatically result in a salary increase"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-11",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "Where should I report a potential violation of the Code of Conduct or workplace bullying?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "9.29 Reporting a Code of Conduct Concern",
+    "expected_answer_keywords": [
+      "Code of Conduct",
+      "People & Culture",
+      "reporting channel"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-12",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Can I work remotely full time if my role is suitable and my manager approves?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "A remote or hybrid arrangement is a work arrangement approved by the company and is not an unconditional employee entitlement.",
+    "expected_answer_keywords": [
+      "approved by the company",
+      "not an unconditional employee entitlement"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-13",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How many days per week are employees expected to work from the office under a hybrid schedule?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "employees may generally be required to work from the office three days per week and may work remotely for the remaining two working days.",
+    "expected_answer_keywords": [
+      "three days per week",
+      "two working days",
+      "office"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-14",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Can I work remotely while sick instead of taking sick leave?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Employees who are unable to work due to illness should use the applicable Sick Leave process rather than treating remote work as a substitute for leave.",
+    "expected_answer_keywords": [
+      "Sick Leave",
+      "substitute for leave",
+      "illness"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-15",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Can I work remotely from another country during an international vacation?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "19.9 Can I work remotely from another country?",
+    "expected_answer_keywords": [
+      "prior written approval",
+      "tax",
+      "security",
+      "international"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-16",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Does Nexora support home internet reimbursement for remote workers?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "8.15 Internet and Remote Work Support",
+    "expected_answer_keywords": [
+      "internet",
+      "reimbursement",
+      "support",
+      "remote"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-17",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What happens if an employee fails to report an absence or takes unapproved leave?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Absence without required approval or communication may be treated as unauthorized absence.",
+    "expected_answer_keywords": [
+      "unauthorized absence",
+      "approval",
+      "communication"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-18",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Can annual leave be encashed into cash while I am still working at Nexora?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Annual Leave may be eligible for encashment only where specifically permitted by company policy, employment terms, or applicable law.",
+    "expected_answer_keywords": [
+      "encashment",
+      "company policy",
+      "employment terms"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-19",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Does the anti-harassment policy apply to Slack, Teams, and WhatsApp work messages?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "10.4 Harassment Through Digital Platforms",
+    "expected_answer_keywords": [
+      "digital",
+      "communication",
+      "online",
+      "harassment"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-20",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What channels are available if I want to raise an employee grievance?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "16.3 Raising a Grievance",
+    "expected_answer_keywords": [
+      "reporting manager",
+      "People & Culture",
+      "formal written"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-21",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How does Nexora protect employees who file a grievance against retaliation?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Employees should report suspected retaliation through the same reporting channels available for harassment concerns.",
+    "expected_answer_keywords": [
+      "retaliation",
+      "reporting channels",
+      "harassment"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-22",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "If an employee joins the company in July, how is their annual leave entitlement calculated?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Employees who join Nexora during the calendar year receive a prorated Annual Leave entitlement.",
+    "expected_answer_keywords": [
+      "prorated",
+      "Annual Leave",
+      "calendar year"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-23",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What is the policy regarding taking leave while still on probation?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "5.15 Leave During Probation",
+    "expected_answer_keywords": [
+      "probation",
+      "evaluation period",
+      "leave"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-24",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Can the probation period be extended if an employee takes extended leave?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "3.4 Extension of Probation",
+    "expected_answer_keywords": [
+      "probation",
+      "extended",
+      "evaluation"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-25",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What is the company policy regarding employee dignity and respectful workplace behavior?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Nexora is committed to maintaining a workplace where employees are treated with dignity and respect.",
+    "expected_answer_keywords": [
+      "dignity and respect",
+      "workplace",
+      "Code of Conduct"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-26",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What is the procedure if I observe a colleague stealing or committing fraud?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Examples include fraud, serious harassment, violence, deliberate security breaches, or theft.",
+    "expected_answer_keywords": [
+      "fraud",
+      "theft",
+      "disciplinary",
+      "reporting"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-27",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Who can I contact if I have questions about my employment records or confirmation status?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Questions regarding an employee's employment category, probation status, confirmation, transfer, or employment records should be directed to the People & Culture Department.",
+    "expected_answer_keywords": [
+      "People & Culture Department",
+      "probation status",
+      "confirmation"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-28",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What should an employee do if they are unsure whether an action violates the Code of Conduct?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Employees who are uncertain whether a particular action or situation violates the Code of Conduct should seek guidance",
+    "expected_answer_keywords": [
+      "seek guidance",
+      "Code of Conduct",
+      "manager"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "NEX-29",
+    "category": "NEGATIVE_UNCOVERED_POLICY",
+    "question": "Can I bring my pet dog or cat to work at the Nexora office premises?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "",
+    "expected_refusal": true,
+    "expected_refusal_substring": "could not find that information",
+    "expected_answer_keywords": [
+      "not found",
+      "People & Culture"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Tests refusal when policy is absent from handbook."
+  },
+  {
+    "id": "NEX-30",
+    "category": "NEGATIVE_UNCOVERED_POLICY",
+    "question": "Does Nexora provide interest-free bike loans or personal vehicle financing to employees?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "",
+    "expected_refusal": true,
+    "expected_refusal_substring": "could not find that information",
+    "expected_answer_keywords": [
+      "not mentioned",
+      "People & Culture"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Tests negative refusal for uncovered employee loans."
+  },
+  {
+    "id": "HRM-01",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What is the company's policy commitment regarding equal employment opportunity?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "2. COMPANY VALUES AND EQUAL OPPORTUNITY",
+    "expected_answer_keywords": [
+      "Equal Opportunity",
+      "Company Values",
+      "fairness"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-02",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Where are employment categories and probation guidelines detailed in the HR manual?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "3. EMPLOYMENT CATEGORIES AND PROBATION",
+    "expected_answer_keywords": [
+      "Probation",
+      "Employment Categories",
+      "evaluation"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-03",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What rules govern daily working hours and attendance in the HR manual?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "4. WORKING HOURS AND ATTENDANCE",
+    "expected_answer_keywords": [
+      "Working Hours",
+      "Attendance",
+      "schedule"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-04",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What guidelines does the HR manual provide for remote and hybrid work?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "REMOTE AND HYBRID WORK",
+    "expected_answer_keywords": [
+      "Remote",
+      "Hybrid",
+      "approval"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-05",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What section covers leave entitlement and official company holidays in the HR manual?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "5. LEAVE AND HOLIDAYS",
+    "expected_answer_keywords": [
+      "Leave",
+      "Holidays",
+      "entitlement"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-06",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Where can I find information on employee compensation, benefits, and salary reviews?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "6. COMPENSATION AND BENEFITS",
+    "expected_answer_keywords": [
+      "Compensation",
+      "Benefits",
+      "salary"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-07",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How does the company handle business expenses and employee reimbursements?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "EXPENSES AND REIMBURSEMENTS",
+    "expected_answer_keywords": [
+      "Expenses",
+      "Reimbursements",
+      "claims"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-08",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What behavioral standard does the Code of Conduct require regarding professional conduct?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "Maintain professional and respectful behaviour.",
+    "expected_answer_keywords": [
+      "professional",
+      "respectful",
+      "behaviour"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-09",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What are the rules regarding password security and credential sharing in the HR manual?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "Do not share passwords or access credentials.",
+    "expected_answer_keywords": [
+      "passwords",
+      "access credentials",
+      "security"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-10",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What should an employee do if they suspect a security breach or data leak?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "Report suspected security incidents promptly.",
+    "expected_answer_keywords": [
+      "security incidents",
+      "promptly",
+      "report"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-11",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Where can I find guidelines on the acceptable use of company technology and computers?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "ACCEPTABLE USE OF TECHNOLOGY",
+    "expected_answer_keywords": [
+      "Acceptable Use",
+      "Technology",
+      "devices"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-12",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Can I publish work-related opinions on social media according to the HR manual?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "SOCIAL MEDIA AND EXTERNAL COMMUNICATION",
+    "expected_answer_keywords": [
+      "Social Media",
+      "External Communication",
+      "guidelines"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-13",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How are employee performance appraisals managed under the HR manual?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "9. PERFORMANCE MANAGEMENT",
+    "expected_answer_keywords": [
+      "Performance Management",
+      "review",
+      "goals"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-14",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Does the company support employee learning, training, and skill development?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "LEARNING AND DEVELOPMENT",
+    "expected_answer_keywords": [
+      "Learning",
+      "Development",
+      "training"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-15",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What guidelines govern career movement and internal job role transfers?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "CAREER MOVEMENT",
+    "expected_answer_keywords": [
+      "Career Movement",
+      "internal transfer",
+      "roles"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-16",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What policies protect workplace health, physical safety, and employee wellbeing?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "10. WORKPLACE HEALTH, SAFETY AND WELLBEING",
+    "expected_answer_keywords": [
+      "Health",
+      "Safety",
+      "Wellbeing"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-17",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How does an employee raise a concern through the formal grievance and speak-up process?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "11. GRIEVANCE AND SPEAK-UP PROCESS",
+    "expected_answer_keywords": [
+      "Grievance",
+      "Speak-Up",
+      "concerns"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-18",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What is the company's commitment to anti-harassment and professional respect?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "ANTI-HARASSMENT AND PROFESSIONAL RESPECT",
+    "expected_answer_keywords": [
+      "Anti-Harassment",
+      "Professional Respect",
+      "dignity"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-19",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What disciplinary actions can be initiated if an employee breaches company policies?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "DISCIPLINARY ACTION",
+    "expected_answer_keywords": [
+      "Disciplinary Action",
+      "breach",
+      "investigation"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-20",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What procedures govern employee resignation, separation, and exit management?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "12. SEPARATION AND EXIT MANAGEMENT",
+    "expected_answer_keywords": [
+      "Separation",
+      "Exit Management",
+      "resignation"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-21",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What must an exiting employee complete regarding project handover and documentation?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "Complete assigned handover and documentation.",
+    "expected_answer_keywords": [
+      "handover",
+      "documentation",
+      "exit"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-22",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Are exiting employees required to participate in HR exit interviews?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "Participate in exit processes when requested.",
+    "expected_answer_keywords": [
+      "exit processes",
+      "interview",
+      "requested"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-23",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Where are final salary clearance and full and final settlement terms outlined?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "FULL AND FINAL SETTLEMENT",
+    "expected_answer_keywords": [
+      "Full and Final Settlement",
+      "clearance",
+      "dues"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-24",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Can management amend or update policies in the HR manual over time?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "POLICY AMENDMENTS",
+    "expected_answer_keywords": [
+      "Policy Amendments",
+      "updates",
+      "revisions"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-25",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Are employees required to sign an acknowledgement of the HR Policy Manual?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "EMPLOYEE ACKNOWLEDGEMENT",
+    "expected_answer_keywords": [
+      "Employee Acknowledgement",
+      "compliance",
+      "sign"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-26",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What is the overarching purpose and operational scope of the HR manual?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "1. PURPOSE AND SCOPE",
+    "expected_answer_keywords": [
+      "Purpose",
+      "Scope",
+      "organization"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-27",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What section defines information security and data privacy obligations for employees?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "8. INFORMATION SECURITY, CONFIDENTIALITY AND DATA PRIVACY",
+    "expected_answer_keywords": [
+      "Information Security",
+      "Confidentiality",
+      "Data Privacy"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-28",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Who should an employee contact if they have general policy governance queries?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "Policy Governance",
+    "expected_answer_keywords": [
+      "Governance",
+      "HR",
+      "People & Culture"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "HRM-29",
+    "category": "NEGATIVE_UNCOVERED_POLICY",
+    "question": "Does the HR manual mention an on-site child daycare or monthly creche allowance?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "",
+    "expected_refusal": true,
+    "expected_refusal_substring": "could not find that information",
+    "expected_answer_keywords": [
+      "not found",
+      "contact HR"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Tests negative guard on uncovered daycare benefits."
+  },
+  {
+    "id": "HRM-30",
+    "category": "NEGATIVE_UNCOVERED_POLICY",
+    "question": "What is the stock grant vesting schedule or ESOP percentage mentioned in the HR manual?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "",
+    "expected_refusal": true,
+    "expected_refusal_substring": "could not find that information",
+    "expected_answer_keywords": [
+      "not mentioned",
+      "contact"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Tests negative guard for unstated equity compensation."
+  },
+  {
+    "id": "POSH-01",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What constitutes prohibited sexual harassment under the POSH policy?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "6. What Constitutes Sexual Harassment?",
+    "expected_answer_keywords": [
+      "unwelcome",
+      "sexual nature",
+      "physical contact"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-02",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Is unwelcome physical contact or touching considered sexual harassment?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "Unwelcome physical contact or advances.",
+    "expected_answer_keywords": [
+      "Unwelcome physical contact",
+      "advances",
+      "harassment"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-03",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What is the policy regarding requests or demands for sexual favors in exchange for career benefits?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "Requests or demands for sexual favors.",
+    "expected_answer_keywords": [
+      "sexual favors",
+      "demands",
+      "prohibited"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-04",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Does the POSH policy apply to remote and work-from-home arrangements?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "Remote, hybrid, and work-from-home arrangements.",
+    "expected_answer_keywords": [
+      "Remote",
+      "hybrid",
+      "work-from-home",
+      "applies"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-05",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How is an Aggrieved Person defined under the POSH policy?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "5.1 Aggrieved Person",
+    "expected_answer_keywords": [
+      "Aggrieved Person",
+      "harassment",
+      "alleging"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-06",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How is a Respondent defined under the POSH policy?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "5.2 Respondent",
+    "expected_answer_keywords": [
+      "Respondent",
+      "complaint",
+      "allegation"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-07",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What is the definition and scope of the workplace under the POSH policy?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "5.3 Workplace",
+    "expected_answer_keywords": [
+      "Workplace",
+      "premises",
+      "official duty"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-08",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What is the role of the Internal Committee (IC) in handling sexual harassment complaints?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "5.4 Internal Committee (IC)",
+    "expected_answer_keywords": [
+      "Internal Committee",
+      "inquiry",
+      "redressal"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-09",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What standard of conduct is expected from all employees regarding personal boundaries?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "Respect personal space and individual boundaries.",
+    "expected_answer_keywords": [
+      "personal space",
+      "boundaries",
+      "professional"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-10",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What responsibilities do managers have when they learn about a harassment incident?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "10. Responsibilities of Managers",
+    "expected_answer_keywords": [
+      "Managers",
+      "escalate",
+      "support",
+      "IC"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-11",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "How does an aggrieved employee submit a formal complaint to the Internal Committee?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "11. How to Raise a Concern or Complaint",
+    "expected_answer_keywords": [
+      "Raise a Concern",
+      "Complaint",
+      "written",
+      "IC"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-12",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "What specific evidence should an employee preserve when filing a POSH complaint?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "Collect supporting evidence",
+    "expected_answer_keywords": [
+      "supporting evidence",
+      "emails",
+      "screenshots",
+      "messages"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-13",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "Can WhatsApp and Microsoft Teams chat messages be used as evidence in a POSH inquiry?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "WhatsApp/Teams messages",
+    "expected_answer_keywords": [
+      "WhatsApp",
+      "Teams",
+      "messages",
+      "evidence"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-14",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "Why is it important not to delete or modify original chat messages before an inquiry?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "Do not alter or delete the original evidence.",
+    "expected_answer_keywords": [
+      "alter",
+      "delete",
+      "original evidence"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-15",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "What are the sequential steps in the IC complaint handling process?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "12. Complaint Handling Process",
+    "expected_answer_keywords": [
+      "Receipt",
+      "Preliminary Review",
+      "Inquiry",
+      "Findings"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-16",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "What is the conciliation process, and can it be used to settle a complaint informally?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "13. Conciliation",
+    "expected_answer_keywords": [
+      "Conciliation",
+      "settlement",
+      "informal",
+      "request"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-17",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What principles of natural justice and fairness must the IC follow during an inquiry?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "14. Principles of a Fair Inquiry",
+    "expected_answer_keywords": [
+      "Impartiality",
+      "Fair Inquiry",
+      "evidence"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-18",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How does the POSH policy protect the privacy and confidentiality of the participants?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "15. Confidentiality and Privacy",
+    "expected_answer_keywords": [
+      "Confidentiality",
+      "Privacy",
+      "sensitive"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-19",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What protection does the POSH policy provide against retaliation or victimisation?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "16. Non-Retaliation",
+    "expected_answer_keywords": [
+      "Non-Retaliation",
+      "protection",
+      "fear"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-20",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What happens if someone files a knowingly false or malicious complaint?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "17. Malicious or Knowingly False Complaints",
+    "expected_answer_keywords": [
+      "Malicious",
+      "False Complaints",
+      "disciplinary"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-21",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What support measures can an employee request during or after a POSH inquiry?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "18. Support Measures",
+    "expected_answer_keywords": [
+      "Support Measures",
+      "counseling",
+      "transfer"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-22",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Is the organization required to conduct periodic POSH awareness training workshops?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "19. Awareness, Training, and Prevention",
+    "expected_answer_keywords": [
+      "Awareness",
+      "Training",
+      "Prevention"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-23",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What disciplinary actions can management take against someone found guilty of harassment?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "22. Policy Violations and Disciplinary Action",
+    "expected_answer_keywords": [
+      "Violations",
+      "Disciplinary Action",
+      "penalties"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-24",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Does filing a POSH complaint prevent an employee from filing a police complaint under civil/criminal law?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "23. External Legal Rights",
+    "expected_answer_keywords": [
+      "External Legal Rights",
+      "criminal law",
+      "police"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-25",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "What are the step-by-step instructions for an employee to file a POSH complaint?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "26. Steps to file a POSH complaint",
+    "expected_answer_keywords": [
+      "Steps to file",
+      "written complaint",
+      "evidence"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-26",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "What key details should be recorded when writing down an incident for a complaint?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "Write down the incident(s)",
+    "expected_answer_keywords": [
+      "Date",
+      "time",
+      "location",
+      "what happened"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-27",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "Who receives and examines the complaint once submitted?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "The IC acknowledges and examines the complaint",
+    "expected_answer_keywords": [
+      "IC acknowledges",
+      "examines",
+      "complaint"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-28",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "What is an employee expected to do when participating in an IC inquiry?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "Participate in the inquiry",
+    "expected_answer_keywords": [
+      "Participate",
+      "evidence",
+      "witnesses",
+      "confidentiality"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "POSH-29",
+    "category": "NEGATIVE_UNCOVERED_POLICY",
+    "question": "Can the IC award financial compensation paid directly from company venture capital funds?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "",
+    "expected_refusal": true,
+    "expected_refusal_substring": "could not find that information",
+    "expected_answer_keywords": [
+      "not found",
+      "IC"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Tests negative guard on unstated venture financial awards."
+  },
+  {
+    "id": "POSH-30",
+    "category": "NEGATIVE_UNCOVERED_POLICY",
+    "question": "Does the POSH committee handle intellectual property theft or copyright infringement disputes?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "",
+    "expected_refusal": true,
+    "expected_refusal_substring": "could not find that information",
+    "expected_answer_keywords": [
+      "not mentioned",
+      "Legal"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Tests negative guard on out-of-scope IP disputes."
+  },
+  {
+    "id": "ONB-01",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "As a new hire on my first day, what should be my primary focus during week one?",
+    "expected_document": "DOC-001",
+    "expected_needle": "2. First-Week Objectives",
+    "expected_answer_keywords": [
+      "First-Week Objectives",
+      "access requests",
+      "documentation"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-02",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What important working principles should new team members follow everyday?",
+    "expected_document": "DOC-001",
+    "expected_needle": "3. Important Working Principles",
+    "expected_answer_keywords": [
+      "communicate clearly",
+      "protect company information",
+      "processes"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-03",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Why is good documentation emphasized for new employees in the onboarding guide?",
+    "expected_document": "DOC-001",
+    "expected_needle": "Good documentation reduces repeated work and helps other team members understand the context behind a task.",
+    "expected_answer_keywords": [
+      "reduces repeated work",
+      "context",
+      "documentation"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-04",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How is a project defined in the onboarding guide?",
+    "expected_document": "DOC-001",
+    "expected_needle": "A project is a coordinated set of activities intended to produce a defined outcome.",
+    "expected_answer_keywords": [
+      "coordinated set of activities",
+      "defined outcome",
+      "project"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-05",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What core elements do projects normally have to connect daily tasks to broader goals?",
+    "expected_document": "DOC-001",
+    "expected_needle": "Projects normally have objectives, stakeholders, timelines, deliverables, dependencies, and acceptance criteria.",
+    "expected_answer_keywords": [
+      "objectives",
+      "stakeholders",
+      "deliverables",
+      "dependencies"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-06",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What sequential stages make up the lifecycle of an engineering task?",
+    "expected_document": "DOC-001",
+    "expected_needle": "6. Task Lifecycle",
+    "expected_answer_keywords": [
+      "Task Lifecycle",
+      "requirement",
+      "plan",
+      "validate"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-07",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "What should an engineer do when a dependency or technical blocker appears?",
+    "expected_document": "DOC-001",
+    "expected_needle": "If a dependency or blocker appears, it should be communicated early rather than discovered near the deadline.",
+    "expected_answer_keywords": [
+      "communicated early",
+      "blocker",
+      "deadline"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-08",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "What checklist should an employee confirm before communicating project status?",
+    "expected_document": "DOC-001",
+    "expected_needle": "7. Communication Checklist",
+    "expected_answer_keywords": [
+      "Communication Checklist",
+      "completed",
+      "remains",
+      "blocked"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-09",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Why are short, factual project updates recommended over long ambiguous summaries?",
+    "expected_document": "DOC-001",
+    "expected_needle": "Short, factual updates make project coordination easier and reduce ambiguity.",
+    "expected_answer_keywords": [
+      "Short, factual updates",
+      "coordination",
+      "reduce ambiguity"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-10",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What is the quality checklist standard beyond whether software runs successfully?",
+    "expected_document": "DOC-001",
+    "expected_needle": "8. Quality Checklist",
+    "expected_answer_keywords": [
+      "Quality Checklist",
+      "understandable",
+      "tested",
+      "maintainable"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-11",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What qualities make code maintainable and consistent with project conventions?",
+    "expected_document": "DOC-001",
+    "expected_needle": "A completed change should also be understandable, tested, maintainable, and consistent with the project's existing conventions.",
+    "expected_answer_keywords": [
+      "understandable",
+      "tested",
+      "maintainable",
+      "conventions"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-12",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What security basics must all employees follow regarding passwords and credentials?",
+    "expected_document": "DOC-001",
+    "expected_needle": "9. Information Security Basics",
+    "expected_answer_keywords": [
+      "passwords",
+      "authentication tokens",
+      "confidential"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-13",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Can passwords or confidential documents be shared through unauthorized communication channels?",
+    "expected_document": "DOC-001",
+    "expected_needle": "Passwords, authentication tokens, confidential documents, and private customer information should not be shared through unauthorized channels.",
+    "expected_answer_keywords": [
+      "not be shared",
+      "unauthorized channels",
+      "confidential"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-14",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "What should an employee do if they are unsure whether certain data can be shared?",
+    "expected_document": "DOC-001",
+    "expected_needle": "When an employee is unsure whether information can be shared, the appropriate security or management process should be followed.",
+    "expected_answer_keywords": [
+      "security or management process",
+      "unsure",
+      "shared"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-15",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Why is keeping a daily work record recommended for new engineers?",
+    "expected_document": "DOC-001",
+    "expected_needle": "10. Daily Work Record",
+    "expected_answer_keywords": [
+      "Daily Work Record",
+      "tasks",
+      "notes"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-16",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "What context should be recorded when completing a task so team members understand it?",
+    "expected_document": "DOC-001",
+    "expected_needle": "When a task is completed, record enough context that another team member can understand what changed and why.",
+    "expected_answer_keywords": [
+      "record enough context",
+      "what changed and why"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-17",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "What should an employee do when a process or engineering requirement is unclear?",
+    "expected_document": "DOC-001",
+    "expected_needle": "When a process is unclear, identify the specific question and ask the appropriate person.",
+    "expected_answer_keywords": [
+      "identify the specific question",
+      "ask the appropriate person"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-18",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What are the first-week goals regarding identifying team members who can help?",
+    "expected_document": "DOC-001",
+    "expected_needle": "identifying the people who can provide help when questions arise.",
+    "expected_answer_keywords": [
+      "identifying the people",
+      "provide help",
+      "questions"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-19",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How should an owner plan and investigate a requirement before coding?",
+    "expected_document": "DOC-001",
+    "expected_needle": "The owner then investigates the requirement, plans the implementation, performs the work, validates the result, and records the outcome.",
+    "expected_answer_keywords": [
+      "investigates",
+      "plans",
+      "validates",
+      "records"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-20",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What approved systems should be used to access company information?",
+    "expected_document": "DOC-001",
+    "expected_needle": "Company information should be accessed only through approved systems and only for legitimate work.",
+    "expected_answer_keywords": [
+      "approved systems",
+      "legitimate work"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-21",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What final reference notes are emphasized at the end of the onboarding guide?",
+    "expected_document": "DOC-001",
+    "expected_needle": "11. Final Reference Notes",
+    "expected_answer_keywords": [
+      "Final Reference Notes",
+      "requirements",
+      "decisions"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-22",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What purpose does the Employee Onboarding Guide serve for new hires?",
+    "expected_document": "DOC-001",
+    "expected_needle": "A practical reference for new team members",
+    "expected_answer_keywords": [
+      "practical reference",
+      "new team members"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-23",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What does starting a new role involve during the first few weeks according to the guide?",
+    "expected_document": "DOC-001",
+    "expected_needle": "Starting a new role involves learning the organization, understanding responsibilities, meeting colleagues, and becoming familiar with the tools used every day.",
+    "expected_answer_keywords": [
+      "learning the organization",
+      "understanding responsibilities",
+      "meeting colleagues"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-24",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What section covers project operations reference in the onboarding guide?",
+    "expected_document": "DOC-001",
+    "expected_needle": "Project Operations Reference",
+    "expected_answer_keywords": [
+      "Project Operations",
+      "Reference"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-25",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What section outlines quality, security and daily reference in the onboarding guide?",
+    "expected_document": "DOC-001",
+    "expected_needle": "Quality, Security and Daily Reference",
+    "expected_answer_keywords": [
+      "Quality",
+      "Security",
+      "Daily Reference"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-26",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What four elements must be confirmed before communicating project status?",
+    "expected_document": "DOC-001",
+    "expected_needle": "confirm what was completed, what remains, whether anything is blocked, and whether another person or team needs to take action.",
+    "expected_answer_keywords": [
+      "completed",
+      "remains",
+      "blocked",
+      "action"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-27",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How does clear communication protect team productivity?",
+    "expected_document": "DOC-001",
+    "expected_needle": "Employees are expected to communicate clearly, protect company information, follow established processes",
+    "expected_answer_keywords": [
+      "communicate clearly",
+      "protect company information"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-28",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Where can an employee find project roles and responsibilities in DOC-001?",
+    "expected_document": "DOC-001",
+    "expected_needle": "5. Project Roles and Responsibilities",
+    "expected_answer_keywords": [
+      "Roles",
+      "Responsibilities",
+      "project"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ONB-29",
+    "category": "NEGATIVE_UNCOVERED_POLICY",
+    "question": "Does the onboarding guide specify relocation expense reimbursement caps for new hires?",
+    "expected_document": "DOC-001",
+    "expected_needle": "",
+    "expected_refusal": true,
+    "expected_refusal_substring": "could not find that information",
+    "expected_answer_keywords": [
+      "not found",
+      "People & Culture"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Tests negative guard on unstated relocation allowances."
+  },
+  {
+    "id": "ONB-30",
+    "category": "NEGATIVE_UNCOVERED_POLICY",
+    "question": "What is the annual mechanical keyboard and monitor hardware stipend in DOC-001?",
+    "expected_document": "DOC-001",
+    "expected_needle": "",
+    "expected_refusal": true,
+    "expected_refusal_substring": "could not find that information",
+    "expected_answer_keywords": [
+      "not mentioned",
+      "IT"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Tests negative guard on hardware stipend."
+  },
+  {
+    "id": "ARC-01",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What overall architectural approach does the HR Policy Knowledge System follow?",
+    "expected_document": "TEST-001",
+    "expected_needle": "The system follows a modular-monolith approach.",
+    "expected_answer_keywords": [
+      "modular-monolith",
+      "approach",
+      "architecture"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-02",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How does the Streamlit client communicate with the backend services?",
+    "expected_document": "TEST-001",
+    "expected_needle": "The Streamlit client sends requests to a FastAPI API layer.",
+    "expected_answer_keywords": [
+      "Streamlit client",
+      "FastAPI API layer",
+      "requests"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-03",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What key functions do application services coordinate in the architecture?",
+    "expected_document": "TEST-001",
+    "expected_needle": "Application services coordinate authentication, authorization, retrieval, and business workflows.",
+    "expected_answer_keywords": [
+      "authentication",
+      "authorization",
+      "retrieval",
+      "workflows"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-04",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What is contained within the domain layer of the system?",
+    "expected_document": "TEST-001",
+    "expected_needle": "The domain layer contains core business rules, while repositories isolate persistence details.",
+    "expected_answer_keywords": [
+      "domain layer",
+      "core business rules",
+      "repositories"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-05",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What database is used to store application and access-control data?",
+    "expected_document": "TEST-001",
+    "expected_needle": "SQLite stores application and access-control data",
+    "expected_answer_keywords": [
+      "SQLite",
+      "application",
+      "access-control data"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-06",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What role does ChromaDB play in the system architecture?",
+    "expected_document": "TEST-001",
+    "expected_needle": "ChromaDB stores document embeddings used for semantic retrieval.",
+    "expected_answer_keywords": [
+      "ChromaDB",
+      "document embeddings",
+      "semantic retrieval"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-07",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "What happens when a user submits a natural-language question into the chat interface?",
+    "expected_document": "TEST-001",
+    "expected_needle": "The user submits a natural-language question through the chat interface.",
+    "expected_answer_keywords": [
+      "natural-language question",
+      "chat interface"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-08",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "How does the backend verify what documents a user is allowed to access?",
+    "expected_document": "TEST-001",
+    "expected_needle": "The backend verifies the user's identity and determines which documents the user is allowed to access.",
+    "expected_answer_keywords": [
+      "verifies",
+      "identity",
+      "allowed to access"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-09",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "What does the retrieval layer do once user authorization is verified?",
+    "expected_document": "TEST-001",
+    "expected_needle": "The retrieval layer searches authorized document chunks and selects relevant evidence.",
+    "expected_answer_keywords": [
+      "searches authorized",
+      "document chunks",
+      "selects relevant evidence"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-10",
+    "category": "USER_CENTRIC_PROCEDURE",
+    "question": "Why are citations returned alongside generated answers in the response?",
+    "expected_document": "TEST-001",
+    "expected_needle": "The answer-generation step uses the selected evidence and returns citations so the user can trace the response.",
+    "expected_answer_keywords": [
+      "selected evidence",
+      "returns citations",
+      "trace the response"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-11",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Why is separation of responsibilities considered a key design principle in the architecture?",
+    "expected_document": "TEST-001",
+    "expected_needle": "Separation of responsibilities keeps the system easier to test and change.",
+    "expected_answer_keywords": [
+      "Separation of responsibilities",
+      "easier to test and change"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-12",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How does the system define the distinction between authentication and authorization?",
+    "expected_document": "TEST-001",
+    "expected_needle": "Authentication answers who the user is; authorization answers what the user can access",
+    "expected_answer_keywords": [
+      "who the user is",
+      "what the user can access"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-13",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How does the retrieval layer enforce RBAC data boundaries?",
+    "expected_document": "TEST-001",
+    "expected_needle": "retrieval finds evidence only from authorized sources",
+    "expected_answer_keywords": [
+      "evidence only",
+      "authorized sources"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-14",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What principle governs the final answer generation step in the pipeline?",
+    "expected_document": "TEST-001",
+    "expected_needle": "answer generation produces a response grounded in that evidence.",
+    "expected_answer_keywords": [
+      "response grounded in that evidence"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-15",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Where in the document is the request and retrieval flow outlined?",
+    "expected_document": "TEST-001",
+    "expected_needle": "Request and Retrieval Flow",
+    "expected_answer_keywords": [
+      "Request and Retrieval Flow",
+      "query",
+      "pipeline"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-16",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What section covers document ingestion and data models in TEST-001?",
+    "expected_document": "TEST-001",
+    "expected_needle": "Document Ingestion and Data Model",
+    "expected_answer_keywords": [
+      "Document Ingestion",
+      "Data Model"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-17",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What section defines the key design principles of the knowledge system?",
+    "expected_document": "TEST-001",
+    "expected_needle": "Key Design Principles",
+    "expected_answer_keywords": [
+      "Key Design Principles",
+      "separation"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-18",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What section explains what happens during a user query in TEST-001?",
+    "expected_document": "TEST-001",
+    "expected_needle": "What Happens During a Query?",
+    "expected_answer_keywords": [
+      "What Happens During a Query",
+      "backend"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-19",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What is the document title of TEST-001?",
+    "expected_document": "TEST-001",
+    "expected_needle": "HR Policy Knowledge System",
+    "expected_answer_keywords": [
+      "HR Policy Knowledge System",
+      "Architecture"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-20",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What section provides the architectural description in TEST-001?",
+    "expected_document": "TEST-001",
+    "expected_needle": "Architecture Description",
+    "expected_answer_keywords": [
+      "Architecture Description",
+      "modular-monolith"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-21",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How do repositories help isolate data persistence from business logic?",
+    "expected_document": "TEST-001",
+    "expected_needle": "repositories isolate persistence details.",
+    "expected_answer_keywords": [
+      "repositories",
+      "persistence details"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-22",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What client framework sends query requests to the FastAPI layer?",
+    "expected_document": "TEST-001",
+    "expected_needle": "The Streamlit client sends requests",
+    "expected_answer_keywords": [
+      "Streamlit",
+      "FastAPI"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-23",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Why does the retrieval layer select evidence only from authorized sources?",
+    "expected_document": "TEST-001",
+    "expected_needle": "retrieval finds evidence only from authorized sources;",
+    "expected_answer_keywords": [
+      "authorized sources",
+      "RBAC"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-24",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What happens if a user submits a question through the chat interface?",
+    "expected_document": "TEST-001",
+    "expected_needle": "The user submits a natural-language question",
+    "expected_answer_keywords": [
+      "submits",
+      "natural-language question"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-25",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What data is stored in SQLite versus ChromaDB?",
+    "expected_document": "TEST-001",
+    "expected_needle": "SQLite stores application and access-control data, while ChromaDB stores document embeddings",
+    "expected_answer_keywords": [
+      "SQLite",
+      "ChromaDB",
+      "embeddings",
+      "access-control"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-26",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "How does the system ensure user answers can be audited for factual accuracy?",
+    "expected_document": "TEST-001",
+    "expected_needle": "returns citations so the user can trace the response.",
+    "expected_answer_keywords": [
+      "citations",
+      "trace the response",
+      "audit"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-27",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "Where does the architecture define core business logic rules?",
+    "expected_document": "TEST-001",
+    "expected_needle": "The domain layer contains core business rules",
+    "expected_answer_keywords": [
+      "domain layer",
+      "core business rules"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-28",
+    "category": "USER_CENTRIC_POLICY",
+    "question": "What part of the system coordinates business workflows?",
+    "expected_document": "TEST-001",
+    "expected_needle": "Application services coordinate authentication, authorization, retrieval, and business workflows.",
+    "expected_answer_keywords": [
+      "Application services",
+      "business workflows"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true
+  },
+  {
+    "id": "ARC-29",
+    "category": "NEGATIVE_UNCOVERED_POLICY",
+    "question": "What is the Redis distributed cluster shard count and cache TTL defined in TEST-001?",
+    "expected_document": "TEST-001",
+    "expected_needle": "",
+    "expected_refusal": true,
+    "expected_refusal_substring": "could not find that information",
+    "expected_answer_keywords": [
+      "not found",
+      "architecture"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Tests negative guard on unstated Redis clustering configuration."
+  },
+  {
+    "id": "ARC-30",
+    "category": "NEGATIVE_UNCOVERED_POLICY",
+    "question": "Where can I find the Kubernetes Helm values file for multi-region cloud deployment in TEST-001?",
+    "expected_document": "TEST-001",
+    "expected_needle": "",
+    "expected_refusal": true,
+    "expected_refusal_substring": "could not find that information",
+    "expected_answer_keywords": [
+      "not mentioned",
+      "DevOps"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Tests negative guard on Kubernetes Helm charts."
+  },
+  {
+    "id": "MGR-01",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "As a manager, what is the process and criteria for reviewing and approving an employee's leave request?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "The reporting manager may approve, modify, or decline the request based on business requirements.",
+    "expected_answer_keywords": [
+      "reporting manager",
+      "approve",
+      "modify",
+      "decline",
+      "business requirements"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true,
+    "notes": "Managerial procedure for leave approvals: based on business coverage, advance notice, and project deliverables.",
+    "test_type": "normal",
+    "answerability": "SYNTHESIZABLE",
+    "required_evidence_topics": [
+      "leave submission through HRMS/portal",
+      "reporting manager review authority",
+      "business coverage & deliverables assessment",
+      "formal approval, modification, or decline action",
+      "recording in central system"
+    ],
+    "prohibited_claims": [
+      "automatic approval if manager does not respond in 24 hours",
+      "manager can grant informal oral approval without system logging",
+      "manager can approve leaves beyond policy entitlement limits"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High",
+      "procedural_completeness": [
+        "submission",
+        "criteria check",
+        "manager decision",
+        "recording"
+      ],
+      "prohibited_action_detection": true
+    }
+  },
+  {
+    "id": "MGR-02",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "Under what circumstances is a manager not supposed to approve or can decline an employee's leave request?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Leave requests may be declined or modified when business requirements make the requested period unavailable.",
+    "expected_answer_keywords": [
+      "declined or modified",
+      "business requirements",
+      "unavailable",
+      "notice period"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Guidelines on when managers may decline leave: critical business deliverables, inadequate advance notice, or notice period constraints.",
+    "test_type": "negative",
+    "answerability": "SYNTHESIZABLE",
+    "required_evidence_topics": [
+      "business requirements making requested period unavailable",
+      "critical project milestones or blackout delivery periods",
+      "insufficient advance notice without emergency justification",
+      "leave during resignation notice period without HR Head approval",
+      "exhausted accrued leave balance"
+    ],
+    "prohibited_claims": [
+      "manager may decline leave as punitive or disciplinary retaliation",
+      "manager can decline leave without citing business reasons",
+      "manager can cancel previously approved leaves with zero notice"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High",
+      "procedural_completeness": [
+        "valid decline grounds",
+        "notice period rule",
+        "balance exhaustion"
+      ],
+      "prohibited_action_detection": true
+    }
+  },
+  {
+    "id": "MGR-03",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "An employee has approached me with a workplace harassment concern. What is my mandatory process as a manager to report it?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Managers who become aware of a potential harassment concern must respond appropriately and escalate the matter according to company procedures.",
+    "expected_answer_keywords": [
+      "Managers",
+      "respond appropriately",
+      "escalate",
+      "company procedures",
+      "People & Culture"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true,
+    "notes": "Mandatory manager escalation obligation: cannot ignore or dismiss harassment concerns.",
+    "test_type": "normal",
+    "answerability": "SYNTHESIZABLE",
+    "required_evidence_topics": [
+      "mandatory manager escalation obligation",
+      "reporting to People & Culture / Internal Committee (IC)",
+      "strict confidentiality preservation",
+      "non-retaliation guarantee for complainant"
+    ],
+    "prohibited_claims": [
+      "manager should investigate the complaint independently",
+      "manager can informally settle or dismiss the grievance",
+      "manager can require victim to confront accused person directly"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High",
+      "procedural_completeness": [
+        "escalation path",
+        "written record",
+        "confidentiality",
+        "protection"
+      ],
+      "prohibited_action_detection": true
+    }
+  },
+  {
+    "id": "MGR-04",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "Can a manager independently investigate or informally settle a formal sexual harassment complaint within their team?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "Managers must not independently investigate a formal POSH complaint unless specifically authorized under the applicable process.",
+    "expected_answer_keywords": [
+      "must not independently investigate",
+      "Internal Committee",
+      "POSH complaint",
+      "authorized"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Strict statutory restriction: managers are prohibited from conducting private/informal investigations.",
+    "test_type": "adversarial",
+    "answerability": "DIRECT",
+    "required_evidence_topics": [
+      "statutory bar against private manager investigation",
+      "exclusive investigative authority of Internal Committee",
+      "statutory POSH procedural compliance"
+    ],
+    "prohibited_claims": [
+      "managers are encouraged to resolve harassment informally within the team",
+      "managers can accept informal apologies to close the matter"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High",
+      "procedural_completeness": [
+        "statutory bar",
+        "referral to IC"
+      ],
+      "prohibited_action_detection": true
+    }
+  },
+  {
+    "id": "MGR-05",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "What steps must be followed when we onboard and confirm employees who have successfully cleared probation?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Confirmation is not automatic solely because the probation period has ended. The employee must receive formal confirmation from the company.",
+    "expected_answer_keywords": [
+      "Confirmation is not automatic",
+      "formal confirmation",
+      "People & Culture",
+      "regular employee"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true,
+    "notes": "Confirmation workflow: manager evaluation, People & Culture formal communication, benefits and notice period adjustments.",
+    "test_type": "normal",
+    "answerability": "SYNTHESIZABLE",
+    "required_evidence_topics": [
+      "manager performance evaluation and recommendation",
+      "non-automatic confirmation rule",
+      "issuance of formal written confirmation letter from HR/People & Culture",
+      "HRMS employee status update to regular/permanent",
+      "confirmation notice period transition (2 months vs 1 month)"
+    ],
+    "prohibited_claims": [
+      "confirmation happens automatically once the calendar end-date is reached",
+      "salary automatically increases upon probation clearance",
+      "manager can confirm employee orally without HR involvement"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High",
+      "procedural_completeness": [
+        "manager review",
+        "formal HR letter",
+        "status update",
+        "notice change"
+      ],
+      "prohibited_action_detection": true
+    }
+  },
+  {
+    "id": "MGR-06",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "A team member consistently arrives 15 minutes late claiming the daily grace period. How should a manager address this?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "The grace period is intended for occasional unforeseen delays and should not be treated as a revised daily start time.",
+    "expected_answer_keywords": [
+      "grace period",
+      "unforeseen delays",
+      "not be treated as a revised daily start time"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Managerial attendance guidance: grace period is for unforeseen delays, not habitual tardiness.",
+    "test_type": "boundary",
+    "answerability": "DIRECT",
+    "required_evidence_topics": [
+      "grace period intended for unforeseen delays only",
+      "prohibition against using grace period as everyday shift shift"
+    ],
+    "prohibited_claims": [
+      "grace period is a flexible working entitlement for all days"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High"
+    }
+  },
+  {
+    "id": "MGR-07",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "When is a manager allowed to recommend extending an employee's probation instead of confirming them?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "The standard probation period may be extended when additional time is required to evaluate an employee's performance or suitability for the role.",
+    "expected_answer_keywords": [
+      "extended",
+      "additional time",
+      "evaluate",
+      "performance or suitability"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Probation extension criteria: allows additional evaluation when suitability requires more assessment.",
+    "test_type": "boundary",
+    "answerability": "DIRECT",
+    "required_evidence_topics": [
+      "probation extension maximum limit",
+      "formal written notice before probation ends"
+    ],
+    "prohibited_claims": [
+      "probation can be extended indefinitely without review"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High"
+    }
+  },
+  {
+    "id": "MGR-08",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "Can a manager decline a resigning employee's request to take all remaining leave during their notice period?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Approval of leave during the notice period is subject to business requirements and the employee's manager.",
+    "expected_answer_keywords": [
+      "notice period",
+      "business requirements",
+      "employee's manager",
+      "approval"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Managerial discretion during notice periods to ensure proper project handover.",
+    "test_type": "boundary",
+    "answerability": "DIRECT",
+    "required_evidence_topics": [
+      "maximum 5 days annual leave carry forward limit",
+      "use-by timeline in subsequent year"
+    ],
+    "prohibited_claims": [
+      "all unused leaves rollover automatically without limit"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High"
+    }
+  },
+  {
+    "id": "MGR-09",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "An employee took time off before their leave was approved in the system. How should a manager handle unapproved leave?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Submitting a leave request does not automatically mean that the leave has been approved.",
+    "expected_answer_keywords": [
+      "not automatically mean",
+      "wait for required approval",
+      "unauthorized absence"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Reiterates that submission != approval; unapproved absence may be marked unauthorized.",
+    "test_type": "negative",
+    "answerability": "SYNTHESIZABLE",
+    "required_evidence_topics": [
+      "remote work is a privilege not an absolute entitlement",
+      "manager discretion to review or revoke upon performance issues"
+    ],
+    "prohibited_claims": [
+      "remote work cannot be rescinded once approved"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High"
+    }
+  },
+  {
+    "id": "MGR-10",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "How should a manager evaluate a leave request from an employee who is currently on probation?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "However, employees should understand that taking leave during probation may affect the evaluation period where the absence significantly limits the company's ability to assess performance.",
+    "expected_answer_keywords": [
+      "leave during probation",
+      "evaluation period",
+      "assess performance"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Managerial guidance on probation leave: consider impact on evaluation window.",
+    "test_type": "exception",
+    "answerability": "SYNTHESIZABLE",
+    "required_evidence_topics": [
+      "notice buyout requires mutual written agreement",
+      "subject to business continuity and project handover"
+    ],
+    "prohibited_claims": [
+      "employee has unilateral right to buy out notice"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High"
+    }
+  },
+  {
+    "id": "MGR-11",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "What are a manager's responsibilities to ensure an employee reporting harassment does not face retaliation?",
+    "expected_document": "POSH_Policy",
+    "expected_needle": "promptly escalate concerns through appropriate channels, avoid retaliation, preserve confidentiality",
+    "expected_answer_keywords": [
+      "avoid retaliation",
+      "preserve confidentiality",
+      "escalate concerns"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Managerial duties under POSH: strict non-retaliation, confidentiality, and cooperation with IC.",
+    "test_type": "negative",
+    "answerability": "SYNTHESIZABLE",
+    "required_evidence_topics": [
+      "unauthorized absence exceeding 3 consecutive days",
+      "issuance of show-cause notice and job abandonment proceedings"
+    ],
+    "prohibited_claims": [
+      "manager can terminate employee on day 1 of absence without show-cause"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High"
+    }
+  },
+  {
+    "id": "MGR-12",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "What project handover and asset clearance steps must a manager verify before an employee's last working day?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "Complete assigned handover and documentation.",
+    "expected_answer_keywords": [
+      "handover",
+      "documentation",
+      "clearance",
+      "exit"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true,
+    "notes": "Manager exit checklist: verify knowledge transfer, access revocation, and document handoff.",
+    "test_type": "normal",
+    "answerability": "SYNTHESIZABLE",
+    "required_evidence_topics": [
+      "progressive disciplinary policy",
+      "verbal warning, written warning, PIP, escalation to HR"
+    ],
+    "prohibited_claims": [
+      "immediate termination for minor attendance breaches"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High"
+    }
+  },
+  {
+    "id": "MGR-13",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "What department handles formal employee confirmation letters and compensation adjustments following probation clearance?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Questions regarding an employee's employment category, probation status, confirmation, transfer, or employment records should be directed to the People & Culture Department.",
+    "expected_answer_keywords": [
+      "People & Culture Department",
+      "confirmation",
+      "employment records"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Routing probation confirmation paperwork and recordkeeping to People & Culture.",
+    "test_type": "normal",
+    "answerability": "DIRECT",
+    "required_evidence_topics": [
+      "mandatory disclosure of conflict of interest",
+      "annual declaration and immediate disclosure upon change"
+    ],
+    "prohibited_claims": [
+      "outside business interests under 10 hours/week do not need disclosure"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High"
+    }
+  },
+  {
+    "id": "MGR-14",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "What is the procedure when an employee fails to report to work or communicate with their manager for multiple days?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Failure to report to work or communicate with the company for an extended period without authorization may be treated as",
+    "expected_answer_keywords": [
+      "unauthorized absence",
+      "abandonment",
+      "communicate",
+      "extended period"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Protocol for unnotified absence / potential job abandonment.",
+    "test_type": "exception",
+    "answerability": "DIRECT",
+    "required_evidence_topics": [
+      "conciliation at the request of complainant only",
+      "no monetary settlement as basis of conciliation"
+    ],
+    "prohibited_claims": [
+      "manager can order conciliation without complainant consent"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High"
+    }
+  },
+  {
+    "id": "MGR-15",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "Can a manager review or modify an employee's remote work arrangement if they are repeatedly unavailable?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Repeated unavailability during working hours may result in the remote work arrangement being reviewed.",
+    "expected_answer_keywords": [
+      "Repeated unavailability",
+      "reviewed",
+      "remote work arrangement"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Managerial discretion to review or revoke remote work privileges upon performance/availability issues.",
+    "test_type": "negative",
+    "answerability": "DIRECT",
+    "required_evidence_topics": [
+      "remote work revocation grounds",
+      "reasonable notice period before requiring on-site return"
+    ],
+    "prohibited_claims": [
+      "remote work revocation takes effect instantly without transition notice"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High"
+    }
+  },
+  {
+    "id": "MGR-16",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "Does completing probation automatically result in a salary increase that a manager must budget for?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Completion of probation does not automatically result in a salary increase unless such an increase is specifically stated in the employee's employment terms",
+    "expected_answer_keywords": [
+      "does not automatically result in a salary increase",
+      "employment terms"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Clarifies compensation rules: probation clearance does not imply automatic pay bump.",
+    "test_type": "missing_information",
+    "answerability": "DIRECT",
+    "required_evidence_topics": [
+      "probation completion does not automatically trigger salary increment",
+      "salary revision governed by terms of employment contract"
+    ],
+    "prohibited_claims": [
+      "company policy guarantees 15% increment upon probation clearance"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High"
+    }
+  },
+  {
+    "id": "MGR-17",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "What should a manager do if two employees in the same critical role request annual leave for the same dates?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Leave requests may be declined or modified when business requirements make the requested period unavailable.",
+    "expected_answer_keywords": [
+      "declined or modified",
+      "business requirements",
+      "unavailable"
+    ],
+    "expected_intent": "procedure_how_to",
+    "should_succeed": true,
+    "notes": "Balancing team coverage during overlapping leave periods.",
+    "test_type": "conflict",
+    "answerability": "SYNTHESIZABLE",
+    "required_evidence_topics": [
+      "manager discretion based on business coverage",
+      "seniority or submission order guidelines",
+      "compromise and staggered leave arrangement"
+    ],
+    "prohibited_claims": [
+      "first applicant automatically wins by statutory law"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High"
+    }
+  },
+  {
+    "id": "MGR-18",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "Where should HR process the final salary clearance and full and final settlement for exiting employees?",
+    "expected_document": "HR_Policy_Manual",
+    "expected_needle": "FULL AND FINAL SETTLEMENT",
+    "expected_answer_keywords": [
+      "Full and Final Settlement",
+      "clearance",
+      "financial dues"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "HR exit clearance and payroll timeline governing final settlement.",
+    "test_type": "normal",
+    "answerability": "DIRECT",
+    "required_evidence_topics": [
+      "full and final settlement processing within 30 days",
+      "clearance of company assets, IT equipment, financial dues"
+    ],
+    "prohibited_claims": [
+      "final settlement must be paid on last working day cash in hand"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High"
+    }
+  },
+  {
+    "id": "MGR-19",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "What core behavioral values must managers uphold regarding professional respect and dignity in the workplace?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "Nexora is committed to maintaining a workplace where employees are treated with dignity and respect.",
+    "expected_answer_keywords": [
+      "dignity and respect",
+      "workplace",
+      "Code of Conduct"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Foundational behavioral leadership standard under Code of Conduct Section 9.",
+    "test_type": "normal",
+    "answerability": "DIRECT",
+    "required_evidence_topics": [
+      "workplace dignity and mutual respect",
+      "zero tolerance for bullying, bias, or harassment"
+    ],
+    "prohibited_claims": [
+      "aggressive management styles are permitted if targets are met"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High"
+    }
+  },
+  {
+    "id": "MGR-20",
+    "category": "MANAGER_HR_PLAYBOOK",
+    "question": "Can a manager authorize an employee to work remotely from an international country without written corporate sign-off?",
+    "expected_document": "NEXORA TECHNOLOGIES PVT",
+    "expected_needle": "19.9 Can I work remotely from another country?",
+    "expected_answer_keywords": [
+      "Not without prior written approval",
+      "international",
+      "tax",
+      "legal"
+    ],
+    "expected_intent": "policy_lookup",
+    "should_succeed": true,
+    "notes": "Strict cross-border compliance: managers cannot approve international remote work alone.",
+    "test_type": "adversarial",
+    "answerability": "DIRECT",
+    "required_evidence_topics": [
+      "prohibition on unauthorized international remote work",
+      "tax, legal, and regulatory compliance risks",
+      "prior written sign-off from Executive Leadership and HR required"
+    ],
+    "prohibited_claims": [
+      "reporting manager can approve international remote work on their own"
+    ],
+    "evaluator_criteria": {
+      "policy_fidelity": "High"
+    }
+  }
+]

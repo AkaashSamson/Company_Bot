@@ -49,3 +49,8 @@ pyspellchecker>=0.8.0
 # PDF Extraction fallback
 pypdf>=4.0.0
 
+# Data Processing & Sandbox Observability
+pandas>=2.0.0
+numpy>=1.24.0
+openpyxl>=3.1.0
+

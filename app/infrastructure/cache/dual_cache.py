@@ -62,6 +62,7 @@ class DualCacheEntry:
     document_ids: list[str] = field(default_factory=list)
     project_ids: list[str] = field(default_factory=list)
     is_public: bool = False
+    chunk_ids: list[str] = field(default_factory=list)
 
     def __getitem__(self, key: str) -> Any:
         if hasattr(self, key):
@@ -92,6 +93,7 @@ class DualCacheEntry:
             "document_ids": self.document_ids,
             "project_ids": self.project_ids,
             "is_public": self.is_public,
+            "chunk_ids": self.chunk_ids,
         }
 
     @classmethod
@@ -113,6 +115,7 @@ class DualCacheEntry:
             document_ids=data.get("document_ids", []),
             project_ids=data.get("project_ids", []),
             is_public=bool(data.get("is_public", False)),
+            chunk_ids=data.get("chunk_ids", []),
         )
 
 
@@ -612,13 +615,18 @@ class DualCache:
         except Exception:
             pass
 
-        # Record cache_id -> {doc_id, proj_id} mapping explicitly
+        resolved_cids = list(kwargs.get("chunk_ids") or [])
+        if not resolved_cids and citations:
+            resolved_cids = [str(c["chunk_id"]).strip() for c in citations if isinstance(c, dict) and c.get("chunk_id")]
+
+        # Record cache_id -> {doc_id, proj_id, chunk_ids} mapping explicitly
         with self._lock:
             self._cache_id_to_meta[effective_cache_id] = {
                 "cache_id": effective_cache_id,
                 "cache_key": cache_key,
                 "document_ids": list(resolved_dids),
                 "project_ids": list(resolved_pids),
+                "chunk_ids": list(resolved_cids),
                 "assigned_role": assigned_role,
                 "is_public": kwargs.get("is_public", False),
             }
@@ -638,6 +646,7 @@ class DualCache:
             document_ids=list(resolved_dids),
             project_ids=list(resolved_pids),
             is_public=kwargs.get("is_public", False),
+            chunk_ids=list(resolved_cids),
         )
         
         with self._lock:

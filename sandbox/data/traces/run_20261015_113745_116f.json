@@ -1,0 +1,626 @@
+{
+  "run_id": "run_20261015_113745_116f",
+  "suite_id": "ragas_edge_cases_openrouter",
+  "config": {
+    "run_id": "run_20261015_113745_116f",
+    "suite_id": "ragas_edge_cases_openrouter",
+    "execution_mode": "remote_provider_allowed",
+    "components": [
+      "retrieval",
+      "reranking",
+      "generation",
+      "policy_eval",
+      "ragas_eval"
+    ],
+    "retrieval_k": 13,
+    "reranker_top_k": 4,
+    "reranker_model": "BAAI/bge-reranker-base",
+    "llm_provider": "openrouter",
+    "llm_model": "openrouter/anthropic/claude-3.5-sonnet",
+    "nli_evaluator": "local_nli",
+    "enforce_rbac": true,
+    "evidence_mode": "any",
+    "created_at": "2026-10-15T11:37:45.165280+00:00"
+  },
+  "created_at": "2026-10-15T11:37:45.165280+00:00",
+  "total_tests": 3,
+  "passed": 2,
+  "failed": 1,
+  "errors": 0,
+  "inconclusive": 0,
+  "pass_rate": 66.7,
+  "component_metrics": {
+    "retrieval": {
+      "mean_recall_at_k": 100.0,
+      "tested_cases": 0
+    },
+    "reranking": {
+      "needle_retention_rate": 100.0,
+      "tested_needles": 3
+    },
+    "policy_eval": {
+      "prohibited_claim_free_rate": 100.0,
+      "policies_tested": 3
+    },
+    "ragas_eval": {
+      "mean_faithfulness": 0.67,
+      "mean_answer_relevancy": 1.0,
+      "mean_context_precision": 0.67,
+      "mean_factual_correctness": 0.27,
+      "cases_evaluated": 3
+    }
+  },
+  "failed_cases": [
+    {
+      "id": "EDGE-21",
+      "title": "The handbook says one thing, but the HR portal says another. What should I do?",
+      "failure_stage": "ragas_eval",
+      "question": "The handbook says one thing, but the HR portal says another. What should I do?",
+      "failed_assertions": [
+        {
+          "component": "ragas_eval",
+          "type": "faithfulness",
+          "passed": false,
+          "actual_value": 0.0,
+          "expected_value": ">=0.70",
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Low Faithfulness: 0.00 (hallucinated claims)"
+        },
+        {
+          "component": "ragas_eval",
+          "type": "context_precision",
+          "passed": false,
+          "actual_value": 0.0,
+          "expected_value": ">=0.60",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Ragas Context Precision: 0.00"
+        },
+        {
+          "component": "ragas_eval",
+          "type": "factual_correctness",
+          "passed": false,
+          "actual_value": 0.0,
+          "expected_value": ">=0.65",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Ragas Factual Correctness: 0.00 vs reference"
+        }
+      ]
+    }
+  ],
+  "test_results": [
+    {
+      "test_id": "EDGE-01",
+      "status": "PASS",
+      "failure_stage": null,
+      "assertion_results": [
+        {
+          "component": "reranking",
+          "type": "needle_present",
+          "passed": true,
+          "actual_value": [
+            "NEXORA TECHNOLOGIES PVT-55",
+            "HR_Policy_Manual-8",
+            "NEXORA TECHNOLOGIES PVT-75",
+            "NEXORA TECHNOLOGIES PVT-79"
+          ],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Needle or required chunk in top 4: False"
+        },
+        {
+          "component": "generation",
+          "type": "non_empty_response",
+          "passed": true,
+          "actual_value": "72 tokens",
+          "expected_value": null,
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "LLM generated a non-empty response."
+        },
+        {
+          "component": "policy_eval",
+          "type": "no_prohibited_claims",
+          "passed": true,
+          "actual_value": [],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "No prohibited policy claims detected."
+        },
+        {
+          "component": "policy_eval",
+          "type": "evidence_coverage",
+          "passed": true,
+          "actual_value": "2/2 (100%)",
+          "expected_value": ">=50%",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Covered 2/2 required policy steps/topics."
+        },
+        {
+          "component": "ragas_eval",
+          "type": "faithfulness",
+          "passed": true,
+          "actual_value": 1.0,
+          "expected_value": ">=0.70",
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Ragas Faithfulness: 1.00 (grounded in context)"
+        },
+        {
+          "component": "ragas_eval",
+          "type": "answer_relevancy",
+          "passed": true,
+          "actual_value": 1.0,
+          "expected_value": ">=0.70",
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Ragas Answer Relevancy: 1.00"
+        },
+        {
+          "component": "ragas_eval",
+          "type": "context_precision",
+          "passed": true,
+          "actual_value": 1.0,
+          "expected_value": ">=0.60",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Ragas Context Precision: 1.00"
+        },
+        {
+          "component": "ragas_eval",
+          "type": "factual_correctness",
+          "passed": true,
+          "actual_value": 0.8,
+          "expected_value": ">=0.65",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Ragas Factual Correctness: 0.80 vs reference"
+        }
+      ],
+      "trace": {
+        "test_id": "EDGE-01",
+        "total_latency_ms": 78067.78,
+        "stages": {
+          "retrieval": {
+            "stage": "retrieval",
+            "status": "PASS",
+            "latency_ms": 28804.92,
+            "inputs": {
+              "question": "I need leave next week. What should I do first?",
+              "role": "EMPLOYEE",
+              "top_k": 13
+            },
+            "outputs": {
+              "candidate_count": 13,
+              "recall": 1.0
+            },
+            "error_message": null
+          },
+          "reranking": {
+            "stage": "reranking",
+            "status": "PASS",
+            "latency_ms": 43158.42,
+            "inputs": {
+              "candidate_count": 13,
+              "top_k": 4
+            },
+            "outputs": {
+              "reranked_count": 4,
+              "needle_found": true
+            },
+            "error_message": null
+          },
+          "generation": {
+            "stage": "generation",
+            "status": "PASS",
+            "latency_ms": 2571.2,
+            "inputs": {
+              "model": "openrouter/anthropic/claude-3.5-sonnet",
+              "context_tokens": 304
+            },
+            "outputs": {
+              "response_text": "You should plan your leave in advance whenever reasonably possible and submit your planned leave through the approved HR system. Additionally, since you need leave next week, ensure to communicate pro",
+              "response_tokens": 72
+            },
+            "error_message": null
+          },
+          "policy_eval": {
+            "stage": "policy_eval",
+            "status": "PASS",
+            "latency_ms": 0.0,
+            "inputs": {
+              "required_claims": 2,
+              "prohibited": 1
+            },
+            "outputs": {
+              "prohibited_leaks": [],
+              "coverage": 1.0
+            },
+            "error_message": null
+          },
+          "ragas_eval": {
+            "stage": "ragas_eval",
+            "status": "PASS",
+            "latency_ms": 3163.7,
+            "inputs": {
+              "user_input": "I need leave next week. What should I do first?",
+              "reference_available": true
+            },
+            "outputs": {
+              "faithfulness": 1.0,
+              "answer_relevancy": 1.0,
+              "factual_correctness": 0.8,
+              "context_precision": 1.0,
+              "context_recall": 1.0,
+              "diagnosis": "The generated response accurately captures the need to plan leave and communicate with the manager based on the retrieved context. It primarily references relevant information from multiple passages. However, it slightly deviates from the reference answer by not explicitly mentioning checking the available leave balance on HRMS, resulting in a minor factual inaccuracy. Overall, points are still awarded for factual correctness due to strong alignment with the main concepts in the retrieved context, but the absence of a specific aspect from the reference led to a score of 0.8."
+            },
+            "error_message": null
+          }
+        }
+      },
+      "metrics": {
+        "latency_ms": 78067.78,
+        "response_text": "You should plan your leave in advance whenever reasonably possible and submit your planned leave through the approved HR system. Additionally, since you need leave next week, ensure to communicate promptly with your manager about your request, as approval will depend on business continuity and staffing requirements. Would you like to see the references for this?"
+      }
+    },
+    {
+      "test_id": "EDGE-21",
+      "status": "FAIL",
+      "failure_stage": "ragas_eval",
+      "assertion_results": [
+        {
+          "component": "reranking",
+          "type": "needle_present",
+          "passed": true,
+          "actual_value": [
+            "NEXORA TECHNOLOGIES PVT-3",
+            "NEXORA TECHNOLOGIES PVT-1",
+            "NEXORA TECHNOLOGIES PVT-6",
+            "NEXORA TECHNOLOGIES PVT-2"
+          ],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Needle or required chunk in top 4: False"
+        },
+        {
+          "component": "generation",
+          "type": "non_empty_response",
+          "passed": true,
+          "actual_value": "24 tokens",
+          "expected_value": null,
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "LLM generated a non-empty response."
+        },
+        {
+          "component": "policy_eval",
+          "type": "no_prohibited_claims",
+          "passed": true,
+          "actual_value": [],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "No prohibited policy claims detected."
+        },
+        {
+          "component": "policy_eval",
+          "type": "evidence_coverage",
+          "passed": true,
+          "actual_value": "1/2 (50%)",
+          "expected_value": ">=50%",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Covered 1/2 required policy steps/topics."
+        },
+        {
+          "component": "ragas_eval",
+          "type": "faithfulness",
+          "passed": false,
+          "actual_value": 0.0,
+          "expected_value": ">=0.70",
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Low Faithfulness: 0.00 (hallucinated claims)"
+        },
+        {
+          "component": "ragas_eval",
+          "type": "answer_relevancy",
+          "passed": true,
+          "actual_value": 1.0,
+          "expected_value": ">=0.70",
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Ragas Answer Relevancy: 1.00"
+        },
+        {
+          "component": "ragas_eval",
+          "type": "context_precision",
+          "passed": false,
+          "actual_value": 0.0,
+          "expected_value": ">=0.60",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Ragas Context Precision: 0.00"
+        },
+        {
+          "component": "ragas_eval",
+          "type": "factual_correctness",
+          "passed": false,
+          "actual_value": 0.0,
+          "expected_value": ">=0.65",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Ragas Factual Correctness: 0.00 vs reference"
+        }
+      ],
+      "trace": {
+        "test_id": "EDGE-21",
+        "total_latency_ms": 12909.62,
+        "stages": {
+          "retrieval": {
+            "stage": "retrieval",
+            "status": "PASS",
+            "latency_ms": 55.56,
+            "inputs": {
+              "question": "The handbook says one thing, but the HR portal says another. What should I do?",
+              "role": "EMPLOYEE",
+              "top_k": 13
+            },
+            "outputs": {
+              "candidate_count": 13,
+              "recall": 1.0
+            },
+            "error_message": null
+          },
+          "reranking": {
+            "stage": "reranking",
+            "status": "PASS",
+            "latency_ms": 5544.55,
+            "inputs": {
+              "candidate_count": 13,
+              "top_k": 4
+            },
+            "outputs": {
+              "reranked_count": 4,
+              "needle_found": true
+            },
+            "error_message": null
+          },
+          "generation": {
+            "stage": "generation",
+            "status": "PASS",
+            "latency_ms": 3605.75,
+            "inputs": {
+              "model": "openrouter/anthropic/claude-3.5-sonnet",
+              "context_tokens": 274
+            },
+            "outputs": {
+              "response_text": "I could not find that information in the available documents. Would you like to see the references for this?",
+              "response_tokens": 24
+            },
+            "error_message": null
+          },
+          "policy_eval": {
+            "stage": "policy_eval",
+            "status": "PASS",
+            "latency_ms": 0.0,
+            "inputs": {
+              "required_claims": 2,
+              "prohibited": 1
+            },
+            "outputs": {
+              "prohibited_leaks": [],
+              "coverage": 0.5
+            },
+            "error_message": null
+          },
+          "ragas_eval": {
+            "stage": "ragas_eval",
+            "status": "FAIL",
+            "latency_ms": 3694.64,
+            "inputs": {
+              "user_input": "The handbook says one thing, but the HR portal says another. What should I do?",
+              "reference_available": true
+            },
+            "outputs": {
+              "faithfulness": 0.0,
+              "answer_relevancy": 1.0,
+              "factual_correctness": 0.0,
+              "context_precision": 0.0,
+              "context_recall": 0.0,
+              "diagnosis": "The generated response does not address the user's question and provides a refusal without guidance. It fails to reference the necessary context in the retrieved passages regarding how to handle conflicting information between the handbook and HR portal. Since the response does not provide useful information or direction, it scores low in faithfulness, factual correctness, context precision, and context recall."
+            },
+            "error_message": null
+          }
+        }
+      },
+      "metrics": {
+        "latency_ms": 12909.62,
+        "response_text": "I could not find that information in the available documents. Would you like to see the references for this?"
+      }
+    },
+    {
+      "test_id": "EDGE-34",
+      "status": "PASS",
+      "failure_stage": null,
+      "assertion_results": [
+        {
+          "component": "reranking",
+          "type": "needle_present",
+          "passed": true,
+          "actual_value": [
+            "NEXORA TECHNOLOGIES PVT-290",
+            "NEXORA TECHNOLOGIES PVT-274",
+            "POSH_Policy-3",
+            "NEXORA TECHNOLOGIES PVT-110"
+          ],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Needle or required chunk in top 4: False"
+        },
+        {
+          "component": "generation",
+          "type": "non_empty_response",
+          "passed": true,
+          "actual_value": "24 tokens",
+          "expected_value": null,
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "LLM generated a non-empty response."
+        },
+        {
+          "component": "policy_eval",
+          "type": "no_prohibited_claims",
+          "passed": true,
+          "actual_value": [],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "No prohibited policy claims detected."
+        },
+        {
+          "component": "policy_eval",
+          "type": "evidence_coverage",
+          "passed": true,
+          "actual_value": "2/2 (100%)",
+          "expected_value": ">=50%",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Covered 2/2 required policy steps/topics."
+        },
+        {
+          "component": "ragas_eval",
+          "type": "faithfulness",
+          "passed": true,
+          "actual_value": 1.0,
+          "expected_value": ">=0.70",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Ragas Faithfulness: 1.00 (grounded in context)"
+        },
+        {
+          "component": "ragas_eval",
+          "type": "answer_relevancy",
+          "passed": true,
+          "actual_value": 1.0,
+          "expected_value": ">=0.70",
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Ragas Answer Relevancy: 1.00"
+        },
+        {
+          "component": "ragas_eval",
+          "type": "context_precision",
+          "passed": true,
+          "actual_value": 1.0,
+          "expected_value": ">=0.60",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Ragas Context Precision: 1.00"
+        },
+        {
+          "component": "ragas_eval",
+          "type": "factual_correctness",
+          "passed": false,
+          "actual_value": 0.0,
+          "expected_value": ">=0.65",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Ragas Factual Correctness: 0.00 vs reference"
+        }
+      ],
+      "trace": {
+        "test_id": "EDGE-34",
+        "total_latency_ms": 11869.72,
+        "stages": {
+          "retrieval": {
+            "stage": "retrieval",
+            "status": "PASS",
+            "latency_ms": 51.91,
+            "inputs": {
+              "question": "I need an answer, but the policy does not state the approval timeline. What can you tell me?",
+              "role": "EMPLOYEE",
+              "top_k": 13
+            },
+            "outputs": {
+              "candidate_count": 13,
+              "recall": 1.0
+            },
+            "error_message": null
+          },
+          "reranking": {
+            "stage": "reranking",
+            "status": "PASS",
+            "latency_ms": 4759.95,
+            "inputs": {
+              "candidate_count": 13,
+              "top_k": 4
+            },
+            "outputs": {
+              "reranked_count": 4,
+              "needle_found": true
+            },
+            "error_message": null
+          },
+          "generation": {
+            "stage": "generation",
+            "status": "PASS",
+            "latency_ms": 1635.78,
+            "inputs": {
+              "model": "openrouter/anthropic/claude-3.5-sonnet",
+              "context_tokens": 280
+            },
+            "outputs": {
+              "response_text": "I could not find that information in the available documents. Would you like to see the references for this?",
+              "response_tokens": 24
+            },
+            "error_message": null
+          },
+          "policy_eval": {
+            "stage": "policy_eval",
+            "status": "PASS",
+            "latency_ms": 0.0,
+            "inputs": {
+              "required_claims": 2,
+              "prohibited": 1
+            },
+            "outputs": {
+              "prohibited_leaks": [],
+              "coverage": 1.0
+            },
+            "error_message": null
+          },
+          "ragas_eval": {
+            "stage": "ragas_eval",
+            "status": "PASS",
+            "latency_ms": 5413.06,
+            "inputs": {
+              "user_input": "I need an answer, but the policy does not state the approval timeline. What can you tell me?",
+              "reference_available": true
+            },
+            "outputs": {
+              "faithfulness": 1.0,
+              "answer_relevancy": 1.0,
+              "factual_correctness": 0.0,
+              "context_precision": 1.0,
+              "context_recall": 1.0,
+              "diagnosis": "The model correctly acknowledges the absence of specific information in the context regarding the approval timeline, aligning with the refusal that's expected in this scenario. Since the request for information is indeed unanswerable based on the retrieved context, the faithfulness and answer relevancy are rated highly. However, factual correctness is rated 0.0 because the model failed to provide the typical timeline mentioned in the reference answer, thus lacking completeness despite the refusal being valid. Context precision and recall both score 1.0 as the necessary facts were not omitted and were present in the retrieved context, confirming the model's decision to refuse."
+            },
+            "error_message": null
+          }
+        }
+      },
+      "metrics": {
+        "latency_ms": 11869.72,
+        "response_text": "I could not find that information in the available documents. Would you like to see the references for this?"
+      }
+    }
+  ]
+}

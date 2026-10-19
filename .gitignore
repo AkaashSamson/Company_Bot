@@ -41,6 +41,10 @@ docs/SEEDED_USERS_AND_CREDENTIALS.md
 devTools/
 Implementation_notes.md
 
+# Local model downloads & scratch
+models/
+scratch/
+
 # IDE and OS metadata
 .vscode/
 .idea/

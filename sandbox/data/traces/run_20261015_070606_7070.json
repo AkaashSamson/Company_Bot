@@ -1,0 +1,111 @@
+{
+  "run_id": "run_20261015_070606_7070",
+  "suite_id": "test_suite",
+  "config": {
+    "run_id": "run_20261015_070606_7070",
+    "suite_id": "test_suite",
+    "execution_mode": "offline_strict",
+    "components": [
+      "generation",
+      "policy_eval"
+    ],
+    "retrieval_k": 13,
+    "reranker_top_k": 4,
+    "reranker_model": "BAAI/bge-reranker-base",
+    "llm_provider": "local_heuristic",
+    "llm_model": "openrouter/anthropic/claude-3.5-sonnet",
+    "nli_evaluator": "local_nli",
+    "enforce_rbac": true,
+    "evidence_mode": "any",
+    "created_at": "2026-10-15T07:06:06.769458+00:00"
+  },
+  "created_at": "2026-10-15T07:06:06.769458+00:00",
+  "total_tests": 1,
+  "passed": 1,
+  "failed": 0,
+  "errors": 0,
+  "inconclusive": 0,
+  "pass_rate": 100.0,
+  "component_metrics": {
+    "retrieval": {
+      "mean_recall_at_k": 100.0,
+      "tested_cases": 0
+    },
+    "reranking": {
+      "needle_retention_rate": 100.0,
+      "tested_needles": 0
+    },
+    "policy_eval": {
+      "prohibited_claim_free_rate": 100.0,
+      "policies_tested": 1
+    }
+  },
+  "failed_cases": [],
+  "test_results": [
+    {
+      "test_id": "UNIT-TEST-01",
+      "status": "PASS",
+      "failure_stage": null,
+      "assertion_results": [
+        {
+          "component": "generation",
+          "type": "non_empty_response",
+          "passed": true,
+          "actual_value": "20 tokens",
+          "expected_value": null,
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "LLM generated a non-empty response."
+        },
+        {
+          "component": "policy_eval",
+          "type": "no_prohibited_claims",
+          "passed": true,
+          "actual_value": [],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "No prohibited policy claims detected."
+        }
+      ],
+      "trace": {
+        "test_id": "UNIT-TEST-01",
+        "total_latency_ms": 2.82,
+        "stages": {
+          "generation": {
+            "stage": "generation",
+            "status": "PASS",
+            "latency_ms": 0.0,
+            "inputs": {
+              "model": "local_heuristic_v1",
+              "context_tokens": 0
+            },
+            "outputs": {
+              "response_text": "I could not find relevant company policy information to answer this inquiry. Please consult HR directly.",
+              "response_tokens": 20
+            },
+            "error_message": null
+          },
+          "policy_eval": {
+            "stage": "policy_eval",
+            "status": "PASS",
+            "latency_ms": 0.0,
+            "inputs": {
+              "required_claims": 0,
+              "prohibited": 1
+            },
+            "outputs": {
+              "prohibited_leaks": [],
+              "coverage": 1.0
+            },
+            "error_message": null
+          }
+        }
+      },
+      "metrics": {
+        "latency_ms": 2.82,
+        "response_text": "I could not find relevant company policy information to answer this inquiry. Please consult HR directly."
+      }
+    }
+  ]
+}
