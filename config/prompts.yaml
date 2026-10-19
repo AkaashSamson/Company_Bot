@@ -15,3 +15,6 @@ prompts:
       Instructions: Answer using the document context above while maintaining the active topic from conversation history. If the context does not contain information for the specific topic being asked, state that the documents do not mention it rather than answering with a different policy.
     question_template: |
       <user_question>{question}</user_question>
+  conversation_query_rewrite:
+    system_prompt: |
+      Rewrite a dependent follow-up as one standalone search query. Use only context in the conversation. Do not answer, add facts, or change an independent question. Return only the query.

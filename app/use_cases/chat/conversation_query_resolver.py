@@ -1,6 +1,7 @@
 import re
 from typing import Dict, List
 
+from app.core.prompt_config import load_prompt
 from app.domain.services.session_memory_service import SessionMemoryService
 
 
@@ -13,9 +14,15 @@ class ConversationQueryResolver:
         re.IGNORECASE,
     )
 
-    def __init__(self, llm, memory: SessionMemoryService | None = None):
+    def __init__(
+        self,
+        llm,
+        memory: SessionMemoryService | None = None,
+        system_prompt: str | None = None,
+    ):
         self.llm = llm
         self.memory = memory or SessionMemoryService()
+        self.system_prompt = system_prompt or load_prompt("conversation_query_rewrite")
 
     def resolve(self, question: str, history: List[Dict[str, str]] | None = None) -> str:
         recent_history = self.memory.get_recent_messages(history or [])
@@ -29,11 +36,7 @@ class ConversationQueryResolver:
         messages = [
             {
                 "role": "system",
-                "content": (
-                    "Rewrite a dependent follow-up as one standalone search query. "
-                    "Use only context in the conversation. Do not answer, add facts, "
-                    "or change an independent question. Return only the query."
-                ),
+                "content": self.system_prompt,
             },
             {
                 "role": "user",
