@@ -1,0 +1,449 @@
+{
+  "run_id": "run_20261015_112149_a5ee",
+  "suite_id": "ragas_edge_cases_openrouter",
+  "config": {
+    "run_id": "run_20261015_112149_a5ee",
+    "suite_id": "ragas_edge_cases_openrouter",
+    "execution_mode": "remote_provider_allowed",
+    "components": [
+      "retrieval",
+      "reranking",
+      "generation",
+      "policy_eval",
+      "ragas_eval"
+    ],
+    "retrieval_k": 13,
+    "reranker_top_k": 4,
+    "reranker_model": "BAAI/bge-reranker-base",
+    "llm_provider": "openrouter",
+    "llm_model": "openrouter/anthropic/claude-3.5-sonnet",
+    "nli_evaluator": "local_nli",
+    "enforce_rbac": true,
+    "evidence_mode": "any",
+    "created_at": "2026-10-15T11:21:49.446802+00:00"
+  },
+  "created_at": "2026-10-15T11:21:49.446802+00:00",
+  "total_tests": 3,
+  "passed": 2,
+  "failed": 1,
+  "errors": 0,
+  "inconclusive": 0,
+  "pass_rate": 66.7,
+  "component_metrics": {
+    "retrieval": {
+      "mean_recall_at_k": 100.0,
+      "tested_cases": 0
+    },
+    "reranking": {
+      "needle_retention_rate": 100.0,
+      "tested_needles": 3
+    },
+    "policy_eval": {
+      "prohibited_claim_free_rate": 100.0,
+      "policies_tested": 3
+    }
+  },
+  "failed_cases": [
+    {
+      "id": "EDGE-34",
+      "title": "I need an answer, but the policy does not state the approval timeline. What can ",
+      "failure_stage": "policy_eval",
+      "question": "I need an answer, but the policy does not state the approval timeline. What can you tell me?",
+      "failed_assertions": [
+        {
+          "component": "policy_eval",
+          "type": "refusal_conformance",
+          "passed": false,
+          "actual_value": "Refused: False",
+          "expected_value": "Refusal required",
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Model attempted to answer without authorized policy evidence!"
+        }
+      ]
+    }
+  ],
+  "test_results": [
+    {
+      "test_id": "EDGE-01",
+      "status": "PASS",
+      "failure_stage": null,
+      "assertion_results": [
+        {
+          "component": "reranking",
+          "type": "needle_present",
+          "passed": true,
+          "actual_value": [
+            "NEXORA TECHNOLOGIES PVT-55",
+            "HR_Policy_Manual-8",
+            "NEXORA TECHNOLOGIES PVT-75",
+            "NEXORA TECHNOLOGIES PVT-79"
+          ],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Needle or required chunk in top 4: False"
+        },
+        {
+          "component": "generation",
+          "type": "non_empty_response",
+          "passed": true,
+          "actual_value": "146 tokens",
+          "expected_value": null,
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "LLM generated a non-empty response."
+        },
+        {
+          "component": "policy_eval",
+          "type": "no_prohibited_claims",
+          "passed": true,
+          "actual_value": [],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "No prohibited policy claims detected."
+        },
+        {
+          "component": "policy_eval",
+          "type": "evidence_coverage",
+          "passed": true,
+          "actual_value": "2/2 (100%)",
+          "expected_value": ">=50%",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Covered 2/2 required policy steps/topics."
+        }
+      ],
+      "trace": {
+        "test_id": "EDGE-01",
+        "total_latency_ms": 27318.13,
+        "stages": {
+          "retrieval": {
+            "stage": "retrieval",
+            "status": "PASS",
+            "latency_ms": 6697.53,
+            "inputs": {
+              "question": "I need leave next week. What should I do first?",
+              "role": "EMPLOYEE",
+              "top_k": 13
+            },
+            "outputs": {
+              "candidate_count": 13,
+              "recall": 1.0
+            },
+            "error_message": null
+          },
+          "reranking": {
+            "stage": "reranking",
+            "status": "PASS",
+            "latency_ms": 7872.84,
+            "inputs": {
+              "candidate_count": 13,
+              "top_k": 4
+            },
+            "outputs": {
+              "reranked_count": 4,
+              "needle_found": true
+            },
+            "error_message": null
+          },
+          "generation": {
+            "stage": "generation",
+            "status": "PASS",
+            "latency_ms": 12619.55,
+            "inputs": {
+              "model": "openrouter/anthropic/claude-3.5-sonnet",
+              "context_tokens": 304
+            },
+            "outputs": {
+              "response_text": "Based on the HR policy documents, if you need leave next week (which would be considered planned leave), you should:\n\n1. **Submit your leave request through the designated HR system** - This is the fi",
+              "response_tokens": 146
+            },
+            "error_message": null
+          },
+          "policy_eval": {
+            "stage": "policy_eval",
+            "status": "PASS",
+            "latency_ms": 0.0,
+            "inputs": {
+              "required_claims": 2,
+              "prohibited": 1
+            },
+            "outputs": {
+              "prohibited_leaks": [],
+              "coverage": 1.0
+            },
+            "error_message": null
+          },
+          "ragas_eval": {
+            "stage": "ragas_eval",
+            "status": "ERROR",
+            "latency_ms": 0.0,
+            "inputs": {},
+            "outputs": {},
+            "error_message": "'ExpectedBehavior' object has no attribute 'expected_guidance'"
+          }
+        }
+      },
+      "metrics": {
+        "latency_ms": 27318.13,
+        "response_text": "Based on the HR policy documents, if you need leave next week (which would be considered planned leave), you should:\n\n1. **Submit your leave request through the designated HR system** - This is the first step for planned leave\n2. **Obtain approval before taking the leave** - You must get managerial approval prior to your absence\n\nThe policy states: \"Employees should plan leave in advance whenever reasonably possible. Submit planned leave through the approved HR system\" and \"Employees are responsible for: 1. Planning leave in advance whenever possible. 2. Submitting leave requests through the designated HR system. 3. Obtaining approval before taking planned leave.\"\n\nWould you like to see the references for this?"
+      }
+    },
+    {
+      "test_id": "EDGE-21",
+      "status": "PASS",
+      "failure_stage": null,
+      "assertion_results": [
+        {
+          "component": "reranking",
+          "type": "needle_present",
+          "passed": true,
+          "actual_value": [
+            "NEXORA TECHNOLOGIES PVT-3",
+            "NEXORA TECHNOLOGIES PVT-1",
+            "NEXORA TECHNOLOGIES PVT-6",
+            "NEXORA TECHNOLOGIES PVT-2"
+          ],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Needle or required chunk in top 4: False"
+        },
+        {
+          "component": "generation",
+          "type": "non_empty_response",
+          "passed": true,
+          "actual_value": "187 tokens",
+          "expected_value": null,
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "LLM generated a non-empty response."
+        },
+        {
+          "component": "policy_eval",
+          "type": "no_prohibited_claims",
+          "passed": true,
+          "actual_value": [],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "No prohibited policy claims detected."
+        },
+        {
+          "component": "policy_eval",
+          "type": "evidence_coverage",
+          "passed": true,
+          "actual_value": "1/2 (50%)",
+          "expected_value": ">=50%",
+          "threshold": null,
+          "severity": "WARNING",
+          "message": "Covered 1/2 required policy steps/topics."
+        }
+      ],
+      "trace": {
+        "test_id": "EDGE-21",
+        "total_latency_ms": 3245.75,
+        "stages": {
+          "retrieval": {
+            "stage": "retrieval",
+            "status": "PASS",
+            "latency_ms": 16.4,
+            "inputs": {
+              "question": "The handbook says one thing, but the HR portal says another. What should I do?",
+              "role": "EMPLOYEE",
+              "top_k": 13
+            },
+            "outputs": {
+              "candidate_count": 13,
+              "recall": 1.0
+            },
+            "error_message": null
+          },
+          "reranking": {
+            "stage": "reranking",
+            "status": "PASS",
+            "latency_ms": 1726.29,
+            "inputs": {
+              "candidate_count": 13,
+              "top_k": 4
+            },
+            "outputs": {
+              "reranked_count": 4,
+              "needle_found": true
+            },
+            "error_message": null
+          },
+          "generation": {
+            "stage": "generation",
+            "status": "PASS",
+            "latency_ms": 1499.35,
+            "inputs": {
+              "model": "fallback_heuristic (err: LLMProviderError)",
+              "context_tokens": 274
+            },
+            "outputs": {
+              "response_text": "The handbook covers areas including:\n Working hours and attendance\n Leave and holidays\n Remote and hybrid work\n Compensation and payroll\n Employee benefits\n Workplace conduct\n Information secur",
+              "response_tokens": 187
+            },
+            "error_message": null
+          },
+          "policy_eval": {
+            "stage": "policy_eval",
+            "status": "PASS",
+            "latency_ms": 0.0,
+            "inputs": {
+              "required_claims": 2,
+              "prohibited": 1
+            },
+            "outputs": {
+              "prohibited_leaks": [],
+              "coverage": 0.5
+            },
+            "error_message": null
+          },
+          "ragas_eval": {
+            "stage": "ragas_eval",
+            "status": "ERROR",
+            "latency_ms": 0.0,
+            "inputs": {},
+            "outputs": {},
+            "error_message": "'ExpectedBehavior' object has no attribute 'expected_guidance'"
+          }
+        }
+      },
+      "metrics": {
+        "latency_ms": 3245.75,
+        "response_text": "The handbook covers areas including:\n Working hours and attendance\n Leave and holidays\n Remote and hybrid work\n Compensation and payroll\n Employee benefits\n Workplace conduct\n Information security\n Performance management\n Employee grievances\n Disciplinary procedures\n Resignation and separation\nEmployees are expected to read and understand the policies applicable to their role. This Employee Handbook provides employees with information about the company's workplace\npolicies, procedures, benefits, expectations, and employee responsibilities. The handbook is intended to serve as a practical reference for employees throughout their\nemployment with Nexora. 2.1 Using This Handbook\nThis handbook is intended as a general guide and does not contain every rule or procedure\napplicable to employees. Employees should refer to the relevant policy section before making decisions related to leave,\nattendance, expenses, company equipment, information security, or other employment matters. Sources: [NEXORA TECHNOLOGIES PVT.pdf]"
+      }
+    },
+    {
+      "test_id": "EDGE-34",
+      "status": "FAIL",
+      "failure_stage": "policy_eval",
+      "assertion_results": [
+        {
+          "component": "reranking",
+          "type": "needle_present",
+          "passed": true,
+          "actual_value": [
+            "NEXORA TECHNOLOGIES PVT-290",
+            "NEXORA TECHNOLOGIES PVT-274",
+            "POSH_Policy-3",
+            "NEXORA TECHNOLOGIES PVT-110"
+          ],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Needle or required chunk in top 4: False"
+        },
+        {
+          "component": "generation",
+          "type": "non_empty_response",
+          "passed": true,
+          "actual_value": "179 tokens",
+          "expected_value": null,
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "LLM generated a non-empty response."
+        },
+        {
+          "component": "policy_eval",
+          "type": "no_prohibited_claims",
+          "passed": true,
+          "actual_value": [],
+          "expected_value": [],
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "No prohibited policy claims detected."
+        },
+        {
+          "component": "policy_eval",
+          "type": "refusal_conformance",
+          "passed": false,
+          "actual_value": "Refused: False",
+          "expected_value": "Refusal required",
+          "threshold": null,
+          "severity": "BLOCKER",
+          "message": "Model attempted to answer without authorized policy evidence!"
+        }
+      ],
+      "trace": {
+        "test_id": "EDGE-34",
+        "total_latency_ms": 20856.64,
+        "stages": {
+          "retrieval": {
+            "stage": "retrieval",
+            "status": "PASS",
+            "latency_ms": 21.59,
+            "inputs": {
+              "question": "I need an answer, but the policy does not state the approval timeline. What can you tell me?",
+              "role": "EMPLOYEE",
+              "top_k": 13
+            },
+            "outputs": {
+              "candidate_count": 13,
+              "recall": 1.0
+            },
+            "error_message": null
+          },
+          "reranking": {
+            "stage": "reranking",
+            "status": "PASS",
+            "latency_ms": 1451.91,
+            "inputs": {
+              "candidate_count": 13,
+              "top_k": 4
+            },
+            "outputs": {
+              "reranked_count": 4,
+              "needle_found": true
+            },
+            "error_message": null
+          },
+          "generation": {
+            "stage": "generation",
+            "status": "PASS",
+            "latency_ms": 19378.86,
+            "inputs": {
+              "model": "openrouter/anthropic/claude-3.5-sonnet",
+              "context_tokens": 280
+            },
+            "outputs": {
+              "response_text": "Based on the provided document context, I can confirm that **no specific approval timeline is stated** for any of the approval processes mentioned in these excerpts.\n\nThe documents indicate that appro",
+              "response_tokens": 179
+            },
+            "error_message": null
+          },
+          "policy_eval": {
+            "stage": "policy_eval",
+            "status": "FAIL",
+            "latency_ms": 0.0,
+            "inputs": {
+              "required_claims": 2,
+              "prohibited": 1
+            },
+            "outputs": {
+              "prohibited_leaks": [],
+              "coverage": 1.0
+            },
+            "error_message": null
+          },
+          "ragas_eval": {
+            "stage": "ragas_eval",
+            "status": "ERROR",
+            "latency_ms": 0.0,
+            "inputs": {},
+            "outputs": {},
+            "error_message": "'ExpectedBehavior' object has no attribute 'expected_guidance'"
+          }
+        }
+      },
+      "metrics": {
+        "latency_ms": 20856.64,
+        "response_text": "Based on the provided document context, I can confirm that **no specific approval timeline is stated** for any of the approval processes mentioned in these excerpts.\n\nThe documents indicate that approval for various requests depends on several factors but does not specify timeframes:\n\n- **Early release requests**: \"Approval depends on business requirements, the employee's employment agreement, and applicable company procedures. Employees should not assume that an early-release request will be approved.\"\n- **Notice period leave**: \"Approval is subject to business requirements and applicable employment terms.\"\n- **Remote/hybrid work arrangements**: The documents mention approval processes and conditions but do not specify timelines.\n\nThe context emphasizes that approval is contingent on business requirements, employment agreements, and company procedures, but does not provide any information about how long the approval process takes.\n\nWould you like to see the references for this?"
+      }
+    }
+  ]
+}

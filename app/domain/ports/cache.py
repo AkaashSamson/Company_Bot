@@ -29,6 +29,7 @@ class CacheEntryProtocol:
     document_ids: List[str] = field(default_factory=list)
     project_ids: List[str] = field(default_factory=list)
     is_public: bool = False
+    chunk_ids: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert entry to dictionary representation."""
@@ -48,6 +49,7 @@ class CacheEntryProtocol:
             "document_ids": self.document_ids,
             "project_ids": self.project_ids,
             "is_public": self.is_public,
+            "chunk_ids": self.chunk_ids,
         }
 
 

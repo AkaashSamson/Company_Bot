@@ -1235,7 +1235,12 @@ class QueryOrchestrator:
                 _asked_references_confirm.pop(session_id, None)
                 _alternative_answer_given.pop(session_id, None)
                 return _finish(denied)
-            no_info_ans = f"I could not find that information in the available documents.\n\n{RELEVANCE_PROMPT}"
+            no_info_ans = (
+                "I could not find that information in the available documents. "
+                "As per general company guidelines, if a policy scenario or specific request is not documented, please consult your reporting manager, "
+                "check the relevant options on the HRMS portal, or reach out to the People & Culture (HR) team directly."
+                f"\n\n{RELEVANCE_PROMPT}"
+            )
             _pending_citations[session_id] = []
             _last_interaction[session_id] = {
                 "question": question,
@@ -1339,7 +1344,12 @@ class QueryOrchestrator:
                     "tokens": None,
                 })
 
-            no_info_ans = f"I could not find that information in the available documents.\n\n{RELEVANCE_PROMPT}"
+            no_info_ans = (
+                "I could not find that information in the available documents. "
+                "As per general company guidelines, if a policy scenario or specific request is not documented, please consult your reporting manager, "
+                "check the relevant options on the HRMS portal, or reach out to the People & Culture (HR) team directly."
+                f"\n\n{RELEVANCE_PROMPT}"
+            )
             _pending_citations[session_id] = []
             _last_interaction[session_id] = {
                 "question": question,
@@ -1377,6 +1387,17 @@ class QueryOrchestrator:
                 doc_ids_set = set(doc_ids_list)
                 proj_ids_set = set(proj_ids_list)
 
+                # Extract chunk IDs from evidence and citations
+                chunk_ids_set = set()
+                for ev in (selected_evidence or []):
+                    if isinstance(ev, dict):
+                        cid = ev.get("id") or ev.get("metadata", {}).get("chunk_id")
+                        if cid:
+                            chunk_ids_set.add(str(cid).strip())
+                for c in (citations or []):
+                    if isinstance(c, dict) and c.get("chunk_id"):
+                        chunk_ids_set.add(str(c["chunk_id"]).strip())
+
                 import uuid
                 cache_id = f"cch_{uuid.uuid4().hex[:12]}"
 
@@ -1402,6 +1423,7 @@ class QueryOrchestrator:
                     "document_ids": list(doc_ids_set),
                     "doc_last_updated": doc_last_updated,
                     "project_ids": list(proj_ids_set),
+                    "chunk_ids": list(chunk_ids_set),
                 }
                 if hasattr(self.response_cache, "put"):
                     try:
@@ -1416,6 +1438,7 @@ class QueryOrchestrator:
                             document_ids=list(doc_ids_set),
                             doc_last_updated=doc_last_updated,
                             project_ids=list(proj_ids_set),
+                            chunk_ids=list(chunk_ids_set),
                         )
                         if cache_key != question:
                             self.response_cache.put(
@@ -1429,6 +1452,7 @@ class QueryOrchestrator:
                                 document_ids=list(doc_ids_set),
                                 doc_last_updated=doc_last_updated,
                                 project_ids=list(proj_ids_set),
+                                chunk_ids=list(chunk_ids_set),
                             )
                     except TypeError:
                         self.response_cache.put(cache_key, payload)

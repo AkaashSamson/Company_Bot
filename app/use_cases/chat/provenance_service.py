@@ -62,5 +62,8 @@ class ProvenanceService:
             proj_id = metadata.get("project_id") or metadata.get("proj_id")
             if proj_id:
                 c_dict["project_id"] = str(proj_id)
+            chunk_id = result.get("id") or metadata.get("chunk_id")
+            if chunk_id:
+                c_dict["chunk_id"] = str(chunk_id)
             citations.append(c_dict)
         return citations
