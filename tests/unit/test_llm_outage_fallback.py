@@ -6,8 +6,8 @@ from app.use_cases.chat.query_orchestrator import QueryOrchestrator
 from app.infrastructure.llm.prompt_cache import PromptLRUCache
 
 
-def test_llm_outage_returns_references_as_single_paragraph():
-    """Verify that when the LLM provider fails, retrieved document references are returned as a single clean paragraph."""
+def test_llm_outage_returns_clean_message_with_citations():
+    """Verify that when the LLM provider fails, a clean notification is returned and citations are populated for collapsible UI."""
     retrieval_mock = Mock()
     retrieval_mock.retrieve.return_value = [
         {
@@ -35,16 +35,17 @@ def test_llm_outage_returns_references_as_single_paragraph():
     assert result is not None
     assert result["cache_hit"] is False
     assert result["tokens"] is None
-    # Citations list is empty so UI does not append a duplicate blockquote footer
-    assert len(result["citations"]) == 0
+    # Citations list is populated so UI can render them collapsibly
+    assert len(result["citations"]) == 2
+    assert result["citations"][0]["source"] == "HR_Policy_Handbook.pdf"
+    assert result["citations"][1]["source"] == "Finance_Payroll_Guide.pdf"
 
-    # Assert that the answer is a single continuous paragraph containing the reference texts
+    # Assert that the answer is a clean polite notice without dumping raw chunk text
     answer = result["answer"]
     assert "trouble reaching the AI provider" in answer
-    assert "relevant references from the company policy documents" in answer
-    assert "Finance_Payroll_Guide.pdf" in answer
-    assert "Expense & Salary Claims" in answer
-    assert "Salary claims and reimbursements must be submitted" in answer
+    assert "relevant information was found in the company policy documents" in answer
+    assert "Finance_Payroll_Guide.pdf" not in answer
+    assert "Salary claims and reimbursements must be submitted" not in answer
 
 
 def test_llm_outage_bypasses_citation_deferral():
@@ -71,7 +72,7 @@ def test_llm_outage_bypasses_citation_deferral():
     # Citations must be immediately attached despite defer_citations=True
     assert len(result["citations"]) == 1
     assert result["citations"][0]["source"] == "Leave_Policy.docx"
-    assert "Leave_Policy.docx" in result["answer"]
+    assert "trouble reaching the AI provider" in result["answer"]
 
 
 def test_llm_outage_does_not_poison_response_cache():
