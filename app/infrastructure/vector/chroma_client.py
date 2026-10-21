@@ -5,7 +5,7 @@ import logging
 import chromadb
 from sentence_transformers import SentenceTransformer
 
-from app.core.settings import EMBEDDING_MODEL
+from app.core.settings import COLLECTION_NAME, EMBEDDING_MODEL
 
 logger = logging.getLogger("knowlayer.retrieval")
 
@@ -13,7 +13,7 @@ logger = logging.getLogger("knowlayer.retrieval")
 class ChromaVectorStore:
     def __init__(
         self,
-        collection_name: str = "hr_policy_docs",
+        collection_name: str = COLLECTION_NAME,
         persist_directory: Optional[str] = None,
     ):
         self.collection_name = collection_name
