@@ -1,4 +1,4 @@
-"""Picture OCR, routing, and local SmolVLM enrichment for Docling documents."""
+"""Picture OCR, routing, and local visual understanding (Qwen2-VL) enrichment for Docling documents."""
 
 from __future__ import annotations
 
@@ -19,6 +19,9 @@ from app.core.settings import (
     DOCLING_VLM_MODEL,
 )
 from app.domain.ports.document_processing import ProcessedChunk, SectionHeading
+from app.domain.ports.visual_contract import VisualOutputContract
+from app.infrastructure.document.vlm_engine import VisualUnderstandingEngine
+from app.infrastructure.document.vlm_factory import get_vlm_engine
 
 logger = logging.getLogger("knowlayer.ingestion.visual")
 
@@ -53,12 +56,22 @@ class PictureFacts:
 class VisualEnricher:
     """Enrich pictures without exposing Docling objects outside infrastructure."""
 
-    def __init__(self, model_name: str = DOCLING_VLM_MODEL):
+    def __init__(
+        self,
+        model_name: str = DOCLING_VLM_MODEL,
+        vlm_engine: VisualUnderstandingEngine | None = None,
+    ):
         self._model_name = model_name
+        self._vlm_engine = vlm_engine
         self._classifier: Any | None = None
         self._ocr_converter: DocumentConverter | None = None
-        self._processor: Any | None = None
-        self._model: Any | None = None
+
+    @property
+    def vlm_engine(self) -> VisualUnderstandingEngine:
+        """Lazily resolve the visual understanding engine."""
+        if self._vlm_engine is None:
+            self._vlm_engine = get_vlm_engine(self._model_name)
+        return self._vlm_engine
 
     def enrich(
         self,
@@ -92,17 +105,31 @@ class VisualEnricher:
                 ))
 
             if route in {"VLM", "OCR+VLM"}:
-                description = self._describe(picture.image_bytes)
-                if description:
+                contract = self._describe(
+                    picture.image_bytes,
+                    ocr_context=ocr_text,
+                    picture_ref=picture.ref,
+                )
+                search_text = (
+                    contract.to_search_text()
+                    if isinstance(contract, VisualOutputContract)
+                    else str(contract).strip()
+                )
+                if search_text:
+                    produced_by = "qwen2-vl"
+                    metadata_extra: dict[str, Any] = {"model": self._model_name}
+                    if isinstance(contract, VisualOutputContract):
+                        metadata_extra.update(contract.to_metadata())
+
                     output.append(self._chunk(
-                        text=description,
+                        text=search_text,
                         index=starting_index + len(output),
                         picture=picture,
                         route=route,
-                        produced_by="smolvlm",
+                        produced_by=produced_by,
                         verified=False,
                         review_required=True,
-                        extra={"model": self._model_name},
+                        extra=metadata_extra,
                     ))
         return tuple(output)
 
@@ -218,31 +245,18 @@ class VisualEnricher:
             return "OCR+VLM"
         return "VLM"
 
-    def _describe(self, image_bytes: bytes) -> str:
-        import torch
-        from PIL import Image
-
-        if self._model is None:
-            from transformers import AutoModelForImageTextToText, AutoProcessor
-
-            self._processor = AutoProcessor.from_pretrained(self._model_name)
-            self._model = AutoModelForImageTextToText.from_pretrained(
-                self._model_name, dtype=torch.float32
-            )
-            self._model.eval()
-        prompt = (
-            "Describe only visible content for document search. Include exact labels, "
-            "components, relationships, arrow direction, process order, chart values, "
-            "and axis labels. Do not speculate. Plain text, no preamble."
+    def _describe(
+        self,
+        image_bytes: bytes,
+        ocr_context: str = "",
+        picture_ref: str = "",
+    ) -> VisualOutputContract:
+        """Describe visual content using the configured visual understanding engine."""
+        return self.vlm_engine.describe(
+            image_bytes=image_bytes,
+            ocr_context=ocr_context,
+            picture_ref=picture_ref,
         )
-        image = Image.open(BytesIO(image_bytes)).convert("RGB")
-        messages = [{"role": "user", "content": [{"type": "image"}, {"type": "text", "text": prompt}]}]
-        rendered = self._processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
-        inputs = self._processor(text=rendered, images=[image], return_tensors="pt")
-        with torch.no_grad():
-            output = self._model.generate(**inputs, max_new_tokens=DOCLING_VLM_MAX_NEW_TOKENS, do_sample=False)
-        trimmed = output[0][inputs["input_ids"].shape[1]:]
-        return self._processor.decode(trimmed, skip_special_tokens=True).strip()
 
     @staticmethod
     def _chunk(

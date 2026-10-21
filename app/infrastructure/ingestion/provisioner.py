@@ -33,6 +33,8 @@ def _detect_extension(raw: bytes, name: str) -> str:
     if suffix:
         return suffix
 
+    if raw[:4] == b"%PDF":
+        return ".pdf"
     if raw[:2] == b"PK" and b"[Content_Types].xml" in raw[:4096]:
         return ".docx"
     try:

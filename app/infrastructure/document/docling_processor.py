@@ -137,8 +137,18 @@ class DoclingDocumentProcessor:
     def converter(self) -> DocumentConverter:
         """Lazily built converter; loading layout models is deferred."""
         if self._converter is None:
+            format_options = {}
+            if DOCLING_VISUAL_ENRICHMENT_ENABLED:
+                from docling.datamodel.pipeline_options import PdfPipelineOptions
+                from docling.document_converter import PdfFormatOption
+
+                pdf_options = PdfPipelineOptions()
+                pdf_options.generate_picture_images = True
+                format_options[InputFormat.PDF] = PdfFormatOption(pipeline_options=pdf_options)
+
             self._converter = DocumentConverter(
-                allowed_formats=sorted({fmt.value for fmt in _EXTENSION_TO_FORMAT.values()})
+                allowed_formats=sorted({fmt.value for fmt in _EXTENSION_TO_FORMAT.values()}),
+                format_options=format_options if format_options else None,
             )
         return self._converter
 

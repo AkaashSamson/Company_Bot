@@ -32,8 +32,21 @@ class DocumentService:
         response.raise_for_status()
         return response.json()
 
-    def create_document(self, payload):
-        response = requests.post(f"{self.base_url}/api/documents", json=payload, headers=self._headers(), timeout=300)
+    def create_document(self, payload, timeout: float | None = None):
+        upload_timeout = timeout
+        if upload_timeout is None:
+            raw_timeout = os.getenv("DOCUMENT_UPLOAD_TIMEOUT")
+            if raw_timeout is not None and raw_timeout.strip():
+                try:
+                    upload_timeout = float(raw_timeout.strip())
+                except ValueError:
+                    upload_timeout = None
+        response = requests.post(
+            f"{self.base_url}/api/documents",
+            json=payload,
+            headers=self._headers(),
+            timeout=upload_timeout,
+        )
         response.raise_for_status()
         return response.json()
 

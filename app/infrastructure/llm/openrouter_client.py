@@ -79,7 +79,7 @@ class OpenRouterClient(LLMProvider):
         self,
         api_key: str = OPENROUTER_API_KEY,
         model: str = LLM_MODEL,
-        timeout: float = 60.0,
+        timeout: float = 3.0,
         max_tokens: int = 1024,
         session_id: Optional[str] = None,
         health_monitor: Optional[Any] = None,
