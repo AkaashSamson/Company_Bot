@@ -295,3 +295,38 @@ def test_legacy_cleanup_and_migration(tmp_path):
     user_cols = {c["name"] for c in inspector.get_columns("users")}
     assert "role_id" in user_cols
     assert "job_title" in user_cols
+
+
+def test_sqlalchemy_user_repository_crud(database):
+    _, session_factory = database
+    with session_factory() as session:
+        from app.infrastructure.persistence.sqlalchemy.repositories import SqlAlchemyUserRepository
+        from app.domain.entities.organization_models import User
+        repo = SqlAlchemyUserRepository(session)
+
+        _save_department_and_user(session, uid="seed_dept", dept_id="d1")
+        role = _save_role(session, "Staff")
+
+        user = User(
+            uid="u_test",
+            name="Test User",
+            email="test_user@example.com",
+            role="Staff",
+            department_id="d1",
+            role_id=role.id,
+            job_title="Cosmetic Title",
+            password_hash="secure_hash_val",
+        )
+        saved = repo.save(user)
+        session.commit()
+
+    with session_factory() as session:
+        from app.infrastructure.persistence.sqlalchemy.repositories import SqlAlchemyUserRepository
+        repo = SqlAlchemyUserRepository(session)
+        loaded = repo.get_by_uid("u_test")
+
+        assert loaded is not None
+        assert loaded.role_id == role.id
+        assert loaded.job_title == "Cosmetic Title"
+        assert loaded.password_hash == "secure_hash_val"
+        assert loaded.password_representation == "secure_hash_val"

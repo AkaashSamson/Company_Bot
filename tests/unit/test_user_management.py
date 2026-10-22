@@ -78,3 +78,24 @@ def test_created_user_without_initial_password_login_uses_default_password():
 
     assert principal.uid == "u1"
     assert principal.must_change_password is True
+
+
+def test_user_persistence_maps_role_id_job_title_and_password_hash():
+    uow = InMemoryUnitOfWork()
+    user = User(
+        uid="u10",
+        name="Elena Rostova",
+        email="elena@example.com",
+        role="Lead Engineer",
+        department_id="d1",
+        role_id=5,
+        job_title="Lead Data Engineer",
+        password_hash="hashed_secret_pw",
+    )
+    saved = uow.users.save(user)
+    retrieved = uow.users.get_by_uid("u10")
+
+    assert retrieved.role_id == 5
+    assert retrieved.job_title == "Lead Data Engineer"
+    assert retrieved.password_hash == "hashed_secret_pw"
+    assert retrieved.password_representation == "hashed_secret_pw"
