@@ -42,7 +42,7 @@ from app.infrastructure.observability.pipeline_tracer import (
 
 logger = logging.getLogger(__name__)
 
-RELEVANCE_PROMPT = "Was this response relevant to your question?"
+RELEVANCE_PROMPT = ""
 REFERENCES_CONFIRM_PROMPT = "Would you like to see the source references?"
 
 # Words/phrases that count as a positive response / relevant

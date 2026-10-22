@@ -46,3 +46,7 @@ Implementation_notes.md
 .idea/
 .DS_Store
 Thumbs.db
+
+# Experiments & scratch
+experiments/
+input/DOC-005.pdf
