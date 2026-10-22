@@ -1,22 +1,17 @@
 from datetime import datetime, timezone
 
 import pytest
-from sqlalchemy import inspect, update
+from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
-from app.infrastructure.persistence.sqlalchemy.foundation_models import (
-    DepartmentMemberRecord,
-    DocumentPermissionRecord,
-    PermissionRecord,
-    ProjectGrantRecord,
-    RolePermissionRecord,
-    RoleRecord,
-)
 from app.infrastructure.persistence.sqlalchemy.models import (
-    BusinessIdSequenceRecord,
     DepartmentRecord,
     DocumentRecord,
+    PermissionRecord,
     ProjectRecord,
+    RolePermissionRecord,
+    RoleRecord,
+    UserProjectRecord,
     UserRecord,
 )
 from app.infrastructure.persistence.sqlalchemy.session import (
@@ -33,10 +28,6 @@ EXPECTED_TABLES = {
     "roles",
     "permissions",
     "role_permissions",
-    "department_members",
-    "document_permissions",
-    "project_grants",
-    "business_id_sequences",
 }
 
 
@@ -45,8 +36,56 @@ def _time() -> datetime:
 
 
 def _save_role(session, name="admin"):
-    session.add(RoleRecord(name=name))
+    role = RoleRecord(name=name)
+    session.add(role)
     session.commit()
+    return role
+
+
+def _save_department_and_user(session, uid="u1", dept_id="d1"):
+    dept = session.get(DepartmentRecord, dept_id)
+    if not dept:
+        dept = DepartmentRecord(department_id=dept_id, department_name=f"Engineering-{dept_id}", created_at=_time(), updated_at=_time())
+        session.add(dept)
+        session.flush()
+    user = session.get(UserRecord, uid)
+    if not user:
+        user = UserRecord(
+            uid=uid,
+            username=uid,
+            name="User One",
+            email=f"{uid}@example.com",
+            role="Member",
+            department_id=dept_id,
+            password_hash="hashed_secret",
+            created_at=_time(),
+            updated_at=_time(),
+        )
+        session.add(user)
+        session.commit()
+    return dept, user
+
+
+def _save_project(session, project_id="p1", dept_id="d1", manager_uid=None):
+    dept = session.get(DepartmentRecord, dept_id)
+    if not dept:
+        dept = DepartmentRecord(department_id=dept_id, department_name=f"Dept-{dept_id}", status="active", created_at=_time(), updated_at=_time())
+        session.add(dept)
+        session.flush()
+    project = session.query(ProjectRecord).filter_by(project_id=project_id).first()
+    if not project:
+        project = ProjectRecord(
+            project_id=project_id,
+            project_name=f"Project-{project_id}",
+            department_id=dept_id,
+            manager_uid=manager_uid,
+            status="active",
+            created_at=_time(),
+            updated_at=_time(),
+        )
+        session.add(project)
+        session.commit()
+    return project
 
 
 @pytest.fixture
@@ -72,44 +111,44 @@ def _unique_columns(inspector, table):
     return columns
 
 
-def test_foundation_tables_have_expected_keys_and_indexes(database):
+def test_consolidated_tables_have_expected_keys_and_indexes(database):
     engine, _ = database
     inspector = inspect(engine)
 
+    assert inspector.get_pk_constraint("users")["constrained_columns"] == ["uid"]
+    assert inspector.get_pk_constraint("departments")["constrained_columns"] == ["department_id"]
+    assert inspector.get_pk_constraint("projects")["constrained_columns"] == ["id"]
+    assert inspector.get_pk_constraint("documents")["constrained_columns"] == ["id"]
+    assert set(inspector.get_pk_constraint("user_projects")["constrained_columns"]) == {"uid", "project_id"}
     assert inspector.get_pk_constraint("roles")["constrained_columns"] == ["id"]
     assert inspector.get_pk_constraint("permissions")["constrained_columns"] == ["id"]
-    assert inspector.get_pk_constraint("role_permissions")["constrained_columns"] == ["role_id", "permission_id"]
-    assert inspector.get_pk_constraint("department_members")["constrained_columns"] == ["user_id", "department_id"]
-    assert inspector.get_pk_constraint("document_permissions")["constrained_columns"] == ["id"]
-    assert inspector.get_pk_constraint("business_id_sequences")["constrained_columns"] == ["sequence_key"]
+    assert set(inspector.get_pk_constraint("role_permissions")["constrained_columns"]) == {"role_id", "permission_id"}
 
     assert ("name",) in _unique_columns(inspector, "roles")
     assert ("name",) in _unique_columns(inspector, "permissions")
-    assert ("document_id", "principal_type", "role_id", "user_id", "permission") in _unique_columns(inspector, "document_permissions")
 
-    department_member_fks = {item["referred_table"] for item in inspector.get_foreign_keys("department_members")}
-    assert department_member_fks == {"departments", "users"}
-    document_permission_fks = {item["referred_table"] for item in inspector.get_foreign_keys("document_permissions")}
-    assert document_permission_fks == {"documents", "roles", "users"}
-    role_permission_fks = {item["referred_table"] for item in inspector.get_foreign_keys("role_permissions")}
-    assert role_permission_fks == {"permissions", "roles", "users"}
+    user_cols = {c["name"] for c in inspector.get_columns("users")}
+    assert "password_hash" in user_cols
+    assert "password_representation" not in user_cols
+    assert "role_id" in user_cols
+    assert "job_title" in user_cols
 
-    indexed_columns = {name for column in inspector.get_indexes("role_permissions") for name in column["column_names"]}
-    assert "permission_id" in indexed_columns
-    indexed_columns = {name for column in inspector.get_indexes("department_members") for name in column["column_names"]}
-    assert "department_id" in indexed_columns
-    indexed_columns = {name for column in inspector.get_indexes("document_permissions") for name in column["column_names"]}
-    assert {"document_id", "role_id", "user_id"} <= indexed_columns
+    # Foreign key checks
+    user_fks = {item["referred_table"] for item in inspector.get_foreign_keys("users")}
+    assert "departments" in user_fks
+    assert "roles" in user_fks
 
+    project_fks = {item["referred_table"]: item for item in inspector.get_foreign_keys("projects")}
+    assert "departments" in project_fks
+    assert "users" in project_fks
 
-def test_foundation_tables_default_timestamps_and_status(database):
-    _, session_factory = database
-    with session_factory() as session:
-        _save_role(session, "defaults")
-        role = session.query(RoleRecord).filter_by(name="defaults").one()
-    assert role.status == "active"
-    assert role.created_at is not None
-    assert role.updated_at is not None
+    user_project_fks = {item["referred_table"]: item for item in inspector.get_foreign_keys("user_projects")}
+    assert "users" in user_project_fks
+    assert "projects" in user_project_fks
+    assert "roles" in user_project_fks
+
+    document_fks = {item["referred_table"]: item for item in inspector.get_foreign_keys("documents")}
+    assert "projects" in document_fks
 
 
 def test_role_name_is_unique(database):
@@ -146,32 +185,6 @@ def test_role_permission_composite_key_rejects_duplicate(database):
             session.commit()
 
 
-def test_department_member_composite_key_rejects_duplicate(database):
-    _, session_factory = database
-    with session_factory() as session:
-        _save_department_and_user(session)
-        session.add(DepartmentMemberRecord(user_id="u1", department_id="d1"))
-        session.commit()
-    with pytest.raises(IntegrityError):
-        with session_factory() as session:
-            session.add(DepartmentMemberRecord(user_id="u1", department_id="d1"))
-            session.commit()
-
-
-def test_department_member_requires_existing_user_and_department(database):
-    _, session_factory = database
-    with session_factory() as session:
-        _save_department_and_user(session)
-    with pytest.raises(IntegrityError):
-        with session_factory() as session:
-            session.add(DepartmentMemberRecord(user_id="u-missing", department_id="d1"))
-            session.commit()
-    with pytest.raises(IntegrityError):
-        with session_factory() as session:
-            session.add(DepartmentMemberRecord(user_id="u1", department_id="d-missing"))
-            session.commit()
-
-
 def test_role_permission_cascades_on_role_delete(database):
     _, session_factory = database
     with session_factory() as session:
@@ -185,108 +198,61 @@ def test_role_permission_cascades_on_role_delete(database):
         assert session.query(RolePermissionRecord).filter_by(role_id=1, permission_id=1).first() is None
 
 
-def test_document_permission_cascades_on_document_delete(database):
+def test_project_cascade_deletes_user_projects_and_documents(database):
     _, session_factory = database
     with session_factory() as session:
-        _save_role(session, "admin")
-        _save_document(session)
-        session.add(DocumentPermissionRecord(document_id="doc1", principal_type="role", role_id=1, permission="read"))
+        _save_department_and_user(session, uid="u1", dept_id="d1")
+        _save_project(session, project_id="p1", dept_id="d1")
+        role = _save_role(session, "Dev")
+
+        session.add(UserProjectRecord(
+            uid="u1",
+            project_id="p1",
+            role_id=role.id,
+            assigned_at=_time(),
+        ))
+        session.add(DocumentRecord(
+            document_id="doc1",
+            document_name="Architecture",
+            project_id="p1",
+            created_at=_time(),
+            updated_at=_time(),
+        ))
         session.commit()
-        session.delete(session.query(DocumentRecord).filter_by(document_id="doc1").one())
+
+        # Delete project
+        project = session.query(ProjectRecord).filter_by(project_id="p1").one()
+        session.delete(project)
         session.commit()
-        assert session.query(DocumentPermissionRecord).filter_by(document_id="doc1").first() is None
+
+    with session_factory() as session:
+        # Verify cascades in fresh session
+        assert session.query(UserProjectRecord).filter_by(project_id="p1").count() == 0
+        assert session.query(DocumentRecord).filter_by(project_id="p1").count() == 0
 
 
-def test_document_permission_requires_a_principal(database):
+def test_user_deletion_sets_project_manager_and_creator_to_null(database):
     _, session_factory = database
     with session_factory() as session:
-        _save_document(session)
-    with pytest.raises(IntegrityError):
-        with session_factory() as session:
-            session.add(DocumentPermissionRecord(document_id="doc1", principal_type="role", role_id=None, user_id=None, permission="read"))
-            session.commit()
-
-
-def _save_department_and_user(session):
-    session.add(DepartmentRecord(department_id="d1", department_name="Engineering", created_at=_time(), updated_at=_time()))
-    session.add(UserRecord(uid="u1", username="u1", name="User One", email="u1@example.com", role="Member", department_id="d1", created_at=_time(), updated_at=_time()))
-    session.commit()
-
-
-def _save_document(session):
-    session.add(DocumentRecord(document_id="doc1", document_name="Policy v1", created_at=_time(), updated_at=_time()))
-    session.commit()
-
-
-def _save_project(session):
-    session.add(DepartmentRecord(department_id="d1", department_name="Engineering", status="active", created_at=_time(), updated_at=_time()))
-    session.flush()
-    session.add(ProjectRecord(project_id="p1", project_name="Proj", department_id="d1", status="active", created_at=_time(), updated_at=_time()))
-    session.commit()
-
-
-def test_project_grant_requires_a_principal(database):
-    _, session_factory = database
-    with session_factory() as session:
-        _save_project(session)
-    with pytest.raises(IntegrityError):
-        with session_factory() as session:
-            session.add(ProjectGrantRecord(project_id="p1", principal_type="role", role_id=None, user_id=None, granted_at=_time()))
-            session.commit()
-
-
-def test_project_grant_cascades_on_project_delete(database):
-    _, session_factory = database
-    with session_factory() as session:
-        _save_project(session)
-        _save_role(session, "tester")
-        session.add(ProjectGrantRecord(project_id="p1", principal_type="role", role_id=1, granted_at=_time()))
+        _, user = _save_department_and_user(session, uid="mgr1", dept_id="d1")
+        project = ProjectRecord(
+            project_id="p1",
+            project_name="Management Proj",
+            department_id="d1",
+            manager_uid="mgr1",
+            created_by_uid="mgr1",
+            created_at=_time(),
+            updated_at=_time(),
+        )
+        session.add(project)
         session.commit()
-        session.delete(session.query(ProjectRecord).filter_by(project_id="p1").one())
+
+        # Delete user
+        session.delete(session.query(UserRecord).filter_by(uid="mgr1").one())
         session.commit()
-        assert session.query(ProjectGrantRecord).filter_by(project_id="p1").first() is None
 
-
-def test_project_grants_unique_constraint_allows_distinct_principals(database):
-    _, session_factory = database
     with session_factory() as session:
-        _save_project(session)
-        _save_role(session, "r1")
-        _save_role(session, "r2")
-        session.add(ProjectGrantRecord(project_id="p1", principal_type="role", role_id=1, user_id=None, granted_at=_time()))
-        session.add(ProjectGrantRecord(project_id="p1", principal_type="role", role_id=2, user_id=None, granted_at=_time()))
-        session.commit()
-        assert session.query(ProjectGrantRecord).count() == 2
-
-
-def test_sequence_rows_are_isolated_per_business_id_family(database):
-    _, session_factory = database
-    with session_factory() as session:
-        session.add(BusinessIdSequenceRecord(sequence_key="user", prefix="MSS", last_value=2, updated_at=_time()))
-        session.add(BusinessIdSequenceRecord(sequence_key="project", prefix="PROJ", last_value=5, updated_at=_time()))
-        session.commit()
-    with session_factory() as session:
-        assert session.get(BusinessIdSequenceRecord, "user").last_value == 2
-        assert session.get(BusinessIdSequenceRecord, "project").last_value == 5
-    with pytest.raises(IntegrityError):
-        with session_factory() as session:
-            session.add(BusinessIdSequenceRecord(sequence_key="user", prefix="MSS", last_value=99, updated_at=_time()))
-            session.commit()
-
-
-def test_sequence_counter_is_advanced_by_atomic_update(database):
-    _, session_factory = database
-    with session_factory() as session:
-        session.add(BusinessIdSequenceRecord(sequence_key="user", prefix="MSS", last_value=0, updated_at=_time()))
-        session.commit()
-    with session_factory() as session:
-        value = session.execute(
-            update(BusinessIdSequenceRecord)
-            .where(BusinessIdSequenceRecord.sequence_key == "user")
-            .values(last_value=BusinessIdSequenceRecord.last_value + 1)
-            .returning(BusinessIdSequenceRecord.last_value)
-        ).scalar_one()
-        session.commit()
-        assert value == 1
-    with session_factory() as session:
-        assert session.get(BusinessIdSequenceRecord, "user").last_value == 1
+        # Verify project fields set to NULL in fresh session
+        reloaded = session.query(ProjectRecord).filter_by(project_id="p1").one()
+        assert reloaded.manager_uid is None
+        assert reloaded.created_by_uid is None

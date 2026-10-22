@@ -24,10 +24,17 @@ class User:
     employee_id: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    role_id: Optional[int] = None
+    job_title: Optional[str] = None
+    password_hash: str = ""
 
     def __post_init__(self):
         if not self.username:
             self.username = self.uid
+        if not self.password_hash and self.password_representation:
+            self.password_hash = self.password_representation
+        elif not self.password_representation and self.password_hash:
+            self.password_representation = self.password_hash
 
 
 @dataclass(slots=True)
@@ -84,6 +91,7 @@ class UserProject:
     assigned_at: datetime = field(default_factory=utc_now)
     membership_role: str = "Member"
     left_at: Optional[datetime] = None
+    role_id: Optional[int] = None
 
 
 @dataclass(slots=True)

@@ -5,12 +5,13 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.infrastructure.persistence.sqlalchemy.models import Base
 
-import app.infrastructure.persistence.sqlalchemy.foundation_models as _foundation_models  # noqa: F401  (registers tables on Base.metadata)
 
 _COLUMN_ADDITIONS = {
     "users": {
         "username": "VARCHAR(128) NOT NULL DEFAULT ''",
-        "password_representation": "VARCHAR(512) NOT NULL DEFAULT ''",
+        "password_hash": "VARCHAR(512) NOT NULL DEFAULT ''",
+        "role_id": "INTEGER NULL",
+        "job_title": "VARCHAR(200) NULL",
         "password_changed_at": "DATETIME NULL",
         "must_change_password": "BOOLEAN NOT NULL DEFAULT 0",
         "employee_id": "VARCHAR(64) NULL",
@@ -20,10 +21,6 @@ _COLUMN_ADDITIONS = {
     "departments": {
         "description": "VARCHAR(500) NULL",
         "default_billable": "VARCHAR(32) NOT NULL DEFAULT 'billable'",
-    },
-    "department_members": {
-        "billable_status": "VARCHAR(32) NULL",
-        "left_at": "DATETIME NULL",
     },
     "roles": {
         "scope": "VARCHAR(32) NOT NULL DEFAULT 'global'",
@@ -141,7 +138,10 @@ def initialize_database(engine) -> None:
     if engine.url.drivername.startswith("sqlite"):
         with engine.begin() as connection:
             inspector = inspect(connection)
+            existing_tables = set(inspector.get_table_names())
             for table, additions in _COLUMN_ADDITIONS.items():
+                if table not in existing_tables:
+                    continue
                 columns = {column["name"] for column in inspector.get_columns(table)}
                 for name, definition in additions.items():
                     if name not in columns:

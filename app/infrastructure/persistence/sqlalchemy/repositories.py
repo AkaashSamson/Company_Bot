@@ -14,31 +14,34 @@ from app.domain.entities.organization_models import (
     User,
     UserProject,
 )
-from app.infrastructure.persistence.sqlalchemy.foundation_models import (
-    DepartmentMemberRecord,
-    DocumentPermissionRecord,
-    PermissionRecord,
-    ProjectGrantRecord,
-    RolePermissionRecord,
-    RoleRecord,
-)
 from app.infrastructure.persistence.sqlalchemy.models import (
-    BusinessIdSequenceRecord,
     DepartmentRecord,
     DocumentRecord,
+    PermissionRecord,
     ProjectRecord,
+    RolePermissionRecord,
+    RoleRecord,
     UserProjectRecord,
     UserRecord,
 )
 
+DepartmentMemberRecord = None
+DocumentPermissionRecord = None
+ProjectGrantRecord = None
+BusinessIdSequenceRecord = None
+
 
 def _user(record: UserRecord) -> User:
+    pwd = getattr(record, "password_hash", None) or getattr(record, "password_representation", "")
     return User(
         record.uid, record.name, record.email, record.role, record.department_id,
         record.status, record.created_at, record.updated_at,
-        record.username or record.uid, record.password_representation,
+        record.username or record.uid, pwd,
         record.password_changed_at, record.must_change_password,
         record.employee_id, record.first_name, record.last_name,
+        role_id=getattr(record, "role_id", None),
+        job_title=getattr(record, "job_title", None),
+        password_hash=pwd,
     )
 
 
@@ -78,6 +81,7 @@ def _membership(record: UserProjectRecord) -> UserProject:
     return UserProject(
         record.uid, record.project_id, record.assigned_by_uid, record.status,
         record.assigned_at, record.membership_role, record.left_at,
+        role_id=getattr(record, "role_id", None),
     )
 
 
@@ -156,12 +160,15 @@ class SqlAlchemyUserRepository:
         record.status = user.status
         record.created_at = user.created_at
         record.updated_at = user.updated_at
-        record.password_representation = user.password_representation
+        pwd = getattr(user, "password_hash", None) or getattr(user, "password_representation", "")
+        record.password_hash = pwd
         record.password_changed_at = user.password_changed_at
         record.must_change_password = user.must_change_password
         record.employee_id = user.employee_id
         record.first_name = user.first_name
         record.last_name = user.last_name
+        record.role_id = getattr(user, "role_id", None)
+        record.job_title = getattr(user, "job_title", None)
         self.session.flush()
         return _user(record)
 
@@ -302,6 +309,7 @@ class SqlAlchemyMembershipRepository:
         record.assigned_at = membership.assigned_at
         record.membership_role = membership.membership_role
         record.left_at = membership.left_at
+        record.role_id = getattr(membership, "role_id", None)
         self.session.flush()
         return _membership(record)
 
