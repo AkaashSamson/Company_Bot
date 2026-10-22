@@ -66,42 +66,6 @@ from streamlit_app.sidebar import render_sidebar
 render_sidebar()
 st.title("KnowLayer HR Policy Assistant")
 
-st.sidebar.divider()
-st.sidebar.caption(f"Session: `{st.session_state.session_id}`")
-
-col_chat, col_cache = st.sidebar.columns(2)
-with col_chat:
-    if st.button("🗑️ Clear Chat", use_container_width=True, help="Reset conversation history and start a new session"):
-        st.session_state.messages = []
-        st.session_state.last_response = None
-        st.session_state.session_id = f"st-{uuid.uuid4().hex[:8]}"
-        st.rerun()
-
-with col_cache:
-    if st.button("🧹 Clear Cache", use_container_width=True, help="Flush backend semantic and prompt caches"):
-        try:
-            service = ChatService()
-            if hasattr(service, "clear_cache"):
-                service.clear_cache()
-            else:
-                base_url = (getattr(service, "base_url", None) or os.getenv("STREAMLIT_API_BASE_URL", "http://127.0.0.1:8000")).rstrip("/")
-                headers = service._headers() if hasattr(service, "_headers") else {}
-                res = requests.post(f"{base_url}/api/chat/cache/clear", headers=headers, timeout=10)
-                res.raise_for_status()
-            st.sidebar.success("Cache cleared!")
-        except requests.exceptions.HTTPError as e:
-            if e.response is not None and e.response.status_code == 404:
-                st.sidebar.warning(
-                    "The running FastAPI backend does not have `/api/chat/cache/clear` loaded yet. "
-                    "Please restart FastAPI with: `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload`"
-                )
-            else:
-                st.sidebar.error(f"Failed to clear cache: {e}")
-        except Exception as e:
-            st.sidebar.error(f"Failed to clear cache: {e}")
-
-
-
 chat_service = ChatService()
 
 try:
