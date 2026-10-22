@@ -4,7 +4,7 @@ from streamlit_app.services.profile_api import ProfileAPI
 
 
 def get_current_profile():
-    if "user_profile" not in st.session_state or st.session_state.get("user_profile") is None:
+    if not st.session_state.get("user_profile"):
         try:
             st.session_state["user_profile"] = ProfileAPI().profile()
         except Exception:
@@ -38,10 +38,16 @@ def render_sidebar():
     department = profile.get("department") or {}
     permissions = set(profile.get("permissions") or [])
     user_role = user.get("role", "")
-    is_admin = user_role.lower() == "admin" or "*" in permissions or "ADMIN" in permissions
+    auth_uid = auth.get("uid", "") if isinstance(auth, dict) else ""
+    is_admin = (
+        user_role.lower() == "admin"
+        or auth_uid == "admin"
+        or "*" in permissions
+        or "ADMIN" in permissions
+    )
 
-    user_name = user.get("name") or user.get("username") or "User"
-    job_title = user.get("job_title") or user_role or "Employee"
+    user_name = user.get("name") or user.get("username") or ("Administrator" if is_admin else "User")
+    job_title = user.get("job_title") or user_role or ("Admin" if is_admin else "Employee")
     dept_name = department.get("department_name") or user.get("department") or ""
     emp_id = user.get("employee_id") or ""
 
