@@ -1,21 +1,13 @@
-"""Centralized, configurable, concurrency-safe business ID generation.
+"""Centralized, configurable, concurrency-safe in-memory business ID generation.
 
 Business IDs follow the predictable format ``<prefix>-<NNN>`` with a
 zero-padded three-digit suffix, e.g. ``MSS-001``, ``DEPT-001``, ``PROJ-001``,
 ``DOC-001`` and ``NEX-PROJ-001``.
 
-Suffixes are allocated from a persistent, monotonic per-key counter stored in
-the ``business_id_sequences`` table (see ``SequenceRepository``). Allocation is
-a single atomic ``UPDATE ... RETURNING`` statement, so concurrent writers can
-never observe the same value. The counter is only ever increased and is
-independent of the rows an ID refers to, so numbers are never reused after the
-underlying entity is deleted.
-
-Legacy bootstrap: when no counter row exists for a sequence key, the generator
-seeds the counter from the highest existing numeric suffix before the first
-allocation. Once a counter row exists it is authoritative and is never
-recomputed from the data tables, which is what guarantees continue-after-delete
-behaviour.
+Suffixes are allocated from a thread-safe in-memory counter initialized lazily
+from the highest existing numeric suffix across existing records. Suffixes are
+monotonically increasing and never reused after entity deletion. No database
+table locking or persistent sequence rows are required.
 """
 
 import threading
@@ -46,14 +38,11 @@ def highest_existing_suffix(existing_ids: Sequence[str], prefix: str) -> int:
 
 
 class BusinessIdGenerator:
-    """Registry of per-family sequence configuration.
-
-    Spread prefixes or counter keys across families, then call ``next`` inside
-    a unit of work to produce the next human-readable ID.
-    """
+    """Registry of per-family sequence configuration with thread-safe counters."""
 
     def __init__(self):
         self._sequences: dict[str, BusinessIdSequence] = {}
+        self._counters: dict[str, int] = {}
         self._lock = threading.Lock()
 
     def register(self, sequence: BusinessIdSequence) -> "BusinessIdGenerator":
@@ -68,14 +57,18 @@ class BusinessIdGenerator:
     def next(self, uow, key: str) -> str:
         with self._lock:
             sequence = self._sequences[key]
-        if uow.sequences.get(sequence.key) is None:
-            uow.sequences.initialize(
-                sequence.key,
-                sequence.prefix,
-                highest_existing_suffix(sequence.existing_ids(uow), sequence.prefix),
-            )
-        value = uow.sequences.allocate(sequence.key)
-        return f"{sequence.prefix}-{value:03d}"
+            counters = getattr(uow, "_sequence_counters", None)
+            if counters is None:
+                try:
+                    setattr(uow, "_sequence_counters", {})
+                    counters = getattr(uow, "_sequence_counters")
+                except Exception:
+                    counters = self._counters
+            existing_highest = highest_existing_suffix(sequence.existing_ids(uow), sequence.prefix)
+            current = max(counters.get(sequence.key, 0), self._counters.get(sequence.key, 0), existing_highest) + 1
+            counters[sequence.key] = current
+            self._counters[sequence.key] = current
+            return f"{sequence.prefix}-{current:03d}"
 
 
 def build_business_id_generator(

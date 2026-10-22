@@ -21,6 +21,13 @@ def _safe_document_id(document_id: str) -> str:
     return candidate
 
 
+def _safe_filename(name: str) -> str:
+    candidate = _UNSAFE_ID_CHARS.sub("_", name).strip(" ._")
+    if not candidate:
+        raise ValueError("filename contains no usable characters")
+    return candidate
+
+
 def _detect_extension(raw: bytes, name: str) -> str:
     """Resolve the file type for a content upload.
 
@@ -94,11 +101,20 @@ def provision_document(
     processed = processor.process(raw, parse_name)
 
     if content is not None:
-        destination = Path(DOCUMENTS_DIR) / f"{_safe_document_id(document.document_id)}{extension}"
+        target_name = document.original_filename or document.document_name or document.document_id
+        target_path = Path(target_name)
+        if target_path.suffix.lower():
+            base_name = target_path.stem
+            ext = target_path.suffix.lower()
+        else:
+            base_name = target_name
+            ext = extension
+        safe_base = _safe_filename(base_name)
+        destination = Path(DOCUMENTS_DIR) / f"{safe_base}{ext}"
         destination.write_bytes(raw)
         logger.info("saved uploaded document to %s", destination)
         document.original_filename = document.original_filename or document.document_name
-        document.file_type = (processed.file_type or extension).lstrip(".")
+        document.file_type = (processed.file_type or ext).lstrip(".")
         document.storage_location = str(destination)
     else:
         document.original_filename = document.original_filename or Path(source_path).name

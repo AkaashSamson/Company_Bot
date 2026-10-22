@@ -139,3 +139,12 @@ def test_parallel_generation_with_shared_in_memory_counter_has_no_duplicates():
     assert len(set(values)) == len(values)
     numbers = sorted(int(value.split("-")[1]) for value in values)
     assert numbers == list(range(1, threads * each + 1))
+
+
+def test_generation_requires_no_database_sequence_table():
+    class NoSequencesUow:
+        users = None
+
+    generator = BusinessIdGenerator().register(BusinessIdSequence("test", "TEST", lambda uow: ["TEST-005"]))
+    assert generator.next(NoSequencesUow(), "test") == "TEST-006"
+    assert generator.next(NoSequencesUow(), "test") == "TEST-007"

@@ -100,3 +100,22 @@ def test_remove_document_deletes_only_the_document_vectors(monkeypatch):
     provisioner.remove_document("doc-1")
 
     assert vector_store.collection.where == {"document_id": "doc-1"}
+
+
+def test_uploaded_document_saved_using_document_name_not_id(tmp_path, monkeypatch):
+    monkeypatch.setattr(provisioner, "DOCUMENTS_DIR", str(tmp_path))
+    processor = _RecordingProcessor(".docx")
+    store = _RecordingStore()
+    document = Document(
+        document_id="DOC-999",
+        document_name="Leave Policy",
+        original_filename="Leave Policy.docx",
+        project_id="proj-1",
+    )
+    content = base64.b64encode(b"PK\x03\x04test[Content_Types].xml").decode("utf-8")
+
+    provision_document(None, document, content, store=store, processor=processor)
+
+    assert (tmp_path / "Leave Policy.docx").exists()
+    assert not (tmp_path / "DOC-999.docx").exists()
+    assert document.storage_location == str(tmp_path / "Leave Policy.docx")
