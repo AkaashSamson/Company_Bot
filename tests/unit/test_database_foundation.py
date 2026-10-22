@@ -256,3 +256,42 @@ def test_user_deletion_sets_project_manager_and_creator_to_null(database):
         reloaded = session.query(ProjectRecord).filter_by(project_id="p1").one()
         assert reloaded.manager_uid is None
         assert reloaded.created_by_uid is None
+
+
+def test_legacy_cleanup_and_migration(tmp_path):
+    from sqlalchemy import text, create_engine
+    db_path = tmp_path / "legacy.db"
+    raw_engine = create_engine(f"sqlite:///{db_path}")
+
+    with raw_engine.begin() as conn:
+        conn.execute(text("CREATE TABLE department_members (user_id TEXT, department_id TEXT)"))
+        conn.execute(text("CREATE TABLE document_permissions (id INTEGER PRIMARY KEY)"))
+        conn.execute(text("CREATE TABLE project_grants (id INTEGER PRIMARY KEY)"))
+        conn.execute(text("CREATE TABLE business_id_sequences (sequence_key TEXT PRIMARY KEY)"))
+        conn.execute(text(
+            "CREATE TABLE users (uid TEXT PRIMARY KEY, username TEXT, name TEXT, email TEXT, "
+            "role TEXT, department_id TEXT, status TEXT, created_at TEXT, updated_at TEXT, "
+            "password_representation TEXT)"
+        ))
+        conn.execute(text(
+            "INSERT INTO users VALUES ('u1', 'u1', 'Old User', 'u1@example.com', 'Dev', 'd1', "
+            "'active', '2026-01-01', '2026-01-01', 'legacy_hash_123')"
+        ))
+
+    # Run initialize_database which must run the migration
+    initialize_database(raw_engine)
+
+    inspector = inspect(raw_engine)
+    table_names = set(inspector.get_table_names())
+    assert "department_members" not in table_names
+    assert "document_permissions" not in table_names
+    assert "project_grants" not in table_names
+    assert "business_id_sequences" not in table_names
+
+    with raw_engine.connect() as conn:
+        row = conn.execute(text("SELECT password_hash FROM users WHERE uid = 'u1'")).mappings().one()
+        assert row["password_hash"] == "legacy_hash_123"
+
+    user_cols = {c["name"] for c in inspector.get_columns("users")}
+    assert "role_id" in user_cols
+    assert "job_title" in user_cols
