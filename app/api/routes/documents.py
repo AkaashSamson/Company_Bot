@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.api.dependencies import (
     get_current_principal,
@@ -82,11 +82,12 @@ def create_project_document(
 @router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_document(
     document_id: str,
+    permanent: bool = Query(default=False, description="Set to true to permanently delete document and chunks"),
     principal=Depends(get_current_principal),
     service=Depends(get_document_management_service),
 ):
     try:
-        service.delete_document(principal, document_id)
+        service.delete_document(principal, document_id, permanent=permanent)
         # Invalidate any cached answers that reference the deleted document
         try:
             from app.infrastructure.cache.factory import get_semantic_cache
@@ -98,6 +99,46 @@ def delete_document(
     except Exception as error:
         raise _error(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/documents/{document_id}/archive", response_model=DocumentResponse, status_code=status.HTTP_200_OK)
+def archive_document(
+    document_id: str,
+    principal=Depends(get_current_principal),
+    service=Depends(get_document_management_service),
+):
+    try:
+        doc = service.archive_document(principal, document_id)
+        try:
+            from app.infrastructure.cache.factory import get_semantic_cache
+            cache = get_semantic_cache()
+            if cache and hasattr(cache, "invalidate_document"):
+                cache.invalidate_document(document_id)
+        except Exception:
+            pass
+        return doc
+    except Exception as error:
+        raise _error(error) from error
+
+
+@router.post("/documents/{document_id}/unarchive", response_model=DocumentResponse, status_code=status.HTTP_200_OK)
+def unarchive_document(
+    document_id: str,
+    principal=Depends(get_current_principal),
+    service=Depends(get_document_management_service),
+):
+    try:
+        doc = service.unarchive_document(principal, document_id)
+        try:
+            from app.infrastructure.cache.factory import get_semantic_cache
+            cache = get_semantic_cache()
+            if cache and hasattr(cache, "invalidate_document"):
+                cache.invalidate_document(document_id)
+        except Exception:
+            pass
+        return doc
+    except Exception as error:
+        raise _error(error) from error
 
 
 @router.get("/documents/{document_id}/access", response_model=list[DocumentGrantResponse])

@@ -46,3 +46,64 @@ def test_duplicate_document_id_is_rejected():
         assert "already exists" in str(error)
     else:
         raise AssertionError("Duplicate document IDs must be rejected")
+
+
+def test_permanent_delete_removes_document_and_calls_deletion_handler():
+    deleted_docs = []
+    unit_of_work = InMemoryUnitOfWork(
+        users=[User("admin", "Admin", "admin@example.com", "Admin", "d1")],
+        documents=[],
+    )
+    service = DocumentManagementService(
+        lambda: unit_of_work,
+        deletion_handler=lambda doc_id: deleted_docs.append(doc_id),
+    )
+    service.register_document(AuthenticatedPrincipal("admin"), "doc-1", "Runbook", None)
+    assert unit_of_work.documents.get("doc-1") is not None
+
+    service.delete_document(AuthenticatedPrincipal("admin"), "doc-1", permanent=True)
+
+    assert unit_of_work.documents.get("doc-1") is None
+    assert deleted_docs == ["doc-1"]
+
+
+def test_after_archiving_can_permanently_delete_archived_document():
+    deleted_docs = []
+    unit_of_work = InMemoryUnitOfWork(
+        users=[User("admin", "Admin", "admin@example.com", "Admin", "d1")],
+        documents=[],
+    )
+    service = DocumentManagementService(
+        lambda: unit_of_work,
+        deletion_handler=lambda doc_id: deleted_docs.append(doc_id),
+    )
+    service.register_document(AuthenticatedPrincipal("admin"), "doc-1", "Runbook", None)
+
+    # Step 1: Archive document
+    service.archive_document(AuthenticatedPrincipal("admin"), "doc-1")
+    assert unit_of_work.documents.get("doc-1").status == "archived"
+    assert deleted_docs == ["doc-1"]  # vectors removed from retrieval
+
+    # Step 2: Permanently delete the archived document
+    service.delete_document(AuthenticatedPrincipal("admin"), "doc-1", permanent=True)
+    assert unit_of_work.documents.get("doc-1") is None
+    assert deleted_docs == ["doc-1", "doc-1"]
+
+
+def test_archive_and_unarchive_document_restores_active_status():
+    unit_of_work = InMemoryUnitOfWork(
+        users=[User("admin", "Admin", "admin@example.com", "Admin", "d1")],
+        documents=[],
+    )
+    service = DocumentManagementService(lambda: unit_of_work)
+    service.register_document(AuthenticatedPrincipal("admin"), "doc-1", "Runbook", None)
+
+    # Archive
+    archived = service.archive_document(AuthenticatedPrincipal("admin"), "doc-1")
+    assert archived.status == "archived"
+    assert unit_of_work.documents.get("doc-1").status == "archived"
+
+    # Unarchive
+    unarchived = service.unarchive_document(AuthenticatedPrincipal("admin"), "doc-1")
+    assert unarchived.status == "active"
+    assert unit_of_work.documents.get("doc-1").status == "active"

@@ -77,5 +77,58 @@ def test_document_api_registers_lists_and_archives_documents():
         deleted = client.delete("/api/documents/doc-1")
         assert deleted.status_code == 204
         assert unit_of_work.documents.get("doc-1").status == "archived"
+
+        # After archiving, permanently delete the archived document
+        hard_deleted = client.delete("/api/documents/doc-1?permanent=true")
+        assert hard_deleted.status_code == 204
+        assert unit_of_work.documents.get("doc-1") is None
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_document_api_archive_endpoint_and_direct_permanent_delete():
+    unit_of_work = InMemoryUnitOfWork(users=[User("admin", "Admin", "admin@example.com", "Admin", "d1")])
+    app.dependency_overrides[get_current_principal] = lambda: AuthenticatedPrincipal("admin")
+    app.dependency_overrides[get_document_management_service] = lambda: DocumentManagementService(lambda: unit_of_work)
+    client = TestClient(app)
+
+    try:
+        created = client.post("/api/documents", json={"document_id": "doc-2", "document_name": "Policy"})
+        assert created.status_code == 201
+
+        # Test POST /api/documents/{id}/archive
+        archived = client.post("/api/documents/doc-2/archive")
+        assert archived.status_code == 200
+        assert archived.json()["status"] == "archived"
+        assert unit_of_work.documents.get("doc-2").status == "archived"
+
+        # Test DELETE /api/documents/{id}?permanent=true
+        deleted = client.delete("/api/documents/doc-2?permanent=true")
+        assert deleted.status_code == 204
+        assert unit_of_work.documents.get("doc-2") is None
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_document_api_archive_and_unarchive_flow():
+    unit_of_work = InMemoryUnitOfWork(users=[User("admin", "Admin", "admin@example.com", "Admin", "d1")])
+    app.dependency_overrides[get_current_principal] = lambda: AuthenticatedPrincipal("admin")
+    app.dependency_overrides[get_document_management_service] = lambda: DocumentManagementService(lambda: unit_of_work)
+    client = TestClient(app)
+
+    try:
+        client.post("/api/documents", json={"document_id": "doc-3", "document_name": "Handbook"})
+
+        # Archive
+        archived = client.post("/api/documents/doc-3/archive")
+        assert archived.status_code == 200
+        assert archived.json()["status"] == "archived"
+        assert unit_of_work.documents.get("doc-3").status == "archived"
+
+        # Unarchive
+        unarchived = client.post("/api/documents/doc-3/unarchive")
+        assert unarchived.status_code == 200
+        assert unarchived.json()["status"] == "active"
+        assert unit_of_work.documents.get("doc-3").status == "active"
     finally:
         app.dependency_overrides.clear()

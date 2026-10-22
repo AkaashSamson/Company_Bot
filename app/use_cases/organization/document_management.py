@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Callable
 import logging
 
@@ -58,6 +59,10 @@ class DocumentManagementService:
             raise ForbiddenError("Project documents are outside viewer scope")
 
     def _can_access(self, actor, document):
+        if document.status == "archived":
+            return self.authorization.can_manage_document(
+                AuthenticatedPrincipal(actor.uid), document.document_id, allow_archived=True
+            )
         return self.authorization.can_read_document(AuthenticatedPrincipal(actor.uid), document.document_id)
 
     def list_documents(self, principal: AuthenticatedPrincipal):
@@ -131,20 +136,86 @@ class DocumentManagementService:
     ):
         return self.register_document(principal, project_id=project_id, **fields)
 
-    def delete_document(self, principal: AuthenticatedPrincipal, document_id: str):
+    def archive_document(self, principal: AuthenticatedPrincipal, document_id: str):
         with self.unit_of_work_factory() as uow:
             actor = self._actor(uow, principal)
             document = uow.documents.get(document_id)
             if document is None:
                 raise NotFoundError("Document not found")
-            if not self.authorization.can_manage_document(AuthenticatedPrincipal(actor.uid), document_id):
+            if not self.authorization.can_manage_document(
+                AuthenticatedPrincipal(actor.uid), document_id, allow_archived=True
+            ):
                 raise ForbiddenError("Document is outside manager scope")
             document.status = "archived"
             document.updated_at = utc_now()
-            uow.documents.save(document)
+            saved_doc = uow.documents.save(document)
             uow.commit()
         if self.deletion_handler:
             try:
                 self.deletion_handler(document_id)
             except Exception as error:
                 logger.warning("vector removal failed for document %r: %s", document_id, error)
+        return saved_doc
+
+    def unarchive_document(self, principal: AuthenticatedPrincipal, document_id: str):
+        with self.unit_of_work_factory() as uow:
+            actor = self._actor(uow, principal)
+            document = uow.documents.get(document_id)
+            if document is None:
+                raise NotFoundError("Document not found")
+            if not self.authorization.can_manage_document(
+                AuthenticatedPrincipal(actor.uid), document_id, allow_archived=True
+            ):
+                raise ForbiddenError("Document is outside manager scope")
+            document.status = "active"
+            document.updated_at = utc_now()
+
+            source_path = getattr(document, "storage_location", None)
+            if source_path and Path(source_path).exists() and self.ingestion_handler:
+                try:
+                    self.ingestion_handler(source_path, document, None)
+                except Exception as error:
+                    logger.warning("re-indexing failed while unarchiving document %r: %s", document_id, error)
+
+            saved_doc = uow.documents.save(document)
+            uow.commit()
+            return saved_doc
+
+    def delete_document(self, principal: AuthenticatedPrincipal, document_id: str, permanent: bool = False):
+        if not permanent:
+            return self.archive_document(principal, document_id)
+
+        storage_location = None
+        with self.unit_of_work_factory() as uow:
+            actor = self._actor(uow, principal)
+            document = uow.documents.get(document_id)
+            if document is None:
+                raise NotFoundError("Document not found")
+            if not self.authorization.can_manage_document(
+                AuthenticatedPrincipal(actor.uid), document_id, allow_archived=True
+            ):
+                raise ForbiddenError("Document is outside manager scope")
+            storage_location = getattr(document, "storage_location", None)
+
+            if hasattr(uow, "document_grants") and hasattr(uow.document_grants, "for_document"):
+                for grant in list(uow.document_grants.for_document(document_id)):
+                    if hasattr(uow.document_grants, "delete"):
+                        uow.document_grants.delete(grant.internal_id)
+
+            uow.documents.delete(document_id)
+            uow.commit()
+
+        if self.deletion_handler:
+            try:
+                import inspect
+                sig = inspect.signature(self.deletion_handler)
+                if "storage_location" in sig.parameters:
+                    self.deletion_handler(document_id, storage_location=storage_location)
+                else:
+                    self.deletion_handler(document_id)
+            except Exception as error:
+                logger.warning("vector removal failed for document %r: %s", document_id, error)
+        return True
+
+    def hard_delete_document(self, principal: AuthenticatedPrincipal, document_id: str):
+        return self.delete_document(principal, document_id, permanent=True)

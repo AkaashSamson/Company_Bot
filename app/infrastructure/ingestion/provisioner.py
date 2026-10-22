@@ -123,8 +123,31 @@ def provision_document(
     return len(records)
 
 
-def remove_document(document_id: str) -> None:
-    """Remove a document's vectors from the vector store (exact id match)."""
-    store = ChromaVectorStore(collection_name=COLLECTION_NAME, persist_directory=str(BASE_DIR / ".chroma"))
-    store.collection.delete(where={"document_id": document_id})
-    logger.info("removed vectors for document %r (total=%d)", document_id, store.collection.count())
+def remove_document(document_id: str, storage_location: str | None = None) -> None:
+    """Remove a document's vectors from the vector store and clean up its file on disk."""
+    try:
+        store = ChromaVectorStore(collection_name=COLLECTION_NAME, persist_directory=str(BASE_DIR / ".chroma"))
+        store.collection.delete(where={"document_id": document_id})
+        logger.info("removed vectors for document %r (total=%d)", document_id, store.collection.count())
+    except Exception as err:
+        logger.warning("failed to remove vectors for document %r: %s", document_id, err)
+
+    if storage_location:
+        try:
+            loc = Path(storage_location)
+            if loc.is_file():
+                loc.unlink()
+                logger.info("removed document file at %s", loc)
+        except Exception as err:
+            logger.warning("failed to remove document storage file %s: %s", storage_location, err)
+
+    try:
+        safe_id = _safe_document_id(document_id)
+        docs_path = Path(DOCUMENTS_DIR)
+        if docs_path.exists():
+            for file_path in docs_path.glob(f"{safe_id}.*"):
+                if file_path.is_file():
+                    file_path.unlink()
+                    logger.info("removed document file %s", file_path)
+    except Exception as err:
+        logger.warning("failed to clean up files in DOCUMENTS_DIR for %r: %s", document_id, err)

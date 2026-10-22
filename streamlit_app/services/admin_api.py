@@ -217,8 +217,15 @@ class AdminAPI:
     def create_document(self, payload):
         return self._post(f"{self.base_url}/api/documents", payload, headers=self._headers())
 
-    def delete_document(self, document_id):
-        self._delete(f"{self.base_url}/api/documents/{document_id}", headers=self._headers())
+    def archive_document(self, document_id):
+        return self._post(f"{self.base_url}/api/documents/{document_id}/archive", headers=self._headers())
+
+    def unarchive_document(self, document_id):
+        return self._post(f"{self.base_url}/api/documents/{document_id}/unarchive", headers=self._headers())
+
+    def delete_document(self, document_id, permanent: bool = True):
+        params = {"permanent": "true"} if permanent else {"permanent": "false"}
+        self._delete(f"{self.base_url}/api/documents/{document_id}", headers=self._headers(), params=params)
 
     def list_project_documents(self, project_id):
         return self._get(f"{self.base_url}/api/projects/{project_id}/documents", headers=self._headers())

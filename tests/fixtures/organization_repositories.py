@@ -146,9 +146,7 @@ class InMemoryDocumentRepository:
         return document
 
     def delete(self, document_id):
-        document = self.documents.get(document_id)
-        if document:
-            document.status = "archived"
+        self.documents.pop(document_id, None)
 
 
 class InMemoryDepartmentMemberRepository:

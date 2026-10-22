@@ -37,6 +37,22 @@ class DocumentService:
         response.raise_for_status()
         return response.json()
 
-    def delete_document(self, document_id):
-        response = requests.delete(f"{self.base_url}/api/documents/{document_id}", headers=self._headers(), timeout=15)
+    def archive_document(self, document_id):
+        response = requests.post(f"{self.base_url}/api/documents/{document_id}/archive", headers=self._headers(), timeout=15)
+        response.raise_for_status()
+        return response.json()
+
+    def unarchive_document(self, document_id):
+        response = requests.post(f"{self.base_url}/api/documents/{document_id}/unarchive", headers=self._headers(), timeout=30)
+        response.raise_for_status()
+        return response.json()
+
+    def delete_document(self, document_id, permanent: bool = True, *args, **kwargs):
+        params = {"permanent": "true"} if permanent else {"permanent": "false"}
+        response = requests.delete(
+            f"{self.base_url}/api/documents/{document_id}",
+            params=params,
+            headers=self._headers(),
+            timeout=15,
+        )
         response.raise_for_status()
