@@ -62,28 +62,9 @@ if st.session_state.get("auth") is None:
 
 persist_auth(cookies)
 
-def _logout():
-    st.session_state.auth = None
-    st.session_state.messages = []
-    st.session_state.last_response = None
-    st.session_state.session_id = str(uuid.uuid4())
-    try:
-        cookies.remove("knowlayer_auth")
-    except KeyError:
-        pass
-
-st.sidebar.button("Log out", on_click=_logout)
+from streamlit_app.sidebar import render_sidebar
+render_sidebar()
 st.title("KnowLayer HR Policy Assistant")
-
-st.sidebar.page_link("app.py", label="Chat")
-st.sidebar.page_link("pages/profile.py", label="My Profile")
-st.sidebar.page_link("pages/users.py", label="Users")
-st.sidebar.page_link("pages/departments.py", label="Departments")
-st.sidebar.page_link("pages/projects.py", label="Projects")
-st.sidebar.page_link("pages/documents.py", label="Documents")
-st.sidebar.page_link("pages/explorer.py", label="Organization Explorer")
-st.sidebar.page_link("pages/roles.py", label="Roles")
-st.sidebar.page_link("pages/organization.py", label="Organization")
 
 st.sidebar.divider()
 st.sidebar.caption(f"Session: `{st.session_state.session_id}`")
@@ -122,47 +103,6 @@ with col_cache:
 
 
 chat_service = ChatService()
-
-with st.sidebar.expander("🩺 Provider Health & Circuits"):
-    col_ref, col_rst = st.columns([1, 1])
-    with col_ref:
-        if st.button("🔄 Refresh", use_container_width=True, key="refresh_health"):
-            st.rerun()
-    with col_rst:
-        if st.button("⚡ Reset", use_container_width=True, key="reset_health", help="Reset all circuit breakers to healthy"):
-            chat_service.reset_providers()
-            st.rerun()
-
-    health_data = chat_service.get_provider_health()
-    if health_data:
-        for provider_name, info in health_data.items():
-            status_val = str(info.get("status", "healthy")).lower()
-            if status_val == "healthy":
-                icon = "🟢"
-                badge = "Healthy"
-            elif status_val == "degraded":
-                icon = "🟡"
-                badge = "Degraded"
-            elif status_val == "recovering":
-                icon = "🔄"
-                badge = "Recovering"
-            else:
-                icon = "🔴"
-                badge = "Open / Tripped"
-
-            st.markdown(f"**{icon} {provider_name.upper()}** (`{badge}`)")
-            total_reqs = info.get("total_requests", 0)
-            succ_reqs = info.get("successful_requests", 0)
-            fail_reqs = info.get("failed_requests", 0)
-            avg_lat = info.get("average_latency_ms", 0.0)
-            succ_rate = info.get("success_rate", 100.0)
-            st.caption(
-                f"Success: {succ_rate}% ({succ_reqs}/{total_reqs}) | "
-                f"Failures: {fail_reqs} | Latency: {avg_lat:.0f}ms"
-            )
-    else:
-        st.caption("Provider health metrics unavailable.")
-
 
 try:
     project_options = {"All authorized projects": None}
