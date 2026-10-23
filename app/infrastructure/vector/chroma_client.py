@@ -9,6 +9,8 @@ from app.core.settings import COLLECTION_NAME, EMBEDDING_MODEL
 
 logger = logging.getLogger("knowlayer.retrieval")
 
+_CHROMA_CLIENT_REGISTRY: dict[str, chromadb.PersistentClient] = {}
+
 
 class ChromaVectorStore:
     def __init__(
@@ -17,10 +19,13 @@ class ChromaVectorStore:
         persist_directory: Optional[str] = None,
     ):
         self.collection_name = collection_name
-        self.persist_directory = Path(persist_directory or ".chroma")
+        self.persist_directory = Path(persist_directory or ".chroma").resolve()
         self.persist_directory.mkdir(parents=True, exist_ok=True)
 
-        self.client = chromadb.PersistentClient(path=str(self.persist_directory))
+        key = str(self.persist_directory)
+        if key not in _CHROMA_CLIENT_REGISTRY:
+            _CHROMA_CLIENT_REGISTRY[key] = chromadb.PersistentClient(path=key)
+        self.client = _CHROMA_CLIENT_REGISTRY[key]
         self.collection = self.client.get_or_create_collection(
             name=self.collection_name,
             metadata={"hnsw:space": "cosine"},

@@ -7,14 +7,16 @@ from app.infrastructure.persistence.sqlalchemy.models import Base
 
 
 def create_engine_and_session_factory(database_url: str):
-    connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
+    connect_args = {"check_same_thread": False, "timeout": 30.0} if database_url.startswith("sqlite") else {}
     engine = create_engine(database_url, connect_args=connect_args, future=True)
 
     if database_url.startswith("sqlite"):
         @event.listens_for(engine, "connect")
-        def enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+        def configure_sqlite_pragmas(dbapi_connection, connection_record):
             cursor = dbapi_connection.cursor()
             cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA busy_timeout=30000")
             cursor.close()
 
     return engine, sessionmaker(bind=engine, class_=Session, expire_on_commit=False)
