@@ -1,5 +1,4 @@
 import os
-
 import requests
 
 
@@ -27,16 +26,38 @@ class DocumentService:
             return None
         return None
 
-    def list_documents(self):
-        response = requests.get(f"{self.base_url}/api/documents", headers=self._headers(), timeout=15)
+    def _get(self, path: str, params: dict | None = None):
+        url = f"{self.base_url}{path}" if path.startswith("/") else f"{self.base_url}/{path}"
+        response = requests.get(url, params=params, headers=self._headers(), timeout=30)
         response.raise_for_status()
         return response.json()
+
+    def _post(self, path: str, json_data: dict | None = None):
+        url = f"{self.base_url}{path}" if path.startswith("/") else f"{self.base_url}/{path}"
+        response = requests.post(url, json=json_data, headers=self._headers(), timeout=300)
+        response.raise_for_status()
+        return response.json()
+
+    def _delete(self, path: str, params: dict | None = None):
+        url = f"{self.base_url}{path}" if path.startswith("/") else f"{self.base_url}/{path}"
+        response = requests.delete(url, params=params, headers=self._headers(), timeout=30)
+        response.raise_for_status()
+        return True
+
+    def list_documents(self):
+        return self._get("/api/documents")
 
     def create_document(self, payload):
-        response = requests.post(f"{self.base_url}/api/documents", json=payload, headers=self._headers(), timeout=300)
-        response.raise_for_status()
-        return response.json()
+        return self._post("/api/documents", json_data=payload)
 
-    def delete_document(self, document_id):
-        response = requests.delete(f"{self.base_url}/api/documents/{document_id}", headers=self._headers(), timeout=15)
-        response.raise_for_status()
+    def get_status(self, document_id: str):
+        return self._get(f"/api/documents/{document_id}/status")
+
+    def get_chunks(self, document_id: str):
+        return self._get(f"/api/documents/{document_id}/chunks")
+
+    def search_chunks(self, payload: dict):
+        return self._post("/api/documents/chunks/search", json_data=payload)
+
+    def delete_document(self, document_id: str, permanent: bool = False):
+        return self._delete(f"/api/documents/{document_id}", params={"permanent": permanent})
