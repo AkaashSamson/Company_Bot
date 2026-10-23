@@ -10,7 +10,9 @@ A guided 5-step operational workflow integrating all platform capabilities:
 """
 
 from typing import Any, Dict, List
+# pyrefly: ignore[missing-import]
 import streamlit as st
+# pyrefly: ignore[missing-source-for-stubs]
 import pandas as pd
 
 from app.core.settings import BASE_DIR
@@ -26,8 +28,12 @@ def render_home_dashboard(df_chunks: pd.DataFrame):
     """
     Renders the unified step-by-step operational workflow with usage guides for every stage.
     """
-    st.markdown("### 🏠 KnowLayer Step-by-Step Command Center")
-    st.caption("A guided end-to-end workflow taking you from raw document ingestion to release verdict without getting lost.")
+    st.markdown("""
+    <div style="margin-bottom: 1.2rem;">
+        <h3 style="margin-bottom: 4px; font-weight: 700; letter-spacing: -0.01em; color: #F8FAFC;">Command Center & Pipeline Navigator</h3>
+        <div style="color: #94A3B8; font-size: 0.9rem;">Guided end-to-end workflow from document ingestion and chunk quality inspection to 2-stage retrieval and regression gates.</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     benchmark_path = BASE_DIR / "test_data" / "rag_benchmark_questions.json"
     all_cases = load_test_cases(benchmark_path) if benchmark_path.exists() else []
@@ -51,13 +57,31 @@ def render_home_dashboard(df_chunks: pd.DataFrame):
     # Step-by-Step Progress Pipeline Bar
     # -------------------------------------------------------------
     st.markdown("""
-    <div style="background:#0F172A; border:1px solid #1E293B; border-radius:8px; padding:12px 18px; margin-bottom:20px;">
-        <span style="color:#38BDF8; font-weight:700;">Execution Flow:</span>
-        &nbsp;&nbsp;<b>Step 1</b> Ingestion &rarr;
-        &nbsp;<b>Step 2</b> Quality Audit &rarr;
-        &nbsp;<b>Step 3</b> Explorer &rarr;
-        &nbsp;<b>Step 4</b> 2-Stage Funnel &rarr;
-        &nbsp;<b>Step 5</b> Test Studio & Release Gate
+    <div style="display:flex; align-items:center; justify-content:space-between; background:#0B111D; border:1px solid #1E293B; border-radius:6px; padding:12px 18px; margin-bottom:1.5rem; gap:10px; overflow-x:auto;">
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span style="background:#0284C7; color:#FFFFFF; font-size:0.68rem; font-weight:700; padding:2px 7px; border-radius:4px; font-family:'JetBrains Mono', monospace;">STEP 1</span>
+            <span style="font-size:0.85rem; font-weight:600; color:#F1F5F9;">Ingestion</span>
+        </div>
+        <span style="color:#475569; font-size:0.9rem;">&rarr;</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span style="background:#0F172A; border:1px solid #334155; color:#94A3B8; font-size:0.68rem; font-weight:700; padding:2px 7px; border-radius:4px; font-family:'JetBrains Mono', monospace;">STEP 2</span>
+            <span style="font-size:0.85rem; font-weight:600; color:#F1F5F9;">Quality Audit</span>
+        </div>
+        <span style="color:#475569; font-size:0.9rem;">&rarr;</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span style="background:#0F172A; border:1px solid #334155; color:#94A3B8; font-size:0.68rem; font-weight:700; padding:2px 7px; border-radius:4px; font-family:'JetBrains Mono', monospace;">STEP 3</span>
+            <span style="font-size:0.85rem; font-weight:600; color:#F1F5F9;">Chunk Explorer</span>
+        </div>
+        <span style="color:#475569; font-size:0.9rem;">&rarr;</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span style="background:#0F172A; border:1px solid #334155; color:#94A3B8; font-size:0.68rem; font-weight:700; padding:2px 7px; border-radius:4px; font-family:'JetBrains Mono', monospace;">STEP 4</span>
+            <span style="font-size:0.85rem; font-weight:600; color:#F1F5F9;">2-Stage Funnel</span>
+        </div>
+        <span style="color:#475569; font-size:0.9rem;">&rarr;</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span style="background:#0F172A; border:1px solid #334155; color:#94A3B8; font-size:0.68rem; font-weight:700; padding:2px 7px; border-radius:4px; font-family:'JetBrains Mono', monospace;">STEP 5</span>
+            <span style="font-size:0.85rem; font-weight:600; color:#F1F5F9;">Test Studio</span>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -99,14 +123,17 @@ def render_home_dashboard(df_chunks: pd.DataFrame):
             "Aim for a CQI Score of **>85%** optimal chunks (50–250 tokens).",
             icon="ℹ️"
         )
-        col_s2_a, col_s2_b = st.columns([1, 1])
+        col_s2_a, col_s2_b, col_s2_c = st.columns([1.4, 1.3, 1.3])
         with col_s2_a:
-            st.markdown(f"**Overall CQI Health Score: {cqi_score}%**")
+            st.metric("CQI Optimal Ratio", f"{cqi_score}%")
             st.progress(cqi_score / 100.0)
-            st.caption(f"Optimal Chunks (50–250 tokens): **{optimal_chunks:,} / {total_chunks:,}**")
+            st.caption(f"Target: >85% &nbsp;|&nbsp; Optimal: **{optimal_chunks:,} / {total_chunks:,}**")
         with col_s2_b:
-            st.write(f"• **Stub Fragments (< 35 tokens):** {stub_chunks:,} ({(stub_chunks/total_chunks*100) if total_chunks else 0:.1f}%)")
-            st.write(f"• **Overflow Chunks (> 256 tokens):** {overflow_chunks:,} ({(overflow_chunks/total_chunks*100) if total_chunks else 0:.1f}%)")
+            stub_pct = (stub_chunks / total_chunks * 100) if total_chunks else 0.0
+            st.metric("Stub Fragments (<35 tok)", f"{stub_chunks:,}", delta=f"{stub_pct:.1f}% of corpus", delta_color="inverse")
+        with col_s2_c:
+            over_pct = (overflow_chunks / total_chunks * 100) if total_chunks else 0.0
+            st.metric("Overflow Chunks (>256 tok)", f"{overflow_chunks:,}", delta=f"{over_pct:.1f}% of corpus", delta_color="inverse")
 
         if stub_chunks > 0:
             with st.expander(f"🔍 Drill-down: Inspect {stub_chunks} Stub Fragments"):
