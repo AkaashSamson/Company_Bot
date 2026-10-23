@@ -20,9 +20,11 @@ importlib.reload(chat_service_module)
 from streamlit_app.services.chat_service import ChatService
 from streamlit_app.services.organization_service import OrganizationService
 from streamlit_app.services.authentication_service import AuthenticationService
+from streamlit_app.services.document_service import DocumentService
+from streamlit_app.sidebar import get_current_profile, render_sidebar
 
 
-st.set_page_config(page_title="KnowLayer HR Chatbot", page_icon="📘")
+st.set_page_config(page_title="KnowLayer HR Chatbot", page_icon="📘", layout="wide")
 
 cookies = bootstrap_cookies()
 if "auth" not in st.session_state:
@@ -41,7 +43,7 @@ if st.session_state.get("auth") is None:
     with st.form("login"):
         login_username = st.text_input("Username")
         login_password = st.text_input("Password", type="password")
-        login_submitted = st.form_submit_button("Log in")
+        login_submitted = st.form_submit_button("Log in", type="primary")
     if login_submitted:
         try:
             auth = AuthenticationService().login(login_username, login_password)
@@ -62,23 +64,64 @@ if st.session_state.get("auth") is None:
 
 persist_auth(cookies)
 
-from streamlit_app.sidebar import render_sidebar
 render_sidebar()
 st.title("KnowLayer HR Policy Assistant")
+st.caption("Ask questions about company HR policies, documents, and project knowledge.")
 
-chat_service = ChatService()
+profile = get_current_profile()
+user = profile.get("user") or {}
+permissions = set(profile.get("permissions") or [])
+user_role = (user.get("role") or "").lower()
+auth_uid = st.session_state.get("auth", {}).get("uid", "") if isinstance(st.session_state.get("auth"), dict) else ""
+is_admin = user_role == "admin" or auth_uid == "admin" or "*" in permissions or "ADMIN" in permissions
 
+# ---------------------------------------------------- In-flight ingestion banner
 try:
-    project_options = {"All authorized projects": None}
-    project_options.update({
-        project["project_name"]: project["project_id"]
-        for project in OrganizationService().list_projects()
-    })
-except requests.exceptions.RequestException:
-    project_options = {"All authorized projects": None}
+    docs = DocumentService().list_documents()
+    processing_docs = [d for d in docs if d.get("status") == "processing"]
+    if processing_docs:
+        doc_names = ", ".join([f"'{d.get('name') or d.get('document_id')}'" for d in processing_docs])
+        st.info(f"⏳ Ingesting {doc_names} in background... Documents will become searchable once indexing completes.")
+except Exception:
+    pass
 
-selected_project_name = st.selectbox("Project scope", list(project_options))
-selected_project_id = project_options[selected_project_name]
+# ---------------------------------------------------- Project scope & top actions
+project_options = {"General Knowledge Base (All Accessible Documents)": None}
+if is_admin:
+    try:
+        for project in OrganizationService().list_projects():
+            project_options[project["project_name"]] = project["project_id"]
+    except Exception:
+        pass
+else:
+    for project in profile.get("projects", []):
+        if project.get("is_member") or project.get("project_status") == "active":
+            project_options[project["project_name"]] = project["project_id"]
+
+top_col1, top_col2 = st.columns([3, 1])
+with top_col1:
+    selected_project_name = st.selectbox(
+        "Project scope",
+        list(project_options),
+        help="Filter policy answers and document retrieval to a specific project or the general knowledge base.",
+    )
+    selected_project_id = project_options[selected_project_name]
+
+with top_col2:
+    st.write("")
+    st.write("")
+    btn_col1, btn_col2 = st.columns(2)
+    with btn_col1:
+        if st.button("🗑️ Clear", help="Clear conversation history", use_container_width=True):
+            st.session_state.messages = []
+            st.session_state.last_response = None
+            st.session_state.session_id = str(uuid.uuid4())
+            st.rerun()
+    with btn_col2:
+        with st.popover("ℹ️ Info", use_container_width=True):
+            st.markdown(f"**Session:** `{st.session_state.session_id[:8]}...`")
+            st.markdown(f"**User:** {user.get('name') or user.get('username') or 'User'}")
+            st.markdown(f"**Scope:** {selected_project_name}")
 
 
 def _strip_citation_numbering(text: str) -> str:
@@ -98,7 +141,6 @@ def _strip_citation_numbering(text: str) -> str:
     )
     cleaned_lines = [num_pattern.sub("", line).strip() for line in text.splitlines()]
     return "\n".join(cleaned_lines).strip()
-
 
 
 # Replay full chat history with citations collapsed in an expander
@@ -122,9 +164,9 @@ user_input = st.chat_input("Ask about the HR policy...")
 if user_input:
     question_timestamp = datetime.now(timezone.utc).isoformat()
     st.session_state.messages.append({
-        "role": "user", 
+        "role": "user",
         "content": user_input,
-        "timestamp": question_timestamp
+        "timestamp": question_timestamp,
     })
     with st.chat_message("user"):
         st.markdown(user_input)
@@ -190,5 +232,3 @@ if user_input:
                     st.markdown(f"📄 **{src}**{sec_lbl}")
                     if txt:
                         st.markdown(f"> {_strip_citation_numbering(txt)}")
-
-
