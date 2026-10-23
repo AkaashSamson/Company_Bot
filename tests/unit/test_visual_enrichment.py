@@ -13,19 +13,19 @@ def _picture(label: str = "", text: str = "") -> PictureFacts:
     )
 
 
-def test_chart_uses_ocr_and_vlm():
-    assert VisualEnricher._route("bar_chart", "Q1 32 Q2 45") == "OCR+VLM"
+def test_chart_routes_directly_to_vlm():
+    assert VisualEnricher._route("bar_chart", "Q1 32 Q2 45") == "VLM"
 
 
-def test_table_uses_ocr_and_vlm_for_misclassification_recovery():
-    assert VisualEnricher._route("table", "Q1 32 Q2 45") == "OCR+VLM"
+def test_table_routes_directly_to_vlm():
+    assert VisualEnricher._route("table", "Q1 32 Q2 45") == "VLM"
 
 
-def test_unknown_picture_with_text_uses_both_processors():
-    assert VisualEnricher._route("", "visible text") == "OCR+VLM"
+def test_unknown_picture_with_text_routes_to_vlm():
+    assert VisualEnricher._route("", "visible text") == "VLM"
 
 
-def test_unknown_picture_without_text_uses_vlm_review():
+def test_unknown_picture_without_text_routes_to_vlm():
     assert VisualEnricher._route("", "") == "VLM"
 
 
@@ -39,13 +39,13 @@ def test_visual_chunk_preserves_review_metadata():
         index=4,
         picture=_picture("flow_chart"),
         route="VLM",
-        produced_by="smolvlm",
+        produced_by="qwen2-vl",
         verified=False,
         review_required=True,
         extra={"model": "test-model"},
     )
     assert chunk.content_type == "text"
-    assert chunk.metadata["produced_by"] == "smolvlm"
+    assert chunk.metadata["produced_by"] == "qwen2-vl"
     assert chunk.metadata["verified"] is False
     assert chunk.metadata["review_required"] is True
     assert chunk.metadata["picture_ref"] == "#/pictures/0"

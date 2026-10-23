@@ -28,6 +28,10 @@ from app.core.settings import (
     DOCLING_VLM_TIMEOUT_SECONDS,
 )
 from app.domain.ports.visual_contract import VisualOutputContract
+from app.infrastructure.document.image_normalizer import (
+    guard_max_dimension,
+    normalize_alpha_to_white,
+)
 
 logger = logging.getLogger("knowlayer.ingestion.vlm")
 
@@ -133,30 +137,29 @@ class OllamaQwen2VLEngine(VisualUnderstandingEngine):
                 uncertain_items=["image_corrupt_or_unsupported"],
             )
 
+        # Normalize alpha channel to white matte and guard maximum resolution to 1024px
+        try:
+            image_bytes, _ = normalize_alpha_to_white(image_bytes)
+            image_bytes, _ = guard_max_dimension(image_bytes, max_dim=1024)
+        except Exception as norm_err:
+            logger.warning(
+                "image normalization failed for ref=%s: %s; using original bytes",
+                picture_ref,
+                norm_err,
+            )
+
         system_instruction = (
-            "You are a factual technical diagram and document visual analyzer. "
-            "Analyze the image and return ONLY a valid JSON object matching this schema:\n"
-            "{\n"
-            '  "visual_type": "architecture_diagram|flowchart|chart|screenshot|table|decorative|other",\n'
-            '  "summary": "1-2 sentence factual summary of the visual structure and purpose",\n'
-            '  "entities": ["list of components, services, stages, or labeled boxes"],\n'
-            '  "relationships": ["list of connections, flows, arrows, e.g. A -> B: data flow"],\n'
-            '  "visible_text": ["distinct key labels or axis names"],\n'
-            '  "uncertain_items": ["elements that are blurry or ambiguous"]\n'
-            "}\n"
-            "Rules:\n"
-            "- Do not invent entities or arrows not clearly visible.\n"
-            "- If the image is decorative or blank, set visual_type to 'decorative' and keep lists empty.\n"
-            "- Do not output markdown, preambles, or explanations. Return raw JSON only."
+            "You are a factual technical visual analyzer. "
+            "Describe the diagram, chart, or image factually and concisely in 2 to 3 sentences. "
+            "State what type of visual it is (e.g. architecture diagram, flowchart, chart, screenshot), "
+            "the core components or services, and the key relationships, data flows, or labels. "
+            "Do not output markdown code blocks, JSON, or conversational filler. Return plain text only."
         )
 
-        prompt_text = "Analyze this visual asset."
+        prompt_text = "Provide a concise factual description of this visual asset."
         if ocr_context:
             truncated_ocr = ocr_context[:300].strip()
-            prompt_text += (
-                f" Existing OCR detected: [{truncated_ocr}]. "
-                "Do not repeat this text; focus on components, relationships, and structure."
-            )
+            prompt_text += f" Context: [{truncated_ocr}]."
 
         b64_image = base64.b64encode(image_bytes).decode("utf-8")
 
@@ -207,71 +210,110 @@ class OllamaQwen2VLEngine(VisualUnderstandingEngine):
             )
 
     @staticmethod
-    def _parse_contract(raw_text: str, picture_ref: str) -> VisualOutputContract:
-        """Parse raw model output into VisualOutputContract with bounded recovery."""
-        if not raw_text:
+    def _infer_visual_type(text: str) -> str:
+        """Infer visual category from natural language summary text."""
+        lower = text.lower()
+        if any(k in lower for k in ("architecture", "system diagram", "component diagram", "network topology", "infrastructure")):
+            return "architecture_diagram"
+        if any(k in lower for k in ("flowchart", "flow chart", "workflow", "process flow", "sequence diagram", "decision tree")):
+            return "flowchart"
+        if any(k in lower for k in ("chart", "graph", "plot", "histogram", "pie chart", "bar chart", "line graph", "scatter")):
+            return "chart"
+        if any(k in lower for k in ("screenshot", "screen shot", "user interface", "ui mockup", "web page", "app window")):
+            return "screenshot"
+        if any(k in lower for k in ("table", "tabular", "spreadsheet", "matrix", "grid")):
+            return "table"
+        return "other"
+
+    @classmethod
+    def _parse_contract(cls, raw_text: str, picture_ref: str) -> VisualOutputContract:
+        """Parse raw model output into VisualOutputContract.
+
+        Supports both concise natural language summaries (Option 2) and
+        structured JSON contracts (legacy/explicit format), with bounded
+        recovery for malformed responses.
+        """
+        if not raw_text or not raw_text.strip():
             return VisualOutputContract(
                 visual_type="other",
                 summary="Visual element produced no description.",
                 source_reference=picture_ref,
             )
 
-        # Try clean JSON parse
         cleaned = raw_text.strip()
-        # Strip markdown fences if present
-        if "```" in cleaned:
-            match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned)
+
+        # Check if the text is attempted JSON
+        is_attempted_json = (
+            "not valid json" in cleaned.lower()
+            or cleaned.startswith("{")
+            or "```json" in cleaned
+            or ('"visual_type"' in cleaned and '"summary"' in cleaned)
+        )
+
+        # If it looks like JSON or markdown-fenced JSON, try parsing JSON first
+        json_target = cleaned
+        if "```" in json_target:
+            match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", json_target)
             if match:
-                cleaned = match.group(1).strip()
+                json_target = match.group(1).strip()
 
-        # Find outer braces if surrounded by text
-        if not (cleaned.startswith("{") and cleaned.endswith("}")):
-            start = cleaned.find("{")
-            end = cleaned.rfind("}")
-            if start != -1 and end != -1 and end > start:
-                cleaned = cleaned[start : end + 1]
-
-        try:
-            data = json.loads(cleaned)
-            if isinstance(data, dict):
-                return VisualOutputContract(
-                    visual_type=str(data.get("visual_type", "other")).strip().lower(),
-                    summary=str(data.get("summary", "")).strip(),
-                    entities=[
-                        str(e).strip()
-                        for e in data.get("entities", [])
-                        if str(e).strip()
-                    ],
-                    relationships=[
-                        str(r).strip()
-                        for r in data.get("relationships", [])
-                        if str(r).strip()
-                    ],
-                    visible_text=[
-                        str(t).strip()
-                        for t in data.get("visible_text", [])
-                        if str(t).strip()
-                    ],
-                    uncertain_items=[
-                        str(u).strip()
-                        for u in data.get("uncertain_items", [])
-                        if str(u).strip()
-                    ],
-                    source_reference=picture_ref,
+        start_brace = json_target.find("{")
+        end_brace = json_target.rfind("}")
+        if start_brace != -1 and end_brace != -1 and end_brace > start_brace:
+            try:
+                candidate = json_target[start_brace : end_brace + 1]
+                data = json.loads(candidate)
+                if isinstance(data, dict):
+                    return VisualOutputContract(
+                        visual_type=str(data.get("visual_type", "other")).strip().lower(),
+                        summary=str(data.get("summary", "")).strip(),
+                        entities=[
+                            str(e).strip()
+                            for e in data.get("entities", [])
+                            if str(e).strip()
+                        ],
+                        relationships=[
+                            str(r).strip()
+                            for r in data.get("relationships", [])
+                            if str(r).strip()
+                        ],
+                        visible_text=[
+                            str(t).strip()
+                            for t in data.get("visible_text", [])
+                            if str(t).strip()
+                        ],
+                        uncertain_items=[
+                            str(u).strip()
+                            for u in data.get("uncertain_items", [])
+                            if str(u).strip()
+                        ],
+                        source_reference=picture_ref,
+                    )
+            except Exception as json_err:
+                logger.debug(
+                    "JSON parse failed on candidate JSON (%s)",
+                    json_err,
                 )
-        except Exception as json_err:
-            logger.debug(
-                "JSON parse failed on model output (%s), applying bounded recovery",
-                json_err,
+
+        # If JSON was attempted but failed/corrupt, bounded recovery preserves safety
+        if is_attempted_json:
+            first_sentence = raw_text.split("\n")[0][:250].strip()
+            return VisualOutputContract(
+                visual_type="other",
+                summary=first_sentence or raw_text[:250].strip(),
+                source_reference=picture_ref,
+                uncertain_items=["unstructured_vlm_output"],
             )
 
-        # Bounded recovery: preserve raw text as summary without crashing
-        first_sentence = raw_text.split("\n")[0][:250].strip()
+        # Natural language summary path (Option 2: concise plain text)
+        clean_text = re.sub(r"^```(?:[a-zA-Z]+)?\s*", "", cleaned)
+        clean_text = re.sub(r"\s*```$", "", clean_text).strip()
+        visual_type = cls._infer_visual_type(clean_text)
+
         return VisualOutputContract(
-            visual_type="other",
-            summary=first_sentence or raw_text[:250].strip(),
+            visual_type=visual_type,
+            summary=clean_text[:1000].strip(),
             source_reference=picture_ref,
-            uncertain_items=["unstructured_vlm_output"],
         )
 
 

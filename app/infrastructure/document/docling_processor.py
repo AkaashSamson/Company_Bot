@@ -26,6 +26,8 @@ from app.core.settings import (
     DOCLING_CITATION_PDF_DIR,
     DOCLING_CITATION_PDF_ENABLED,
     DOCLING_MAX_TOKENS,
+    DOCLING_PDF_OCR_SCALE,
+    DOCLING_SKIP_BLANK_PAGES,
     DOCLING_VISUAL_ENRICHMENT_ENABLED,
     EMBEDDING_MODEL,
 )
@@ -137,18 +139,28 @@ class DoclingDocumentProcessor:
     def converter(self) -> DocumentConverter:
         """Lazily built converter; loading layout models is deferred."""
         if self._converter is None:
-            format_options = {}
-            if DOCLING_VISUAL_ENRICHMENT_ENABLED:
-                from docling.datamodel.pipeline_options import PdfPipelineOptions
-                from docling.document_converter import PdfFormatOption
+            from docling.datamodel.pipeline_options import (
+                OcrAutoOptions,
+                OcrMode,
+                PdfPipelineOptions,
+            )
+            from docling.document_converter import PdfFormatOption
 
-                pdf_options = PdfPipelineOptions()
+            pdf_options = PdfPipelineOptions()
+            pdf_options.ocr_options = OcrAutoOptions(
+                mode=OcrMode.PDF_AWARE_LAYOUT_REGIONS,
+                scale=DOCLING_PDF_OCR_SCALE,
+            )
+            if DOCLING_VISUAL_ENRICHMENT_ENABLED:
                 pdf_options.generate_picture_images = True
-                format_options[InputFormat.PDF] = PdfFormatOption(pipeline_options=pdf_options)
+
+            format_options = {
+                InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_options),
+            }
 
             self._converter = DocumentConverter(
                 allowed_formats=sorted({fmt.value for fmt in _EXTENSION_TO_FORMAT.values()}),
-                format_options=format_options if format_options else None,
+                format_options=format_options,
             )
         return self._converter
 
@@ -292,6 +304,8 @@ class DoclingDocumentProcessor:
         for raw_chunk in raw_chunks:
             text = (getattr(raw_chunk, "text", "") or "").strip()
             if not text:
+                continue
+            if DOCLING_SKIP_BLANK_PAGES and len(text) < 3 and not text.isalnum():
                 continue
             section_path, page_number, label = self._facts_of(self._items_of(raw_chunk), facts)
             # An unattributable chunk keeps the port's own default content type

@@ -22,7 +22,7 @@ from app.use_cases.ingestion.document_processing import build_chunk_records_from
 from app.domain.ports.document_processing import ProcessedDocument, ProcessedChunk
 
 
-def _make_test_image_bytes(color: str = "blue", size: tuple[int, int] = (100, 100)) -> bytes:
+def _make_test_image_bytes(color: str = "blue", size: tuple[int, int] = (200, 200)) -> bytes:
     img = Image.new("RGB", size, color=color)
     buffer = BytesIO()
     img.save(buffer, format="PNG")
@@ -165,6 +165,47 @@ def test_parse_contract_empty_string():
     assert "no description" in contract.summary.lower()
 
 
+def test_parse_contract_natural_language_architecture_summary():
+    natural_text = (
+        "This architecture diagram illustrates the microservices backend with an API gateway, "
+        "auth service, and database. The API gateway routes user traffic to the respective services. "
+        "ChromaDB provides vector storage for similarity retrieval."
+    )
+    contract = Qwen2VLEngine._parse_contract(natural_text, picture_ref="#/pictures/arch_1")
+    assert contract.visual_type == "architecture_diagram"
+    assert "microservices backend" in contract.summary
+    assert "ChromaDB provides vector storage" in contract.summary
+    assert contract.uncertain_items == []
+    assert contract.source_reference == "#/pictures/arch_1"
+    search_text = contract.to_search_text()
+    assert "Visual type: architecture_diagram" in search_text
+    assert "Summary: This architecture diagram" in search_text
+
+
+def test_parse_contract_natural_language_flowchart_summary():
+    flow_text = (
+        "Flowchart depicting the login authentication workflow. Steps include user credentials input, "
+        "token validation, and redirecting to the dashboard."
+    )
+    contract = Qwen2VLEngine._parse_contract(flow_text, picture_ref="#/pictures/flow_1")
+    assert contract.visual_type == "flowchart"
+    assert "authentication workflow" in contract.summary
+    assert contract.uncertain_items == []
+    search_text = contract.to_search_text()
+    assert "Visual type: flowchart" in search_text
+    assert "Summary: Flowchart depicting" in search_text
+
+
+def test_parse_contract_natural_language_chart_summary():
+    chart_text = (
+        "A bar chart comparing quarterly sales for 2025 and 2026 across North America and Europe regions."
+    )
+    contract = Qwen2VLEngine._parse_contract(chart_text, picture_ref="#/pictures/chart_1")
+    assert contract.visual_type == "chart"
+    assert "quarterly sales" in contract.summary
+    assert contract.uncertain_items == []
+
+
 # =========================================================================
 # 3. Qwen2VLEngine / OllamaQwen2VLEngine Lifecycle & API tests (Mocked)
 # =========================================================================
@@ -281,17 +322,13 @@ def test_visual_enricher_uses_vlm_engine_and_emits_structured_chunk():
 
     pic = _dummy_picture(ref="#/pictures/0", label="flow_chart")
     with patch.object(enricher, "_pictures", return_value=[pic]), \
-         patch.object(enricher, "_classify", return_value=None), \
-         patch.object(enricher, "_ocr", return_value="Existing OCR text"):
+         patch.object(enricher, "_classify", return_value=None):
 
         chunks = enricher.enrich(document=MagicMock(), facts={}, starting_index=10)
 
-    assert len(chunks) == 2  # 1 OCR chunk + 1 VLM chunk
-    ocr_chunk, vlm_chunk = chunks[0], chunks[1]
-
-    # Verify OCR chunk
-    assert ocr_chunk.metadata["produced_by"] == "docling+easyocr"
-    assert ocr_chunk.text == "Existing OCR text"
+    # Direct-to-Qwen produces 1 rich visual chunk without duplicate EasyOCR pass
+    assert len(chunks) == 1
+    vlm_chunk = chunks[0]
 
     # Verify VLM chunk
     assert vlm_chunk.metadata["produced_by"] == "qwen2-vl"
@@ -306,10 +343,9 @@ def test_visual_enricher_uses_vlm_engine_and_emits_structured_chunk():
     # Verify search text format for embedding
     assert "Visual type: architecture_diagram" in vlm_chunk.text
     assert "Components: Parser, Embedder, Chroma" in vlm_chunk.text
+    assert "Labels: RAG v3" in vlm_chunk.text
 
-    # Verify OCR context was passed to VLM engine to prevent duplicate text extraction
     assert len(mock_engine.calls) == 1
-    assert mock_engine.calls[0]["ocr_context"] == "Existing OCR text"
     assert mock_engine.calls[0]["picture_ref"] == "#/pictures/0"
 
 
