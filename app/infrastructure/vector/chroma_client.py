@@ -1,15 +1,23 @@
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import logging
 
 import chromadb
-from sentence_transformers import SentenceTransformer
 
 from app.core.settings import COLLECTION_NAME, EMBEDDING_MODEL
 
 logger = logging.getLogger("knowlayer.retrieval")
 
 _CHROMA_CLIENT_REGISTRY: dict[str, chromadb.PersistentClient] = {}
+_SHARED_EMBEDDING_MODEL = None
+_DEFAULT_VECTOR_STORE = None
+
+def get_default_vector_store():
+    global _DEFAULT_VECTOR_STORE
+    if _DEFAULT_VECTOR_STORE is None:
+        _DEFAULT_VECTOR_STORE = ChromaVectorStore()
+    return _DEFAULT_VECTOR_STORE
 
 
 class ChromaVectorStore:
@@ -31,13 +39,30 @@ class ChromaVectorStore:
             metadata={"hnsw:space": "cosine"},
         )
         self._embedding_model = None
+        global _DEFAULT_VECTOR_STORE
+        _DEFAULT_VECTOR_STORE = self
 
     @property
     def embedding_model(self):
         """Lazy load the embedding model to avoid blocking on startup."""
-        if self._embedding_model is None:
-            self._embedding_model = SentenceTransformer(EMBEDDING_MODEL)
-        return self._embedding_model
+        global _SHARED_EMBEDDING_MODEL
+        if os.getenv("MOCK_EMBEDDINGS", "false").lower() == "true":
+            class DummyModel:
+                def encode(self, texts, convert_to_numpy=True):
+                    class Array:
+                        def tolist(self):
+                            if isinstance(texts, list):
+                                return [[0.1, 0.2, 0.3] for _ in texts]
+                            return [0.1, 0.2, 0.3]
+                    return Array()
+            return DummyModel()
+
+        if self._embedding_model is not None:
+            return self._embedding_model
+        if _SHARED_EMBEDDING_MODEL is None:
+            from sentence_transformers import SentenceTransformer
+            _SHARED_EMBEDDING_MODEL = SentenceTransformer(EMBEDDING_MODEL)
+        return _SHARED_EMBEDDING_MODEL
 
     @embedding_model.setter
     def embedding_model(self, value):
@@ -87,7 +112,11 @@ class ChromaVectorStore:
             filters.append({"project_id": {"$in": list(project_ids)}})
             logger.info("vector query with project filter: %s", project_ids)
         if where is not None:
-            filters.append(where)
+            if isinstance(where, dict) and len(where) > 1 and "$and" not in where and "$or" not in where:
+                for k, v in where.items():
+                    filters.append({k: v})
+            else:
+                filters.append(where)
         if len(filters) == 1:
             query_kwargs["where"] = filters[0]
         elif len(filters) > 1:

@@ -74,6 +74,7 @@ def _document(record: DocumentRecord) -> Document:
         storage_location=record.storage_location,
         uploaded_by=record.uploaded_by,
         uploaded_at=record.uploaded_at,
+        file_hash=getattr(record, 'file_hash', None),
     )
 
 
@@ -274,6 +275,7 @@ class SqlAlchemyDocumentRepository:
         record.storage_location = document.storage_location
         record.uploaded_by = document.uploaded_by
         record.uploaded_at = document.uploaded_at
+        record.file_hash = getattr(document, 'file_hash', None)
         self.session.flush()
         return _document(record)
 

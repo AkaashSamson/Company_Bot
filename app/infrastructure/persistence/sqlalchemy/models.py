@@ -114,6 +114,7 @@ class DocumentRecord(Base):
     storage_location: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
     uploaded_by: Mapped[Optional[str]] = mapped_column(ForeignKey("users.uid"), nullable=True)
     uploaded_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    file_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
 
 
 class UserProjectRecord(Base):

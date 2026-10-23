@@ -110,7 +110,10 @@ def provision_document(
             base_name = target_name
             ext = extension
         safe_base = _safe_filename(base_name)
-        destination = Path(DOCUMENTS_DIR) / f"{safe_base}{ext}"
+        project_folder = getattr(document, "project_id", None) or "unassigned"
+        folder = Path(DOCUMENTS_DIR) / project_folder
+        folder.mkdir(parents=True, exist_ok=True)
+        destination = folder / f"{document.document_id}_{safe_base}{ext}"
         destination.write_bytes(raw)
         logger.info("saved uploaded document to %s", destination)
         document.original_filename = document.original_filename or document.document_name
@@ -132,6 +135,10 @@ def provision_document(
     if not records:
         logger.warning("no chunks produced for document %r", document.document_id)
         return 0
+
+    for rec in records:
+        if "metadata" in rec:
+            rec["metadata"]["status"] = "active"
 
     store = store or ChromaVectorStore(collection_name=COLLECTION_NAME, persist_directory=str(BASE_DIR / ".chroma"))
     store.add_documents(records)

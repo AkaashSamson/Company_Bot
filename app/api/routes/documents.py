@@ -1,15 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 
 from app.api.dependencies import (
     get_current_principal,
     get_document_access_service,
     get_document_management_service,
+    get_vector_store,
 )
 from app.api.schemas.documents import (
+    ChunkResponse,
+    ChunkSearchRequest,
     DocumentAccessGrantCreate,
     DocumentCreate,
     DocumentGrantResponse,
     DocumentResponse,
+    DocumentStatusResponse,
 )
 from app.domain.services.organization_errors import ConflictError, ForbiddenError, NotFoundError
 
@@ -42,14 +46,77 @@ def list_documents(
         raise _error(error) from error
 
 
-@router.post("/documents", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/documents", response_model=DocumentResponse, status_code=status.HTTP_202_ACCEPTED)
 def create_document(
     payload: DocumentCreate,
+    background_tasks: BackgroundTasks,
     principal=Depends(get_current_principal),
     service=Depends(get_document_management_service),
 ):
     try:
-        return service.register_document(principal, **payload.model_dump())
+        doc = service.register_document(principal, defer_ingestion=True, **payload.model_dump())
+        if (payload.content or payload.source_path) and hasattr(service, "ingest_document"):
+            background_tasks.add_task(
+                service.ingest_document,
+                doc.document_id,
+                payload.source_path,
+                payload.content,
+            )
+        return doc
+    except Exception as error:
+        raise _error(error) from error
+
+
+@router.get("/documents/{document_id}/status", response_model=DocumentStatusResponse)
+def get_document_status(
+    document_id: str,
+    principal=Depends(get_current_principal),
+    service=Depends(get_document_management_service),
+):
+    try:
+        return service.get_document_status(principal, document_id)
+    except Exception as error:
+        raise _error(error) from error
+
+
+@router.get("/documents/{document_id}/chunks")
+def get_document_chunks(
+    document_id: str,
+    principal=Depends(get_current_principal),
+    vector_store=Depends(get_vector_store),
+):
+    try:
+        results = vector_store.collection.get(
+            where={"document_id": document_id},
+            include=["documents", "metadatas"],
+        )
+        chunks = []
+        docs = results.get("documents") or []
+        metas = results.get("metadatas") or []
+        for idx, (doc_text, meta) in enumerate(zip(docs, metas)):
+            chunks.append({"index": idx, "text": doc_text, "metadata": meta})
+        return chunks
+    except Exception as error:
+        raise _error(error) from error
+
+
+@router.post("/documents/chunks/search")
+def search_chunks(
+    payload: ChunkSearchRequest,
+    principal=Depends(get_current_principal),
+    vector_store=Depends(get_vector_store),
+):
+    try:
+        where = {}
+        if payload.project_id:
+            where["project_id"] = payload.project_id
+        if not payload.include_archived:
+            where["status"] = "active"
+        return vector_store.query(
+            payload.query,
+            top_k=payload.top_k,
+            where=where or None,
+        )
     except Exception as error:
         raise _error(error) from error
 
@@ -66,15 +133,29 @@ def list_project_documents(
         raise _error(error) from error
 
 
-@router.post("/projects/{project_id}/documents", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/projects/{project_id}/documents", response_model=DocumentResponse, status_code=status.HTTP_202_ACCEPTED)
 def create_project_document(
     project_id: str,
     payload: DocumentCreate,
+    background_tasks: BackgroundTasks,
     principal=Depends(get_current_principal),
     service=Depends(get_document_management_service),
 ):
     try:
-        return service.register_document(principal, project_id=project_id, **payload.model_dump(exclude={"project_id"}))
+        doc = service.register_document(
+            principal,
+            project_id=project_id,
+            defer_ingestion=True,
+            **payload.model_dump(exclude={"project_id"}),
+        )
+        if (payload.content or payload.source_path) and hasattr(service, "ingest_document"):
+            background_tasks.add_task(
+                service.ingest_document,
+                doc.document_id,
+                payload.source_path,
+                payload.content,
+            )
+        return doc
     except Exception as error:
         raise _error(error) from error
 
@@ -82,11 +163,12 @@ def create_project_document(
 @router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_document(
     document_id: str,
+    permanent: bool = Query(False),
     principal=Depends(get_current_principal),
     service=Depends(get_document_management_service),
 ):
     try:
-        service.delete_document(principal, document_id)
+        service.delete_document(principal, document_id, permanent=permanent)
     except Exception as error:
         raise _error(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)

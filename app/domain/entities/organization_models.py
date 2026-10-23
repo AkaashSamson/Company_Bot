@@ -80,6 +80,7 @@ class Document:
     storage_location: Optional[str] = None
     uploaded_by: Optional[str] = None
     uploaded_at: Optional[datetime] = None
+    file_hash: Optional[str] = None
 
 
 @dataclass(slots=True)

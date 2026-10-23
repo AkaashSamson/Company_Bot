@@ -135,3 +135,8 @@ def get_profile_service():
 
 def get_organization_explorer_service():
     return OrganizationExplorerService(create_unit_of_work)
+
+
+def get_vector_store():
+    from app.infrastructure.vector.chroma_client import get_default_vector_store
+    return get_default_vector_store()

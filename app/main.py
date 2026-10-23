@@ -1,6 +1,6 @@
 import asyncio
 import logging
-import asyncio
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -45,7 +45,7 @@ async def periodic_log_cleanup_task(interval_seconds: int = LOG_CLEANUP_INTERVAL
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from app.infrastructure.persistence.factory import get_session_factory, initialize_persistence
+    from app.infrastructure.persistence.factory import get_session_factory, initialize_persistence, create_unit_of_work
     from app.infrastructure.logging.conversation_log_cleanup import ConversationLogCleanup
 
     try:
@@ -61,29 +61,51 @@ async def lifespan(app: FastAPI):
         logger.error("Startup conversation log cleanup failed: %s", exc)
 
     initialize_persistence(get_session_factory)
-    logger.info("Lifespan: warming up orchestrator in background thread…")
-    await asyncio.to_thread(init_orchestrator)
+
+    # Recover any zombie documents stuck in "processing" state prior to restart
     try:
-        from app.infrastructure.channels.registry import register_channel_adapter
-        from app.infrastructure.channels.teams.adapter import TeamsChannelAdapter
-        import os
-        skip_auth = os.getenv("TEAMS_SKIP_AUTH", "true").lower() == "true"
-        security_token = os.getenv("TEAMS_SECURITY_TOKEN")
-        register_channel_adapter(TeamsChannelAdapter(security_token=security_token, skip_auth=skip_auth))
-        logger.info("Lifespan: Teams channel adapter registered (skip_auth=%s).", skip_auth)
+        with create_unit_of_work() as uow:
+            recovered_count = 0
+            for doc in uow.documents.list():
+                if getattr(doc, "status", None) == "processing":
+                    doc.status = "failed"
+                    reason = "Server restarted during ingestion"
+                    doc.description = f"{doc.description} [{reason}]" if doc.description else reason
+                    uow.documents.save(doc)
+                    recovered_count += 1
+            if recovered_count > 0:
+                uow.commit()
+                logger.info("Recovered %d zombie processing documents to failed state.", recovered_count)
     except Exception as exc:
-        logger.warning("Failed to register Teams channel adapter: %s", exc)
-    logger.info("Lifespan: startup complete.")
-    
-    cleanup_task = asyncio.create_task(periodic_log_cleanup_task())
+        logger.warning("Zombie document recovery skipped or failed: %s", exc)
+
+    is_testing = bool(os.getenv("PYTEST_CURRENT_TEST"))
+    if not is_testing:
+        logger.info("Lifespan: warming up orchestrator in background thread…")
+        await asyncio.to_thread(init_orchestrator)
+        try:
+            from app.infrastructure.channels.registry import register_channel_adapter
+            from app.infrastructure.channels.teams.adapter import TeamsChannelAdapter
+            skip_auth = os.getenv("TEAMS_SKIP_AUTH", "true").lower() == "true"
+            security_token = os.getenv("TEAMS_SECURITY_TOKEN")
+            register_channel_adapter(TeamsChannelAdapter(security_token=security_token, skip_auth=skip_auth))
+            logger.info("Lifespan: Teams channel adapter registered (skip_auth=%s).", skip_auth)
+        except Exception as exc:
+            logger.warning("Failed to register Teams channel adapter: %s", exc)
+        logger.info("Lifespan: startup complete.")
+
+    cleanup_task = None
+    if not is_testing:
+        cleanup_task = asyncio.create_task(periodic_log_cleanup_task())
     
     yield
     logger.info("Lifespan: shutdown.")
-    cleanup_task.cancel()
-    try:
-        await cleanup_task
-    except asyncio.CancelledError:
-        pass
+    if cleanup_task is not None:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
 
     try:
         from app.infrastructure.observability.manager import get_observability_manager
