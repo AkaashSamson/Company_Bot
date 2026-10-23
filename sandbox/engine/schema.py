@@ -20,6 +20,8 @@ class TestInput(BaseModel):
     question: str
     role: str = "ALL"  # "ALL", "EMPLOYEE", "MANAGER", "HR"
     project_ids: Optional[List[str]] = None
+    tenant_id: Optional[str] = None
+    resource_scope: Optional[str] = None
     conversation_history: List[Dict[str, str]] = Field(default_factory=list)
     files: List[str] = Field(default_factory=list)
 
@@ -35,12 +37,15 @@ class ExpectedBehavior(BaseModel):
     citation_required: bool = True
     should_refuse: bool = False  # True for unanswerable / out-of-domain questions
     refusal_phrase: Optional[str] = None
+    language_expected: Optional[str] = None  # e.g. "en", "es", "match_input"
+    script_expected: Optional[str] = None    # e.g. "Latin", "Romaji", "Japanese"
 
 
 class GoldEvidence(BaseModel):
     document: Optional[str] = None
     sections: List[str] = Field(default_factory=list)
     required_chunk_ids: List[str] = Field(default_factory=list)
+    forbidden_evidence_ids: List[str] = Field(default_factory=list)
     needle_text: Optional[str] = None
     evidence_mode: Literal["any", "all"] = "any"  # "any" = at least 1, "all" = all required chunks
 
@@ -51,7 +56,7 @@ class AssertionSpec(BaseModel):
     operator: str = "gte"  # "gte", "lte", "eq", "contains", "not_contains", "is_true"
     threshold: Optional[float] = None
     expected_value: Optional[Any] = None
-    severity: Literal["BLOCKER", "WARNING"] = "BLOCKER"
+    severity: Literal["BLOCKER", "WARNING", "Critical", "High", "Medium", "Low"] = "BLOCKER"
 
 
 class TestCase(BaseModel):
@@ -67,9 +72,17 @@ class TestCase(BaseModel):
         "INSUFFICIENT",
         "CONFLICTING",
         "OUT_OF_SCOPE",
+        "UNAUTHORIZED",
     ] = "DIRECT"
     expected_behavior: ExpectedBehavior = Field(default_factory=ExpectedBehavior)
     gold_evidence: GoldEvidence = Field(default_factory=GoldEvidence)
+    forbidden_evidence_ids: List[str] = Field(default_factory=list)
+    expected_citations: List[str] = Field(default_factory=list)
+    severity: Literal["Critical", "High", "Medium", "Low"] = "Medium"
+    automation_level: Literal["Deterministic", "LLM-assisted", "Human-only", "Hybrid"] = "Deterministic"
+    owner: str = "Unassigned"
+    review_status: Literal["Draft", "Reviewed", "Approved", "Retired"] = "Draft"
+    dataset_version: str = "v1.0.0"
     components: List[str] = Field(
         default_factory=lambda: ["retrieval", "reranking", "generation", "grounding", "policy_eval"]
     )
@@ -242,7 +255,7 @@ class AssertionResult(BaseModel):
 
 class TestCaseResult(BaseModel):
     test_id: str
-    status: Literal["PASS", "FAIL", "ERROR", "INCONCLUSIVE"]
+    status: Literal["PASS", "FAIL", "ERROR", "INCONCLUSIVE", "NOT RUN"]
     failure_stage: Optional[str] = None
     assertion_results: List[AssertionResult] = Field(default_factory=list)
     trace: ExecutionTrace
@@ -259,7 +272,10 @@ class SuiteRunResult(BaseModel):
     failed: int = 0
     errors: int = 0
     inconclusive: int = 0
+    not_run: int = 0
     pass_rate: float = 0.0
+    gate_passed: Optional[bool] = None
+    gate_reasons: List[str] = Field(default_factory=list)
     component_metrics: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     failed_cases: List[Dict[str, Any]] = Field(default_factory=list)
     test_results: List[TestCaseResult] = Field(default_factory=list)
