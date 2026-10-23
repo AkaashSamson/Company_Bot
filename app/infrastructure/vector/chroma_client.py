@@ -52,8 +52,8 @@ class ChromaVectorStore:
                     class Array:
                         def tolist(self):
                             if isinstance(texts, list):
-                                return [[0.1, 0.2, 0.3] for _ in texts]
-                            return [0.1, 0.2, 0.3]
+                                return [[0.1] * 384 for _ in texts]
+                            return [0.1] * 384
                     return Array()
             return DummyModel()
 

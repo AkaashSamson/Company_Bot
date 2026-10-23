@@ -115,6 +115,24 @@ class DocumentManagementService:
     ):
         raw_bytes = None
         file_hash = None
+        parse_name = (
+            original_filename
+            or document_name
+            or source_path
+            or (f"{document_id}{file_type}" if file_type else document_id)
+        )
+        if (source_path or content) and parse_name:
+            ext = Path(parse_name).suffix.lower()
+            if ext:
+                from app.infrastructure.document.processor_factory import build_document_processor
+
+                proc = build_document_processor()
+                if not proc.supports(parse_name):
+                    supported = ", ".join(sorted(proc.supported_extensions()))
+                    raise ValueError(
+                        f"Unsupported document type: {ext or '(none)'} (supported: {supported})"
+                    )
+
         if content is not None:
             try:
                 raw_bytes = base64.b64decode(content, validate=True)

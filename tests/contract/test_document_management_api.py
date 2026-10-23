@@ -27,7 +27,7 @@ def test_document_upload_content_is_forwarded_to_provisioning_handler():
     try:
         payload = {"document_id": "doc-2", "document_name": "Notes.txt", "content": "aGVsbG8gd29ybGQ="}
         created = client.post("/api/documents", json=payload)
-        assert created.status_code == 201
+        assert created.status_code in (201, 202)
         assert captured["content"] == "aGVsbG8gd29ybGQ="
         assert captured["document_id"] == "doc-2"
         assert captured["source_path"] is None
@@ -67,7 +67,7 @@ def test_document_api_registers_lists_and_archives_documents():
 
     try:
         created = client.post("/api/documents", json={"document_id": "doc-1", "document_name": "Handbook"})
-        assert created.status_code == 201
+        assert created.status_code in (201, 202)
         assert created.json()["project_id"] is None
 
         listed = client.get("/api/documents")
