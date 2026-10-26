@@ -201,12 +201,37 @@ class UIActions:
         self.page.wait_for_load_state("domcontentloaded")
         self.page.wait_for_timeout(1500)
 
+    def _resolve_scope(self, container: str | None = None):
+        """Resolve a container scope, supporting stExpander (with auto-open) or section headings."""
+        if not container:
+            return self.page
+
+        # 1. Check if container matches an st.expander
+        expander = self.page.locator('[data-testid="stExpander"]').filter(has_text=container).first
+        if expander.count() > 0:
+            summary = expander.locator("summary").first
+            if summary.is_visible() and summary.get_attribute("aria-expanded") != "true":
+                summary.click()
+                self.page.wait_for_timeout(400)
+            return expander
+
+        # 2. Check if container matches a section heading (h1, h2, h3, h4)
+        heading = self.page.locator("h1, h2, h3, h4").filter(has_text=container).first
+        if heading.count() > 0:
+            return heading
+
+        return self.page
+
     def fill_input(self, label: str, value: str, container: str | None = None):
         """Fill a Streamlit text input or textarea by role and name, optionally scoped to a container."""
-        if container:
-            scope = self.page.locator('[data-testid="stExpander"]').filter(has_text=container)
-        else:
-            scope = self.page
+        scope = self._resolve_scope(container)
+        if container and scope != self.page and scope.locator("xpath=self::h1 | self::h2 | self::h3 | self::h4").count() > 0:
+            target = scope.locator(
+                f'xpath=following::input[@aria-label="{label}"][1] | following::textarea[@aria-label="{label}"][1]'
+            )
+            if target.count() > 0:
+                target.first.fill(value)
+                return
         scope.get_by_role("textbox", name=label).first.fill(value)
 
     def open_expander(self, label: str):
@@ -219,11 +244,21 @@ class UIActions:
 
     def select_dropdown(self, label: str, option_text: str, container: str | None = None):
         """Select an option in a Streamlit st.selectbox by label, optionally scoped to a container."""
-        if container:
-            scope = self.page.locator('[data-testid="stExpander"]').filter(has_text=container)
+        scope = self._resolve_scope(container)
+
+        if container and scope != self.page and scope.locator("xpath=self::h1 | self::h2 | self::h3 | self::h4").count() > 0:
+            following = scope.locator(
+                f'xpath=following::div[@data-testid="stSelectbox"][.//*[contains(text(), "{label}") or text()="{label}"]][1]'
+            )
+            if following.count() > 0:
+                selectbox = following.first
+            else:
+                selectbox = scope.locator('xpath=following::div[@data-testid="stSelectbox"][1]')
         else:
-            scope = self.page
-        selectbox = scope.locator('[data-testid="stSelectbox"]').filter(has_text=label).first
+            matching = scope.locator('[data-testid="stSelectbox"]').filter(has_text=label)
+            visible_matching = matching.locator(':visible')
+            selectbox = visible_matching.first if visible_matching.count() > 0 else matching.first
+
         select_trigger = selectbox.locator('[data-baseweb="select"]')
         if select_trigger.count() > 0:
             select_trigger.click()
