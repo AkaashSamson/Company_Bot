@@ -224,8 +224,21 @@ class UIActions:
         else:
             scope = self.page
         selectbox = scope.locator('[data-testid="stSelectbox"]').filter(has_text=label).first
-        selectbox.click()
-        self.page.locator('li[role="option"]').filter(has_text=option_text).first.click()
+        select_trigger = selectbox.locator('[data-baseweb="select"]')
+        if select_trigger.count() > 0:
+            select_trigger.click()
+        else:
+            selectbox.click()
+        self.page.wait_for_timeout(300)
+
+        option = self.page.locator('[role="option"]').filter(has_text=option_text).first
+        if option.is_visible():
+            option.click()
+        else:
+            inp = selectbox.locator("input")
+            if inp.count() > 0:
+                inp.fill(option_text)
+                inp.press("Enter")
         self.page.wait_for_timeout(500)
 
 
