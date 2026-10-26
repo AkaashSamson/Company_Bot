@@ -54,3 +54,6 @@ input/DOC-005.pdf
 # Runtime document storage subfolders & archives
 input/archived/
 input/*/
+
+# Playwright test recordings & traces
+test-results/
