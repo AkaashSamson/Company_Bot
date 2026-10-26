@@ -1,3 +1,5 @@
+import hashlib
+from pathlib import Path
 import logging
 from sqlalchemy import inspect, text
 
@@ -69,3 +71,30 @@ def apply_legacy_schema_migration(engine) -> None:
             connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_documents_document_id ON documents (document_id)"))
         if "roles" in existing_tables:
             connection.execute(text("CREATE INDEX IF NOT EXISTS ix_roles_department_id ON roles (department_id)"))
+
+        # 4. Migrate documents table columns & backfill hashes
+        if "documents" in existing_tables:
+            doc_columns = {col["name"] for col in inspector.get_columns("documents")}
+            if "file_hash" not in doc_columns:
+                connection.execute(text("ALTER TABLE documents ADD COLUMN file_hash VARCHAR(64) NULL"))
+                connection.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_file_hash ON documents (file_hash)"))
+
+            rows = connection.execute(
+                text("SELECT document_id, storage_location FROM documents WHERE file_hash IS NULL AND storage_location IS NOT NULL")
+            ).fetchall()
+            for doc_id, loc in rows:
+                p = Path(loc)
+                if p.exists() and p.is_file():
+                    h = hashlib.sha256(p.read_bytes()).hexdigest()
+                    connection.execute(
+                        text("UPDATE documents SET file_hash = :h WHERE document_id = :id"),
+                        {"h": h, "id": doc_id},
+                    )
+
+        # 5. Migrate user_projects table columns
+        if "user_projects" in existing_tables:
+            up_columns = {col["name"] for col in inspector.get_columns("user_projects")}
+            if "role_id" not in up_columns:
+                connection.execute(text("ALTER TABLE user_projects ADD COLUMN role_id INTEGER NULL"))
+                connection.execute(text("CREATE INDEX IF NOT EXISTS ix_user_projects_role_id ON user_projects (role_id)"))
+
