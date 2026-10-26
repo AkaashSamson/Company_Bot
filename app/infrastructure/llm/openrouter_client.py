@@ -61,15 +61,19 @@ def _strip_reasoning(raw: str) -> str:
         if stripped and (_THINKING_HEADER.search(stripped) or _INSTRUCTION_ECHO.search(stripped)):
             last_header_idx = i
 
-    if last_header_idx == -1:
-        return text
+    if last_header_idx != -1:
+        after = "\n".join(lines[last_header_idx + 1:]).strip()
+        if not after:
+            paragraphs = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
+            cleaned = paragraphs[-1] if paragraphs else text
+        else:
+            cleaned = after
+    else:
+        cleaned = text
 
-    after = "\n".join(lines[last_header_idx + 1:]).strip()
-    if not after:
-        paragraphs = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
-        return paragraphs[-1] if paragraphs else text
-
-    return after
+    # Clean generic [Document Context] or 【Document Context】 tags while preserving specific citations
+    cleaned = re.sub(r"[【\[]\s*Document[\u202f\s]+Context\s*[】\]]", "", cleaned, flags=re.IGNORECASE)
+    return cleaned.strip()
 
 
 class OpenRouterClient(LLMProvider):
@@ -79,7 +83,7 @@ class OpenRouterClient(LLMProvider):
         self,
         api_key: str = OPENROUTER_API_KEY,
         model: str = LLM_MODEL,
-        timeout: float = 60.0,
+        timeout: float = 3.0,
         max_tokens: int = 1024,
         session_id: Optional[str] = None,
         health_monitor: Optional[Any] = None,
@@ -166,9 +170,6 @@ class OpenRouterClient(LLMProvider):
 
             # Track token usage from OpenRouter response
             self._track_tokens(data)
-            
-            # Update LangSmith trace with token counts (if tracing is enabled)
-            self._add_tokens_to_langsmith(data)
 
             return _strip_reasoning(raw)
 
@@ -264,7 +265,6 @@ class OpenRouterClient(LLMProvider):
                 self.health_monitor.record_request_success(ProviderType.OPENROUTER.value, latency_ms)
 
             self._track_tokens(data)
-            self._add_tokens_to_langsmith(data)
 
             usage = data.get("usage", {})
             tokens = LLMTokenUsage(
@@ -294,11 +294,33 @@ class OpenRouterClient(LLMProvider):
             )
 
     def _track_tokens(self, response_data: dict) -> None:
-        """Extract and track token usage from OpenRouter response."""
+        """Extract, store, and track token usage from OpenRouter response."""
         try:
             usage = response_data.get("usage", {})
+            if not usage:
+                return
+
             prompt_tokens = usage.get("prompt_tokens", 0)
             completion_tokens = usage.get("completion_tokens", 0)
+            total_tokens = usage.get("total_tokens", prompt_tokens + completion_tokens)
+
+            # Store tokens as class attribute so they can be accessed later
+            self._last_tokens = {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens,
+                "model": self.model,
+            }
+
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(
+                "Token usage: prompt=%d, completion=%d, total=%d, model=%s",
+                prompt_tokens,
+                completion_tokens,
+                total_tokens,
+                self.model,
+            )
 
             tracker = get_token_tracker()
             tracker.track(
@@ -313,58 +335,6 @@ class OpenRouterClient(LLMProvider):
             # Don't let tracking errors break the response
             import logging
             logging.warning(f"Failed to track token usage: {e}")
-
-    def _add_tokens_to_langsmith(self, response_data: dict) -> None:
-        """Add token usage metadata to LangSmith trace."""
-        try:
-            usage = response_data.get("usage", {})
-            if not usage:
-                return
-
-            prompt_tokens = usage.get("prompt_tokens", 0)
-            completion_tokens = usage.get("completion_tokens", 0)
-            total_tokens = prompt_tokens + completion_tokens
-
-            # Store tokens as class attribute so they can be accessed later
-            self._last_tokens = {
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": completion_tokens,
-                "total_tokens": total_tokens,
-                "model": self.model,
-            }
-
-            # Log for visibility
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.info(
-                "Token usage: prompt=%d, completion=%d, total=%d, model=%s",
-                prompt_tokens,
-                completion_tokens,
-                total_tokens,
-                self.model,
-            )
-
-            # Try to add to LangSmith context
-            try:
-                from langsmith import get_run_tree
-                run = get_run_tree()
-                if run:
-                    # Add tokens to the current run's metadata
-                    if not hasattr(run, '_metadata'):
-                        run._metadata = {}
-                    run._metadata.update({
-                        "prompt_tokens": prompt_tokens,
-                        "completion_tokens": completion_tokens,
-                        "total_tokens": total_tokens,
-                        "model": self.model,
-                    })
-                    logger.debug(f"Added token metadata to LangSmith run: {run.id}")
-            except Exception as e:
-                logger.debug(f"Could not add tokens to LangSmith: {e}")
-
-        except Exception as e:
-            import logging
-            logging.debug(f"Failed to process token usage: {e}")
 
     def get_last_tokens(self) -> dict:
         """Get the token usage from the last generate() call."""

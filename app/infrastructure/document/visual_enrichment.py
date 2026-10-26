@@ -1,4 +1,4 @@
-"""Picture OCR, routing, and local SmolVLM enrichment for Docling documents."""
+"""Picture OCR, routing, and local visual understanding (Qwen2-VL) enrichment for Docling documents."""
 
 from __future__ import annotations
 
@@ -7,18 +7,20 @@ from dataclasses import dataclass
 from io import BytesIO
 from typing import Any
 
-from docling.datamodel.base_models import DocumentStream, InputFormat, ItemAndImageEnrichmentElement
-from docling.datamodel.pipeline_options import EasyOcrOptions, OcrMode, PdfPipelineOptions
-from docling.document_converter import DocumentConverter, ImageFormatOption
+from docling.datamodel.base_models import ItemAndImageEnrichmentElement
+from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling_core.types.doc import PictureItem
 
 from app.core.settings import (
-    DOCLING_OCR_MIN_CONFIDENCE,
+    DOCLING_SKIP_BLANK_PAGES,
     DOCLING_SKIP_DECORATIVE_OCR,
     DOCLING_VLM_MAX_NEW_TOKENS,
     DOCLING_VLM_MODEL,
 )
 from app.domain.ports.document_processing import ProcessedChunk, SectionHeading
+from app.domain.ports.visual_contract import VisualOutputContract
+from app.infrastructure.document.vlm_engine import VisualUnderstandingEngine
+from app.infrastructure.document.vlm_factory import get_vlm_engine
 
 logger = logging.getLogger("knowlayer.ingestion.visual")
 
@@ -53,12 +55,21 @@ class PictureFacts:
 class VisualEnricher:
     """Enrich pictures without exposing Docling objects outside infrastructure."""
 
-    def __init__(self, model_name: str = DOCLING_VLM_MODEL):
+    def __init__(
+        self,
+        model_name: str = DOCLING_VLM_MODEL,
+        vlm_engine: VisualUnderstandingEngine | None = None,
+    ):
         self._model_name = model_name
+        self._vlm_engine = vlm_engine
         self._classifier: Any | None = None
-        self._ocr_converter: DocumentConverter | None = None
-        self._processor: Any | None = None
-        self._model: Any | None = None
+
+    @property
+    def vlm_engine(self) -> VisualUnderstandingEngine:
+        """Lazily resolve the visual understanding engine."""
+        if self._vlm_engine is None:
+            self._vlm_engine = get_vlm_engine(self._model_name)
+        return self._vlm_engine
 
     def enrich(
         self,
@@ -70,40 +81,101 @@ class VisualEnricher:
         if not pictures:
             return ()
         self._classify(document, pictures)
-        output: list[ProcessedChunk] = []
+        candidates = []
         for picture in pictures:
             label = self._label(picture)
             if DOCLING_SKIP_DECORATIVE_OCR and label in DECORATIVE_LABELS:
-                logger.info("skipping OCR for decorative picture %s (%s)", picture.ref, label)
+                logger.info("skipping decorative picture %s (%s)", picture.ref, label)
                 continue
 
-            ocr_text = self._ocr(picture)
-            route = self._route(label, ocr_text)
-            if ocr_text and route in {"OCR", "OCR+VLM"}:
+            # Skip blank or empty images (e.g. scanner duplex blanks)
+            if DOCLING_SKIP_BLANK_PAGES and picture.image_bytes:
+                try:
+                    from app.infrastructure.document.image_normalizer import is_blank_page
+                    if is_blank_page(picture.image_bytes):
+                        logger.info("skipping blank picture %s", picture.ref)
+                        continue
+                except Exception:
+                    pass
+
+            # Skip small decorative images/icons (< 150x150 px)
+            if DOCLING_SKIP_DECORATIVE_OCR and picture.image_bytes:
+                try:
+                    from PIL import Image
+                    with Image.open(BytesIO(picture.image_bytes)) as pil_img:
+                        if pil_img.width < 150 and pil_img.height < 150:
+                            logger.info(
+                                "skipping small decorative image %s (%dx%d)",
+                                picture.ref,
+                                pil_img.width,
+                                pil_img.height,
+                            )
+                            continue
+                except Exception:
+                    pass
+
+            route = self._route(label)
+            if route == "IGNORE":
+                continue
+
+            candidates.append((picture, route))
+
+        if not candidates:
+            return ()
+
+        # Parallelize VLM description across threads if multiple candidates exist
+        import concurrent.futures
+        descriptions: dict[str, Any] = {}
+        if len(candidates) > 1:
+            max_workers = min(3, len(candidates))
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_map = {
+                    executor.submit(self._describe, pic.image_bytes, picture_ref=pic.ref): pic.ref
+                    for pic, _ in candidates
+                }
+                for future in concurrent.futures.as_completed(future_map):
+                    ref = future_map[future]
+                    try:
+                        descriptions[ref] = future.result()
+                    except Exception as err:
+                        logger.warning("VLM description failed for %s: %s", ref, err)
+                        descriptions[ref] = None
+        else:
+            pic, _ = candidates[0]
+            try:
+                descriptions[pic.ref] = self._describe(pic.image_bytes, picture_ref=pic.ref)
+            except Exception as err:
+                logger.warning("VLM description failed for %s: %s", pic.ref, err)
+                descriptions[pic.ref] = None
+
+        # Assemble chunks in deterministic order
+        output: list[ProcessedChunk] = []
+        for picture, route in candidates:
+            contract = descriptions.get(picture.ref)
+            if not contract:
+                continue
+
+            search_text = (
+                contract.to_search_text()
+                if isinstance(contract, VisualOutputContract)
+                else str(contract).strip()
+            )
+            if search_text:
+                produced_by = "qwen2-vl"
+                metadata_extra: dict[str, Any] = {"model": self._model_name}
+                if isinstance(contract, VisualOutputContract):
+                    metadata_extra.update(contract.to_metadata())
+
                 output.append(self._chunk(
-                    text=ocr_text,
+                    text=search_text,
                     index=starting_index + len(output),
                     picture=picture,
                     route=route,
-                    produced_by="docling+easyocr",
+                    produced_by=produced_by,
                     verified=False,
-                    review_required=False,
-                    extra={"ocr_characters": len(ocr_text)},
+                    review_required=True,
+                    extra=metadata_extra,
                 ))
-
-            if route in {"VLM", "OCR+VLM"}:
-                description = self._describe(picture.image_bytes)
-                if description:
-                    output.append(self._chunk(
-                        text=description,
-                        index=starting_index + len(output),
-                        picture=picture,
-                        route=route,
-                        produced_by="smolvlm",
-                        verified=False,
-                        review_required=True,
-                        extra={"model": self._model_name},
-                    ))
         return tuple(output)
 
     @staticmethod
@@ -177,72 +249,29 @@ class VisualEnricher:
         return (picture.top_class[0] if picture.top_class else "").replace(" ", "_").replace("-", "_")
 
     def _ocr(self, picture: PictureFacts) -> str:
-        if self._ocr_converter is None:
-            options = PdfPipelineOptions()
-            options.do_table_structure = False
-            options.do_picture_classification = False
-            options.do_picture_description = False
-            options.do_ocr = True
-            options.ocr_options = EasyOcrOptions(
-                mode=OcrMode.FULL_PAGE,
-                lang=["en"],
-                scale=2.0,
-                use_gpu=False,
-                confidence_threshold=DOCLING_OCR_MIN_CONFIDENCE,
-            )
-            self._ocr_converter = DocumentConverter(
-                format_options={InputFormat.IMAGE: ImageFormatOption(pipeline_options=options)}
-            )
-        try:
-            result = self._ocr_converter.convert(
-                DocumentStream(name=f"{picture.ref}.png", stream=BytesIO(picture.image_bytes))
-            )
-            return "\n".join(
-                text
-                for item in result.document.texts
-                if (text := (getattr(item, "text", "") or "").strip())
-            )
-        except Exception:
-            logger.exception("picture OCR failed for %s", picture.ref)
-            return ""
+        """Deprecated: OCR is handled natively and exhaustively by Qwen2-VL."""
+        logger.debug("VisualEnricher._ocr is deprecated; OCR is now integrated into Qwen2-VL")
+        return ""
 
     @staticmethod
-    def _route(label: str, ocr_text: str) -> str:
+    def _route(label: str, ocr_text: str = "") -> str:
+        """Determine routing for an image. All non-decorative images route directly to VLM."""
         if label in DECORATIVE_LABELS:
             return "IGNORE"
-        if label in CHART_LABELS or label in DIAGRAM_LABELS:
-            return "OCR+VLM"
-        if label in TEXTUAL_LABELS or label in SCREENSHOT_LABELS:
-            return "OCR+VLM"
-        if ocr_text:
-            return "OCR+VLM"
         return "VLM"
 
-    def _describe(self, image_bytes: bytes) -> str:
-        import torch
-        from PIL import Image
-
-        if self._model is None:
-            from transformers import AutoModelForImageTextToText, AutoProcessor
-
-            self._processor = AutoProcessor.from_pretrained(self._model_name)
-            self._model = AutoModelForImageTextToText.from_pretrained(
-                self._model_name, dtype=torch.float32
-            )
-            self._model.eval()
-        prompt = (
-            "Describe only visible content for document search. Include exact labels, "
-            "components, relationships, arrow direction, process order, chart values, "
-            "and axis labels. Do not speculate. Plain text, no preamble."
+    def _describe(
+        self,
+        image_bytes: bytes,
+        ocr_context: str = "",
+        picture_ref: str = "",
+    ) -> VisualOutputContract:
+        """Describe visual content using the configured visual understanding engine."""
+        return self.vlm_engine.describe(
+            image_bytes=image_bytes,
+            ocr_context=ocr_context,
+            picture_ref=picture_ref,
         )
-        image = Image.open(BytesIO(image_bytes)).convert("RGB")
-        messages = [{"role": "user", "content": [{"type": "image"}, {"type": "text", "text": prompt}]}]
-        rendered = self._processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
-        inputs = self._processor(text=rendered, images=[image], return_tensors="pt")
-        with torch.no_grad():
-            output = self._model.generate(**inputs, max_new_tokens=DOCLING_VLM_MAX_NEW_TOKENS, do_sample=False)
-        trimmed = output[0][inputs["input_ids"].shape[1]:]
-        return self._processor.decode(trimmed, skip_special_tokens=True).strip()
 
     @staticmethod
     def _chunk(

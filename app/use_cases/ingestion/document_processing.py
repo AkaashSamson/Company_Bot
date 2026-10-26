@@ -1,5 +1,35 @@
+import re
+
 from app.domain.entities.chunk_metadata import build_chunk_metadata
 from app.domain.ports.document_processing import ProcessedDocument
+
+
+def sanitize_financial_text(text: str) -> str:
+    """Normalize broken financial numbers and spaced decimals from table extractions.
+
+    Transforms patterns like:
+    - '1, 744, 964. 57' -> '1,744,964.57'
+    - '12, 894. 95'     -> '12,894.95'
+    - '0. 00'           -> '0.00'
+    - '(13, 699. 88)'   -> '(13,699.88)'
+    """
+    if not text:
+        return text
+    # Fix digit groups separated by comma + space: 1, 744, 964 -> 1,744,964
+    for _ in range(5):
+        text = re.sub(r"(\d+),\s+(\d{3}\b)", r"\1,\2", text)
+    # Fix decimals following comma-formatted numbers: 1,744,964. 57 -> 1,744,964.57
+    text = re.sub(r"(\d+,\d{3})\.\s+(\d{1,4}\b)", r"\1.\2", text)
+    # Fix 1-4 digit numbers preceded by operators, currencies, or table separators (=, :, (, +, -, $, EUR, etc.)
+    text = re.sub(
+        r"([(=+\-:\$€£~>]\s*|\b(?:EUR|USD|GBP|INR|JPY)\s+)(\d{1,4})\.\s+(\d{2}\b)",
+        r"\1\2.\3",
+        text,
+    )
+    return text
+
+
+_sanitize_financial_text = sanitize_financial_text
 
 def _contextualize(hierarchy_path: tuple[str, ...], chunk_text: str, budget_chars: int = 200) -> str:
     """Safely combine heading hierarchy with chunk text within a strict budget.
@@ -90,11 +120,12 @@ def build_chunk_records_from_processed(
             }:
                 metadata[key] = value
         text_with_context = _contextualize(entry.hierarchy_path, chunk.text)
-        
+        sanitized_text = sanitize_financial_text(text_with_context)
+
         records.append(
             {
                 "id": f"{document_id}-{position}",
-                "text": text_with_context,
+                "text": sanitized_text,
                 "metadata": metadata,
             }
         )

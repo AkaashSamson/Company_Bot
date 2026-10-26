@@ -37,11 +37,24 @@ def _error(error):
 
 @router.get("/documents", response_model=list[DocumentResponse])
 def list_documents(
+    include_archived: bool = Query(False),
     principal=Depends(get_current_principal),
     service=Depends(get_document_management_service),
 ):
     try:
-        return service.list_documents(principal)
+        return service.list_documents(principal, include_archived=include_archived)
+    except Exception as error:
+        raise _error(error) from error
+
+
+@router.get("/documents/{document_id}", response_model=DocumentResponse)
+def get_document(
+    document_id: str,
+    principal=Depends(get_current_principal),
+    service=Depends(get_document_management_service),
+):
+    try:
+        return service.get_document(principal, document_id)
     except Exception as error:
         raise _error(error) from error
 
@@ -54,8 +67,15 @@ def create_document(
     service=Depends(get_document_management_service),
 ):
     try:
-        doc = service.register_document(principal, defer_ingestion=True, **payload.model_dump())
-        if (payload.content or payload.source_path) and hasattr(service, "ingest_document"):
+        data = payload.model_dump()
+        use_async = data.pop("async_mode", True)
+        doc = service.register_document(
+            principal,
+            defer_ingestion=use_async,
+            background_tasks=background_tasks if use_async else None,
+            **data,
+        )
+        if use_async and (payload.content or payload.source_path) and hasattr(service, "ingest_document"):
             background_tasks.add_task(
                 service.ingest_document,
                 doc.document_id,
@@ -142,13 +162,16 @@ def create_project_document(
     service=Depends(get_document_management_service),
 ):
     try:
+        data = payload.model_dump(exclude={"project_id"})
+        use_async = data.pop("async_mode", True)
         doc = service.register_document(
             principal,
             project_id=project_id,
-            defer_ingestion=True,
-            **payload.model_dump(exclude={"project_id"}),
+            defer_ingestion=use_async,
+            background_tasks=background_tasks if use_async else None,
+            **data,
         )
-        if (payload.content or payload.source_path) and hasattr(service, "ingest_document"):
+        if use_async and (payload.content or payload.source_path) and hasattr(service, "ingest_document"):
             background_tasks.add_task(
                 service.ingest_document,
                 doc.document_id,
@@ -172,6 +195,18 @@ def delete_document(
     except Exception as error:
         raise _error(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/documents/{document_id}/restore", response_model=DocumentResponse)
+def restore_document(
+    document_id: str,
+    principal=Depends(get_current_principal),
+    service=Depends(get_document_management_service),
+):
+    try:
+        return service.restore_document(principal, document_id)
+    except Exception as error:
+        raise _error(error) from error
 
 
 @router.get("/documents/{document_id}/access", response_model=list[DocumentGrantResponse])

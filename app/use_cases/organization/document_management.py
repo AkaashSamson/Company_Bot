@@ -4,7 +4,7 @@ import hashlib
 import logging
 from pathlib import Path
 import shutil
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from app.core.settings import DEPARTMENT_ID_PREFIX, DOCUMENT_ID_PREFIX, EMPLOYEE_ID_PREFIX, PROJECT_ID_PREFIX
 from app.domain.entities.organization_models import Document
@@ -61,13 +61,52 @@ class DocumentManagementService:
         if not self.authorization.can_view_project_documents(AuthenticatedPrincipal(actor.uid), project.project_id):
             raise ForbiddenError("Project documents are outside viewer scope")
 
-    def _can_access(self, actor, document):
-        return self.authorization.can_read_document(AuthenticatedPrincipal(actor.uid), document.document_id)
+    def _can_access(self, actor, document, include_archived: bool = False):
+        if document.status == "archived":
+            if not include_archived:
+                return False
+            if actor.role.casefold() == "admin" or document.uploaded_by == actor.uid:
+                return True
+            if document.project_id is None:
+                return True
+            with self.unit_of_work_factory() as uow:
+                project = uow.projects.get(document.project_id)
+                if project and self.authorization._can_manage_project(uow, actor, project):
+                    return True
+                membership = uow.memberships.get(actor.uid, document.project_id)
+                if membership and membership.status == "active":
+                    return True
+            return False
+        if document.status == "active":
+            return self.authorization.can_read_document(AuthenticatedPrincipal(actor.uid), document.document_id)
+        # Allow uploader or manager/admin to see documents while processing or failed
+        if actor.role.casefold() == "admin" or document.uploaded_by == actor.uid:
+            return True
+        if document.project_id is None:
+            return True
+        with self.unit_of_work_factory() as uow:
+            project = uow.projects.get(document.project_id)
+            if project and self.authorization._can_manage_project(uow, actor, project):
+                return True
+            membership = uow.memberships.get(actor.uid, document.project_id)
+            if membership and membership.status == "active":
+                return True
+        return False
 
-    def list_documents(self, principal: AuthenticatedPrincipal):
+    def get_document(self, principal: AuthenticatedPrincipal, document_id: str, include_archived: bool = True) -> Document:
         with self.unit_of_work_factory() as uow:
             actor = self._actor(uow, principal)
-            return [document for document in uow.documents.list() if self._can_access(actor, document)]
+            document = uow.documents.get(document_id)
+            if document is None or (document.status == "archived" and not include_archived):
+                raise NotFoundError("Document not found")
+            if not self._can_access(actor, document, include_archived=include_archived):
+                raise ForbiddenError("Document is outside access scope")
+            return document
+
+    def list_documents(self, principal: AuthenticatedPrincipal, include_archived: bool = False):
+        with self.unit_of_work_factory() as uow:
+            actor = self._actor(uow, principal)
+            return [document for document in uow.documents.list() if self._can_access(actor, document, include_archived=include_archived)]
 
     def list_project_documents(self, principal: AuthenticatedPrincipal, project_id: str):
         with self.unit_of_work_factory() as uow:
@@ -77,18 +116,8 @@ class DocumentManagementService:
             return [
                 document
                 for document in uow.documents.list()
-                if document.project_id == project.project_id and document.status == "active"
+                if document.project_id == project.project_id and document.status != "archived" and self._can_access(actor, document)
             ]
-
-    def get_document(self, principal: AuthenticatedPrincipal, document_id: str) -> Document:
-        with self.unit_of_work_factory() as uow:
-            actor = self._actor(uow, principal)
-            document = uow.documents.get(document_id)
-            if document is None:
-                raise NotFoundError("Document not found")
-            if not self._can_access(actor, document):
-                raise ForbiddenError("Document is outside viewer scope")
-            return document
 
     def get_document_status(self, principal: AuthenticatedPrincipal, document_id: str) -> dict:
         doc = self.get_document(principal, document_id)
@@ -112,6 +141,7 @@ class DocumentManagementService:
         description: str | None = None,
         version: str = "1.0",
         defer_ingestion: bool = False,
+        background_tasks: Any = None,
     ):
         raw_bytes = None
         file_hash = None
@@ -170,8 +200,22 @@ class DocumentManagementService:
             if description is not None and len(description) > DESCRIPTION_MAX_LENGTH:
                 raise ValueError(f"Description must not exceed {DESCRIPTION_MAX_LENGTH} characters")
 
+            # Pre-validate content or source_path synchronously
+            if source_path or content:
+                from app.infrastructure.ingestion.provisioner import validate_upload_content
+
+                _, detected_ext = validate_upload_content(
+                    content=content,
+                    source_path=source_path,
+                    document_name=document_name or document_id,
+                )
+                if detected_ext and not file_type:
+                    file_type = detected_ext.lstrip(".")
+
             now = utc_now()
-            initial_status = "processing" if (source_path or content) and (defer_ingestion or self.ingestion_handler) else "active"
+            is_async = (defer_ingestion or background_tasks is not None) and (source_path or content) and self.ingestion_handler
+            initial_status = "processing" if is_async else "active"
+
             document = Document(
                 document_id,
                 document_name or document_id,
@@ -188,13 +232,25 @@ class DocumentManagementService:
                 uploaded_at=now if (source_path or content) else None,
                 file_hash=file_hash,
             )
-            if (source_path or content) and self.ingestion_handler and not defer_ingestion:
+
+            # Synchronous path: run ingestion immediately before saving
+            if not is_async and (source_path or content) and self.ingestion_handler:
                 self.ingestion_handler(source_path, document, content)
                 document.status = "active"
 
             document = uow.documents.save(document)
             uow.commit()
-            return document
+
+        # Asynchronous path: dispatch ingestion if background_tasks was passed directly
+        if background_tasks is not None and is_async:
+            background_tasks.add_task(
+                self.ingest_document,
+                document.document_id,
+                source_path,
+                content,
+            )
+
+        return document
 
     def ingest_document(
         self,
@@ -202,9 +258,12 @@ class DocumentManagementService:
         source_path: str | None = None,
         content: str | None = None,
     ):
+        """Executes document ingestion in the background and updates document status."""
+        logger.info("Starting background ingestion for document %r", document_id)
         with self.unit_of_work_factory() as uow:
             document = uow.documents.get(document_id)
             if not document:
+                logger.warning("Document %r not found for background ingestion", document_id)
                 return
             try:
                 if self.ingestion_handler:
@@ -213,21 +272,33 @@ class DocumentManagementService:
                 document.updated_at = utc_now()
                 uow.documents.save(document)
                 uow.commit()
+                logger.info("Background ingestion completed successfully for document %r (status: active)", document_id)
             except Exception as exc:
-                logger.error("Async ingestion failed for document %s: %s", document_id, exc)
+                logger.error("Async ingestion failed for document %s: %s", document_id, exc, exc_info=True)
                 document.status = "failed"
                 document.description = f"{document.description or ''} [Failed: {exc}]".strip()
                 document.updated_at = utc_now()
                 uow.documents.save(document)
                 uow.commit()
 
+    # Alias for backwards compatibility with tests
+    process_document_ingestion = ingest_document
+
     def register_project_document(
         self,
         principal: AuthenticatedPrincipal,
         project_id: str,
+        defer_ingestion: bool = False,
+        background_tasks: Any = None,
         **fields,
     ):
-        return self.register_document(principal, project_id=project_id, **fields)
+        return self.register_document(
+            principal,
+            project_id=project_id,
+            defer_ingestion=defer_ingestion,
+            background_tasks=background_tasks,
+            **fields,
+        )
 
     def archive_document(self, principal: AuthenticatedPrincipal, document_id: str):
         with self.unit_of_work_factory() as uow:
@@ -264,6 +335,31 @@ class DocumentManagementService:
 
             uow.documents.save(document)
             uow.commit()
+
+    def restore_document(self, principal: AuthenticatedPrincipal, document_id: str):
+        with self.unit_of_work_factory() as uow:
+            actor = self._actor(uow, principal)
+            document = uow.documents.get(document_id)
+            if document is None:
+                raise NotFoundError("Document not found")
+            if not self.authorization.can_manage_document(AuthenticatedPrincipal(actor.uid), document_id):
+                raise ForbiddenError("Document is outside manager scope")
+
+            document.status = "active"
+            document.updated_at = utc_now()
+
+            # Relocate file back from archived directory if present
+            if document.storage_location:
+                src_path = Path(document.storage_location)
+                if src_path.exists() and src_path.parent.name == "archived":
+                    dest_dir = src_path.parent.parent
+                    dest_path = dest_dir / src_path.name
+                    shutil.move(str(src_path), str(dest_path))
+                    document.storage_location = str(dest_path)
+
+            document = uow.documents.save(document)
+            uow.commit()
+            return document
 
     def delete_document(self, principal: AuthenticatedPrincipal, document_id: str, permanent: bool = False):
         if not permanent:

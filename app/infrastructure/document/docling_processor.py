@@ -23,9 +23,13 @@ from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTok
 from docling_core.types.doc import DocItemLabel
 
 from app.core.settings import (
+    DOCLING_AUTO_OCR_SELECTIVE,
     DOCLING_CITATION_PDF_DIR,
     DOCLING_CITATION_PDF_ENABLED,
     DOCLING_MAX_TOKENS,
+    DOCLING_NUM_THREADS,
+    DOCLING_PDF_OCR_SCALE,
+    DOCLING_SKIP_BLANK_PAGES,
     DOCLING_VISUAL_ENRICHMENT_ENABLED,
     EMBEDDING_MODEL,
 )
@@ -105,6 +109,65 @@ def _page_of(item: Any) -> int | None:
     return min(pages) if pages else None
 
 
+def _has_digital_text(content: bytes) -> bool:
+    """Quickly check if a PDF has native digital text stream using pypdfium2."""
+    try:
+        import pypdfium2 as pdfium
+        doc = pdfium.PdfDocument(content)
+        sample_count = min(3, len(doc))
+        for i in range(sample_count):
+            text = doc[i].get_textpage().get_text_range().strip()
+            if len(text) > 40:
+                return True
+        return False
+    except Exception:
+        return False
+
+
+_cached_converters: dict[bool, DocumentConverter] = {}
+
+
+def get_docling_converter(is_digital_pdf: bool = False) -> DocumentConverter:
+    """Get or construct a shared, pre-warmed DocumentConverter with multi-core acceleration."""
+    key = is_digital_pdf and DOCLING_AUTO_OCR_SELECTIVE
+    if key not in _cached_converters:
+        from docling.datamodel.pipeline_options import (
+            AcceleratorOptions,
+            OcrAutoOptions,
+            OcrMode,
+            PdfPipelineOptions,
+        )
+        from docling.document_converter import PdfFormatOption
+
+        pdf_options = PdfPipelineOptions()
+        pdf_options.accelerator_options = AcceleratorOptions(num_threads=DOCLING_NUM_THREADS)
+        if key:
+            # Fast digital mode: Native text already present in PDF stream; skip heavy RapidOCR pixel pass.
+            pdf_options.do_ocr = False
+            logger.info("Configured Docling with do_ocr=False (Digital Fast Mode, %d threads)", DOCLING_NUM_THREADS)
+        else:
+            # Scanned / Image PDF: Run RapidOCR with layout awareness
+            pdf_options.do_ocr = True
+            pdf_options.ocr_options = OcrAutoOptions(
+                mode=OcrMode.PDF_AWARE_LAYOUT_REGIONS,
+                scale=DOCLING_PDF_OCR_SCALE,
+            )
+            logger.info("Configured Docling with full RapidOCR (Scanned Document Mode, %d threads)", DOCLING_NUM_THREADS)
+
+        if DOCLING_VISUAL_ENRICHMENT_ENABLED:
+            pdf_options.generate_picture_images = True
+
+        format_options = {
+            InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_options),
+        }
+
+        _cached_converters[key] = DocumentConverter(
+            allowed_formats=sorted({fmt.value for fmt in _EXTENSION_TO_FORMAT.values()}),
+            format_options=format_options,
+        )
+    return _cached_converters[key]
+
+
 @dataclass(frozen=True, slots=True)
 class _ItemFacts:
     """Structural facts captured per document item during a single index pass."""
@@ -137,9 +200,7 @@ class DoclingDocumentProcessor:
     def converter(self) -> DocumentConverter:
         """Lazily built converter; loading layout models is deferred."""
         if self._converter is None:
-            self._converter = DocumentConverter(
-                allowed_formats=sorted({fmt.value for fmt in _EXTENSION_TO_FORMAT.values()})
-            )
+            return get_docling_converter(is_digital_pdf=False)
         return self._converter
 
     @property
@@ -216,8 +277,13 @@ class DoclingDocumentProcessor:
     def _convert(self, content: bytes, file_name: str) -> tuple[Any, int | None]:
         """Run the converter and return the document plus its page count."""
         stream = DocumentStream(name=Path(file_name).name, stream=BytesIO(content))
+        converter = self._converter
+        if converter is None:
+            is_digital = Path(file_name).suffix.lower() == ".pdf" and _has_digital_text(content)
+            converter = get_docling_converter(is_digital_pdf=is_digital)
+
         try:
-            result = self.converter.convert(stream)
+            result = converter.convert(stream)
         except Exception as error:
             raise ValueError(f"Unable to parse document {file_name!r}: {error}") from error
 
@@ -282,6 +348,8 @@ class DoclingDocumentProcessor:
         for raw_chunk in raw_chunks:
             text = (getattr(raw_chunk, "text", "") or "").strip()
             if not text:
+                continue
+            if DOCLING_SKIP_BLANK_PAGES and len(text) < 3 and not text.isalnum():
                 continue
             section_path, page_number, label = self._facts_of(self._items_of(raw_chunk), facts)
             # An unattributable chunk keeps the port's own default content type

@@ -29,6 +29,7 @@ class HealthStatus(Enum):
 
 class ProviderType(Enum):
     """LLM provider types."""
+    OPENAI = "openai"
     OPENROUTER = "openrouter"
     GROQ = "groq"
     UNKNOWN = "unknown"
@@ -211,6 +212,7 @@ class ProviderHealthMonitor:
         self._default_timeout_seconds = 30.0
         
         # Register default providers
+        self.register_provider(ProviderType.OPENAI.value)
         self.register_provider(ProviderType.OPENROUTER.value)
         self.register_provider(ProviderType.GROQ.value)
         

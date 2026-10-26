@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class LLMProviderName(Enum):
     """Supported LLM providers."""
+    OPENAI = "openai"
     OPENROUTER = "openrouter"
     GROQ = "groq"
     UNKNOWN = "unknown"

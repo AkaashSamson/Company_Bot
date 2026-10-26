@@ -391,3 +391,22 @@ def test_result_contains_only_neutral_types():
     assert {type(chunk).__module__ for chunk in result.chunks} == {
         "app.domain.ports.document_processing"
     }
+
+
+def test_has_digital_text_handles_empty_and_invalid_bytes():
+    from app.infrastructure.document.docling_processor import _has_digital_text
+    assert _has_digital_text(b"") is False
+    assert _has_digital_text(b"not a valid pdf") is False
+
+
+def test_get_docling_converter_caches_converters(monkeypatch):
+    from app.infrastructure.document.docling_processor import get_docling_converter, _cached_converters
+    _cached_converters.clear()
+
+    conv_digital = get_docling_converter(is_digital_pdf=True)
+    conv_digital_cached = get_docling_converter(is_digital_pdf=True)
+    assert conv_digital is conv_digital_cached
+
+    conv_scanned = get_docling_converter(is_digital_pdf=False)
+    assert conv_scanned is not conv_digital
+

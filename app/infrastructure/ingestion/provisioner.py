@@ -40,6 +40,8 @@ def _detect_extension(raw: bytes, name: str) -> str:
     if suffix:
         return suffix
 
+    if raw[:4] == b"%PDF":
+        return ".pdf"
     if raw[:2] == b"PK" and b"[Content_Types].xml" in raw[:4096]:
         return ".docx"
     try:
@@ -47,6 +49,45 @@ def _detect_extension(raw: bytes, name: str) -> str:
         return ".txt"
     except UnicodeDecodeError:
         return ""
+
+
+def validate_upload_content(
+    content: str | None = None,
+    source_path: str | None = None,
+    document_name: str = "",
+    processor: DocumentProcessingPort | None = None,
+) -> tuple[bytes | None, str]:
+    """Validate content or source_path synchronously before saving or queuing.
+
+    Returns (raw_bytes, extension).
+    Raises ValueError or FileNotFoundError if invalid.
+    """
+    if content is not None:
+        try:
+            raw = base64.b64decode(content, validate=True)
+        except Exception as error:
+            raise ValueError("Document content is not valid base64") from error
+
+        extension = _detect_extension(raw, document_name)
+        parse_name = f"upload{extension}"
+    elif source_path is not None:
+        path = Path(source_path)
+        if not path.exists():
+            raise FileNotFoundError(source_path)
+        raw = path.read_bytes()
+        extension = path.suffix.lower()
+        parse_name = path.name
+    else:
+        return None, ""
+
+    if processor is None:
+        processor = build_document_processor()
+    if not processor.supports(parse_name):
+        supported = ", ".join(sorted(processor.supported_extensions()))
+        raise ValueError(
+            f"Unsupported document type: {extension or '(none)'} (supported: {supported})"
+        )
+    return raw, extension
 
 
 def provision_document(

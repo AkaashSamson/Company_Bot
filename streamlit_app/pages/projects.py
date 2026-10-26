@@ -14,10 +14,16 @@ user_info = auth.get("user", {}) if isinstance(auth, dict) else {}
 user_role = (user_info.get("role") or "").lower()
 permissions = auth.get("permissions", []) if isinstance(auth, dict) else []
 
-can_manage = (
-    user_role in ("admin", "manager")
+is_admin = (
+    user_role == "admin"
     or auth_uid == "admin"
     or "*" in permissions
+    or "ADMIN" in permissions
+)
+
+can_manage = (
+    is_admin
+    or user_role == "manager"
     or any(p in permissions for p in ("PROJECT_CREATE", "PROJECT_UPDATE", "PROJECT_DELETE", "PROJECT_MANAGE"))
 )
 
@@ -53,64 +59,63 @@ project_options = {p["project_name"]: p["project_id"] for p in projects}
 
 PROJECT_STATUSES = ["active", "inactive", "completed", "archived"]
 
-# Fetch user's project memberships for "My Projects"
-user_memberships = []
-if auth_uid:
-    try:
-        user_memberships = admin.list_user_memberships(auth_uid)
-    except Exception:
-        user_memberships = []
 
-user_project_ids = {m["project_id"] for m in user_memberships if m.get("status") == "active"}
-# User is also in project if they are the manager
-for p in projects:
-    if p.get("manager_uid") == auth_uid:
-        user_project_ids.add(p["project_id"])
+def render_my_projects():
+    """Render personal project assignments for employees and managers."""
+    # Fetch user's project memberships
+    user_memberships = []
+    if auth_uid:
+        try:
+            user_memberships = admin.list_user_memberships(auth_uid)
+        except Exception:
+            user_memberships = []
 
-# ==============================================================================
-# SECTION 1: My Projects
-# ==============================================================================
-st.header("My Projects")
-my_projects = [p for p in projects if p["project_id"] in user_project_ids]
+    user_project_ids = {m["project_id"] for m in user_memberships if m.get("status") == "active"}
+    for p in projects:
+        if p.get("manager_uid") == auth_uid:
+            user_project_ids.add(p["project_id"])
 
-if not my_projects:
-    st.info("You are not currently assigned to any projects.")
-else:
-    for proj in my_projects:
-        p_id = proj["project_id"]
-        p_name = proj["project_name"]
-        dept_name = department_name_by_id.get(proj.get("department_id"), proj.get("department_id") or "Unassigned")
-        mgr_uid = proj.get("manager_uid")
-        mgr_name = user_name_by_uid.get(mgr_uid, mgr_uid or "Unassigned")
-        st_val = proj.get("status", "active")
-        is_manager = (mgr_uid == auth_uid)
+    st.header("My Projects")
+    my_projects = [p for p in projects if p["project_id"] in user_project_ids]
 
-        with st.container():
-            col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 1, 2])
-            col1.write(f"**{p_name}** (`{p_id}`)")
-            col2.write(f"Department: {dept_name}" if dept_name else "No department")
-            col3.write(f"Manager: {mgr_name}")
-            col4.write(f"`{st_val}`")
+    if not my_projects:
+        st.info("You are not currently assigned to any projects.")
+    else:
+        for proj in my_projects:
+            p_id = proj["project_id"]
+            p_name = proj["project_name"]
+            dept_name = department_name_by_id.get(proj.get("department_id"), proj.get("department_id") or "Unassigned")
+            mgr_uid = proj.get("manager_uid")
+            mgr_name = user_name_by_uid.get(mgr_uid, mgr_uid or "Unassigned")
+            st_val = proj.get("status", "active")
+            is_manager = (mgr_uid == auth_uid)
 
-            if is_manager:
-                col5.caption("Manager (Transfer before leaving)")
-            else:
-                if col5.button("Leave Project", key=f"leave_{p_id}", help="Leave this project"):
-                    try:
-                        service.leave_project(p_id)
-                        st.success(f"Left project {p_name}.")
-                        st.rerun()
-                    except Exception as exc:
-                        st.error(f"Failed to leave: {format_error(exc)}")
-            st.divider()
+            with st.container():
+                col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 1, 2])
+                col1.write(f"**{p_name}** (`{p_id}`)")
+                col2.write(f"Department: {dept_name}" if dept_name else "No department")
+                col3.write(f"Manager: {mgr_name}")
+                col4.write(f"`{st_val}`")
 
-# ==============================================================================
-# SECTION 2: Project Details & Explorer
-# ==============================================================================
-st.header("Project Details & Explorer")
-if not project_options:
-    st.info("No projects available.")
-else:
+                if is_manager:
+                    col5.caption("Manager (Transfer before leaving)")
+                else:
+                    if col5.button("Leave Project", key=f"leave_{p_id}", help="Leave this project"):
+                        try:
+                            service.leave_project(p_id)
+                            st.success(f"Left project {p_name}.")
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Failed to leave: {format_error(exc)}")
+                st.divider()
+
+
+def render_project_explorer():
+    """Render details, members, and documents for selected project."""
+    if not project_options:
+        st.info("No projects available.")
+        return
+
     detail_label = st.selectbox("Select Project", list(project_options), key="detail-project-select")
     detail_id = project_options[detail_label]
     detail = next((p for p in projects if p["project_id"] == detail_id), {})
@@ -122,7 +127,7 @@ else:
     col3.metric("Manager", user_name_by_uid.get(manager_uid, manager_uid or "Unassigned"))
 
     if detail.get("description"):
-        st.caption(detail['description'])
+        st.caption(detail["description"])
 
     member_col, document_col = st.columns(2)
     with member_col:
@@ -167,13 +172,9 @@ else:
         else:
             st.write("No documents in this project.")
 
-# ==============================================================================
-# SECTION 3: Project Administration (Gated)
-# ==============================================================================
-if can_manage:
-    st.divider()
-    st.header("Project Administration")
 
+def render_project_administration():
+    """Render administrative forms to create, assign, and update projects."""
     with st.expander("Create New Project", expanded=False):
         with st.form("create-project-form"):
             new_prj_id = st.text_input("Project ID (optional, auto-generated if blank)")
@@ -277,3 +278,36 @@ if can_manage:
                     st.rerun()
                 except Exception as error:
                     st.error(format_error(error))
+
+
+# ==============================================================================
+# PAGE LAYOUT: Role-Tailored Experience
+# ==============================================================================
+if is_admin:
+    # Admin view: Focused on organizing, orchestrating, and administering projects
+    st.caption("Organize and manage projects, department allocations, and project teams across the organization.")
+
+    if projects:
+        m_col1, m_col2, m_col3 = st.columns(3)
+        m_col1.metric("Total Projects", len(projects))
+        m_col2.metric("Active Projects", sum(1 for p in projects if p.get("status") == "active"))
+        m_col3.metric("Departments Represented", len({p.get("department_id") for p in projects if p.get("department_id")}))
+
+    st.header("Project Administration")
+    render_project_administration()
+
+    st.divider()
+    st.header("Project Details & Explorer")
+    render_project_explorer()
+else:
+    # Employee / Manager view: My Projects first, followed by Explorer and Administration (if manager)
+    render_my_projects()
+
+    st.divider()
+    st.header("Project Details & Explorer")
+    render_project_explorer()
+
+    if can_manage:
+        st.divider()
+        st.header("Project Administration")
+        render_project_administration()

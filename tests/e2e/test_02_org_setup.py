@@ -10,9 +10,24 @@ def test_act2_sarah_org_setup_and_lead_onboarding(ui):
     print("[ACT 2] Sarah Chen Organization Setup & Lead Onboarding", flush=True)
     print("=" * 60, flush=True)
 
-    # 1. POS-ORG-01: Sarah Chen First Login
+    # 1. POS-ORG-01: Sarah Chen Login (Bootstrap if standalone)
     print("-> [Act 2.1] Sarah Chen logging in with newly provisioned credentials...", flush=True)
-    ui.login("sarah.admin", "Password123!")
+    try:
+        ui.login("sarah.admin", "Password123!")
+    except (AssertionError, Exception):
+        print("   [Setup] Sarah Chen not yet provisioned; bootstrapping via Admin...", flush=True)
+        ui.login("admin", "change-me-before-first-login")
+        ui.navigate_to("Users")
+        ui.fill_input("Username", "sarah.admin", container="Add User")
+        ui.fill_input("Name *", "Sarah Chen", container="Add User")
+        ui.fill_input("Email *", "sarah@nexora.com", container="Add User")
+        ui.select_dropdown("Role", "Admin", container="Add User")
+        ui.fill_input("Initial password", "Password123!", container="Add User")
+        ui.page.get_by_role("button", name="Create user").click()
+        expect(ui.page.locator('[data-testid^="glide-cell-"]').filter(has_text="Sarah Chen").first).to_be_attached()
+        ui.logout()
+        ui.login("sarah.admin", "Password123!")
+
     sidebar = ui.page.locator('[data-testid="stSidebar"]')
     expect(sidebar.get_by_text("Sarah Chen", exact=False)).to_be_visible()
     print("   [OK] Sarah Chen logged in successfully with Admin role!", flush=True)
