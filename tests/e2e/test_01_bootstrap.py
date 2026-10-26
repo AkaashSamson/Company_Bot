@@ -22,11 +22,11 @@ def test_act1_admin_bootstrap_and_sarah_creation(ui):
     expect(ui.page.get_by_role("heading", name="Users", exact=True)).to_be_visible()
 
     ui.open_expander("Add User")
-    ui.page.get_by_label("Username").fill("sarah.admin")
-    ui.page.get_by_label("Name *").fill("Sarah Chen")
-    ui.page.get_by_label("Email *").fill("sarah@nexora.com")
+    ui.fill_input("Username", "sarah.admin")
+    ui.fill_input("Name *", "Sarah Chen")
+    ui.fill_input("Email *", "sarah@nexora.com")
     ui.select_dropdown("Role", "Admin")
-    ui.page.get_by_label("Initial password").fill("Password123!")
+    ui.fill_input("Initial password", "Password123!")
     ui.page.get_by_role("button", name="Create user").click()
 
     # Verify Sarah is listed

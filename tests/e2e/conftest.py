@@ -201,6 +201,10 @@ class UIActions:
         self.page.wait_for_load_state("domcontentloaded")
         self.page.wait_for_timeout(1500)
 
+    def fill_input(self, label: str, value: str):
+        """Fill a Streamlit text input or textarea by role and name, avoiding tooltip collision."""
+        self.page.get_by_role("textbox", name=label).fill(value)
+
     def open_expander(self, label: str):
         """Expand a Streamlit st.expander if closed."""
         expander = self.page.locator('[data-testid="stExpander"]').filter(has_text=label)
