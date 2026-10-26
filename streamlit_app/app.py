@@ -39,27 +39,32 @@ if "last_response" not in st.session_state:
 
 if st.session_state.get("auth") is None:
     restore_auth(cookies)
-    st.title("KnowLayer Login")
-    with st.form("login"):
-        login_username = st.text_input("Username")
-        login_password = st.text_input("Password", type="password")
-        login_submitted = st.form_submit_button("Log in", type="primary")
-    if login_submitted:
-        try:
-            auth = AuthenticationService().login(login_username, login_password)
-            st.session_state.auth = auth
-            st.rerun()
-        except requests.exceptions.HTTPError as error:
-            status_code = error.response.status_code if error.response is not None else None
-            if status_code == 401:
-                st.error("Invalid username or password.")
-            else:
-                st.error(f"Login failed (HTTP {status_code}). Please try again.")
-        except requests.exceptions.RequestException:
-            st.error(
-                "The authentication service is not reachable. "
-                "Start the FastAPI backend on http://127.0.0.1:8000 and try again."
-            )
+    st.write("")
+    st.write("")
+    _, col, _ = st.columns([0.5, 1, 0.5])
+    with col:
+        with st.container(border=True):
+            st.subheader("KnowLayer Login")
+            with st.form("login"):
+                login_username = st.text_input("Username")
+                login_password = st.text_input("Password", type="password")
+                login_submitted = st.form_submit_button("Log in", type="primary", use_container_width=True)
+            if login_submitted:
+                try:
+                    auth = AuthenticationService().login(login_username, login_password)
+                    st.session_state.auth = auth
+                    st.rerun()
+                except requests.exceptions.HTTPError as error:
+                    status_code = error.response.status_code if error.response is not None else None
+                    if status_code == 401:
+                        st.error("Invalid username or password.")
+                    else:
+                        st.error(f"Login failed (HTTP {status_code}). Please try again.")
+                except requests.exceptions.RequestException:
+                    st.error(
+                        "The authentication service is not reachable. "
+                        "Start the FastAPI backend on http://127.0.0.1:8000 and try again."
+                    )
     st.stop()
 
 persist_auth(cookies)
