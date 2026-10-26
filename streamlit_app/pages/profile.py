@@ -1,12 +1,12 @@
 import streamlit as st
 
+from streamlit_app.services.authentication_service import AuthenticationService
 from streamlit_app.services.profile_api import ProfileAPI
 from streamlit_app.services.ui_helpers import format_error
 from streamlit_app.session_auth import require_auth
 
-
-st.set_page_config(page_title="My Profile | KnowLayer")
-require_auth()
+st.set_page_config(page_title="My Profile | KnowLayer", page_icon="👤", layout="wide")
+auth = require_auth()
 st.title("My Profile")
 
 api = ProfileAPI()
@@ -33,78 +33,102 @@ access_source_labels = {
     "grant": "project access grant",
 }
 
-st.caption("Read-only view. Only actions the backend explicitly allows are surfaced here.")
-
 # ------------------------------------------------------------ personal info
+st.subheader("Personal Information")
+with st.container(border=True):
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown(f"**Full Name:** {user.get('name') or '—'}")
+        st.markdown(f"**Username:** `{user.get('username') or user.get('uid') or '—'}`")
+        st.markdown(f"**Employee ID:** `{user.get('employee_id') or '—'}`")
+    with col2:
+        st.markdown(f"**Email:** {user.get('email') or '—'}")
+        st.markdown(f"**Department:** {department.get('department_name') or user.get('department') or '—'}")
+        st.markdown(f"**Job Title:** {user.get('job_title') or '—'}")
+    with col3:
+        st.markdown(f"**Role:** `{user.get('role') or '—'}`")
+        st.markdown(f"**Account Status:** `{user.get('status', 'active')}`")
+        st.markdown(f"**Billable Status:** {profile.get('billable_status') or 'Not assigned'}")
 
-st.subheader("Personal information")
-info = {
-    "Name": user.get("name"),
-    "Employee ID": user.get("employee_id"),
-    "Email": user.get("email"),
-    "Department": department.get("department_name") or user.get("department"),
-    "Role": user.get("role"),
-    "Billable status": profile.get("billable_status") or "Not assigned",
-}
-columns = st.columns(3)
-for index, (label, value) in enumerate(info.items()):
-    with columns[index % len(columns)]:
-        st.markdown(f"**{label}**")
-        st.write(value if value is not None else "—")
+# ------------------------------------------------------------- roles & permissions
+st.subheader("Assigned Roles & Permissions")
+roles = profile.get("roles") or []
+permissions = profile.get("permissions") or []
+
+with st.container(border=True):
+    if roles:
+        role_badges = []
+        for r in roles:
+            scope = r.get("scope", "global")
+            loc = f" ({r.get('department_id')})" if scope == "department" and r.get("department_id") else ""
+            role_badges.append(f"`{r.get('name')}` *({scope}{loc})*")
+        st.markdown("**Roles:** " + " · ".join(role_badges))
+    else:
+        st.markdown(f"**Roles:** `{user.get('role', 'User')}` *(system default)*")
+
+    with st.expander(f"Active Permissions ({len(permissions)})", expanded=False):
+        if permissions:
+            st.markdown(" ".join([f"`{p}`" for p in sorted(permissions)]))
+        else:
+            st.caption("No explicit permissions assigned.")
+
+# ------------------------------------------------------------ security / password
+st.subheader("Security & Password")
+with st.expander("🔑 Change Password", expanded=False):
+    with st.form("change-password-form"):
+        current_password = st.text_input("Current password", type="password")
+        new_password = st.text_input("New password", type="password", help="Minimum 8 characters.")
+        confirm_password = st.text_input("Confirm new password", type="password")
+        change_submitted = st.form_submit_button("Update Password", type="primary")
+
+    if change_submitted:
+        if not current_password:
+            st.error("Current password is required.")
+        elif not new_password:
+            st.error("New password is required.")
+        elif len(new_password) < 8:
+            st.error("New password must be at least 8 characters long.")
+        elif new_password != confirm_password:
+            st.error("New password and confirmation do not match.")
+        else:
+            try:
+                token = auth.get("access_token") if isinstance(auth, dict) else None
+                if not token:
+                    st.error("Active session token not found. Please log in again.")
+                else:
+                    AuthenticationService().change_password(
+                        token=token,
+                        current_password=current_password,
+                        new_password=new_password,
+                    )
+                    st.success("Password changed successfully!")
+            except Exception as error:
+                st.error(format_error(error))
 
 # ---------------------------------------------------------------- projects
-
-st.subheader("Current projects")
+st.subheader("Project Memberships")
 projects = profile.get("projects") or []
 current_projects = [project for project in projects if project.get("is_member")]
 
 if not current_projects:
     st.info("You are not currently assigned to any project.")
-
-for project in current_projects:
-    membership = project.get("membership") or {}
-    manager = project.get("manager") or {}
-    with st.expander(project.get("project_name"), expanded=False):
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(f"**Project ID:** {project.get('project_id')}")
-            st.markdown(f"**Project manager:** {manager.get('name') or '—'}")
-            st.markdown(f"**Project role:** {membership.get('membership_role') or '—'}")
-        with col2:
-            st.markdown(f"**Membership status:** {membership.get('status') or '—'}")
-            joined = membership.get("joined_at")
-            if joined:
-                try:
-                    joined = joined.replace("T", " ").split(".")[0] + " UTC"
-                except (AttributeError, TypeError):
-                    pass
-                st.markdown(f"**Joined:** {joined}")
-            else:
-                st.markdown("**Joined:** —")
-        is_current = membership.get("status") == "active"
-        if is_current:
-            if st.button(
-                "Leave project",
-                key=f"leave-{project.get('project_id')}",
-                type="secondary",
-                help="Leaving a project removes it from your current projects. The backend decides whether this is permitted.",
-            ):
-                try:
-                    api.leave_project(project.get("project_id"))
-                    st.success(f"You left {project.get('project_name')}.")
-                    st.rerun()
-                except Exception as error:
-                    st.error(format_error(error))
-
-# ------------------------------------------------------ additional access
+else:
+    project_rows = []
+    for project in current_projects:
+        membership = project.get("membership") or {}
+        manager = project.get("manager") or {}
+        project_rows.append({
+            "Project ID": project.get("project_id"),
+            "Project Name": project.get("project_name"),
+            "Role": membership.get("membership_role") or "Member",
+            "Manager": manager.get("name") or "—",
+            "Status": membership.get("status") or "active",
+        })
+    st.dataframe(project_rows, use_container_width=True)
 
 non_member_projects = [p for p in projects if not p.get("is_member") and p.get("project_status") == "active"]
 if non_member_projects:
-    with st.expander("Additional project access", expanded=False):
-        st.write(
-            "Projects you can access that are not counted as current memberships. "
-            "This is informational only and read-only."
-        )
+    with st.expander("Additional Project Access", expanded=False):
         st.dataframe(
             [
                 {
@@ -117,65 +141,19 @@ if non_member_projects:
         )
 
 # ------------------------------------------------------- document access
-
-st.subheader("Document access")
+st.subheader("Accessible Documents")
 documents = profile.get("documents") or []
 
 if not documents:
     st.info("You do not currently have access to any documents.")
-
-grouped = {}
-for document in documents:
-    key = document.get("project_name") or document.get("project_id") or "Unassigned"
-    grouped.setdefault(key, []).append(document)
-
-for project_label, items in grouped.items():
-    st.markdown(f"**Project: {project_label}**")
-    for document in items:
-        badge = access_source_labels.get(document.get("access_source"), document.get("access_source"))
-        details = []
-        if document.get("version"):
-            details.append(f"v{document.get('version')}")
-        if document.get("file_type"):
-            details.append(document.get("file_type"))
-        suffix = f" ({', '.join(details)})" if details else ""
-        st.markdown(f"- ☑ **{document.get('document_name')}**{suffix} — {badge}")
-
-# ------------------------------------------------------------- permissions
-
-st.subheader("Permissions")
-roles = profile.get("roles") or []
-permissions = profile.get("permissions") or []
-
-if roles:
-    st.markdown("**Role(s)**")
-    for role in roles:
-        scope = role.get("scope")
-        if scope == "department":
-            location = role.get("department_id") or "your department"
-            scope_text = f"department-scoped ({location})"
-        else:
-            scope_text = "global"
-        st.write(f"- {role.get('name')} — {scope_text}")
 else:
-    st.write("No role-based permissions assigned.")
-
-st.markdown("**Effective permissions**")
-if permissions:
-    st.write(", ".join(permissions))
-else:
-    st.write("None")
-
-grant_documents = [
-    document for document in documents if document.get("access_source") == "document_grant"
-]
-if grant_documents:
-    with st.expander("Document-specific access", expanded=False):
-        st.write(
-            "These documents are readable only through an explicit per-document grant, "
-            "not through a project you belong to."
-        )
-        for document in grant_documents:
-            st.write(
-                f"- {document.get('document_name')} — access via direct document grant"
-            )
+    doc_rows = []
+    for document in documents:
+        doc_rows.append({
+            "Document Name": document.get("document_name"),
+            "Project": document.get("project_name") or "General / Unassigned",
+            "Version": f"v{document.get('version')}" if document.get("version") else "—",
+            "File Type": document.get("file_type") or "—",
+            "Access Source": access_source_labels.get(document.get("access_source"), document.get("access_source")),
+        })
+    st.dataframe(doc_rows, use_container_width=True)

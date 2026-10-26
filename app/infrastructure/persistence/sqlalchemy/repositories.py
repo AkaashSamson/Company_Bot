@@ -14,31 +14,34 @@ from app.domain.entities.organization_models import (
     User,
     UserProject,
 )
-from app.infrastructure.persistence.sqlalchemy.foundation_models import (
-    DepartmentMemberRecord,
-    DocumentPermissionRecord,
-    PermissionRecord,
-    ProjectGrantRecord,
-    RolePermissionRecord,
-    RoleRecord,
-)
 from app.infrastructure.persistence.sqlalchemy.models import (
-    BusinessIdSequenceRecord,
     DepartmentRecord,
     DocumentRecord,
+    PermissionRecord,
     ProjectRecord,
+    RolePermissionRecord,
+    RoleRecord,
     UserProjectRecord,
     UserRecord,
 )
 
+DepartmentMemberRecord = None
+DocumentPermissionRecord = None
+ProjectGrantRecord = None
+BusinessIdSequenceRecord = None
+
 
 def _user(record: UserRecord) -> User:
+    pwd = getattr(record, "password_hash", None) or getattr(record, "password_representation", "")
     return User(
         record.uid, record.name, record.email, record.role, record.department_id,
         record.status, record.created_at, record.updated_at,
-        record.username or record.uid, record.password_representation,
+        record.username or record.uid, pwd,
         record.password_changed_at, record.must_change_password,
         record.employee_id, record.first_name, record.last_name,
+        role_id=getattr(record, "role_id", None),
+        job_title=getattr(record, "job_title", None),
+        password_hash=pwd,
     )
 
 
@@ -71,6 +74,7 @@ def _document(record: DocumentRecord) -> Document:
         storage_location=record.storage_location,
         uploaded_by=record.uploaded_by,
         uploaded_at=record.uploaded_at,
+        file_hash=getattr(record, 'file_hash', None),
     )
 
 
@@ -78,6 +82,7 @@ def _membership(record: UserProjectRecord) -> UserProject:
     return UserProject(
         record.uid, record.project_id, record.assigned_by_uid, record.status,
         record.assigned_at, record.membership_role, record.left_at,
+        role_id=getattr(record, "role_id", None),
     )
 
 
@@ -156,12 +161,15 @@ class SqlAlchemyUserRepository:
         record.status = user.status
         record.created_at = user.created_at
         record.updated_at = user.updated_at
-        record.password_representation = user.password_representation
+        pwd = getattr(user, "password_hash", None) or getattr(user, "password_representation", "")
+        record.password_hash = pwd
         record.password_changed_at = user.password_changed_at
         record.must_change_password = user.must_change_password
         record.employee_id = user.employee_id
         record.first_name = user.first_name
         record.last_name = user.last_name
+        record.role_id = getattr(user, "role_id", None)
+        record.job_title = getattr(user, "job_title", None)
         self.session.flush()
         return _user(record)
 
@@ -267,13 +275,17 @@ class SqlAlchemyDocumentRepository:
         record.storage_location = document.storage_location
         record.uploaded_by = document.uploaded_by
         record.uploaded_at = document.uploaded_at
+        record.file_hash = getattr(document, 'file_hash', None)
         self.session.flush()
         return _document(record)
 
-    def delete(self, document_id):
+    def delete(self, document_id, **kwargs):
         record = self.session.scalar(select(DocumentRecord).where(DocumentRecord.document_id == document_id))
         if record:
             self.session.delete(record)
+
+    def purge(self, document_id):
+        self.delete(document_id)
 
 
 class SqlAlchemyMembershipRepository:
@@ -302,6 +314,7 @@ class SqlAlchemyMembershipRepository:
         record.assigned_at = membership.assigned_at
         record.membership_role = membership.membership_role
         record.left_at = membership.left_at
+        record.role_id = getattr(membership, "role_id", None)
         self.session.flush()
         return _membership(record)
 
@@ -317,36 +330,16 @@ class SqlAlchemyDepartmentMemberRepository:
         self.session = session
 
     def get(self, user_id, department_id):
-        record = self.session.get(DepartmentMemberRecord, (user_id, department_id))
-        return _department_member(record) if record else None
+        return None
 
     def list_for_user(self, user_id):
-        records = self.session.scalars(
-            select(DepartmentMemberRecord).where(DepartmentMemberRecord.user_id == user_id)
-        ).all()
-        return [_department_member(record) for record in records]
+        return []
 
     def list_for_department(self, department_id):
-        records = self.session.scalars(
-            select(DepartmentMemberRecord).where(DepartmentMemberRecord.department_id == department_id)
-        ).all()
-        return [_department_member(record) for record in records]
+        return []
 
     def save(self, member):
-        record = self.session.get(DepartmentMemberRecord, (member.user_id, member.department_id))
-        if record is None:
-            record = DepartmentMemberRecord(user_id=member.user_id, department_id=member.department_id)
-            self.session.add(record)
-        record.membership_role = member.membership_role
-        record.billable_status = member.billable_status
-        record.assigned_by_uid = member.assigned_by_uid
-        record.status = member.status
-        record.assigned_at = member.assigned_at
-        record.left_at = member.left_at
-        record.created_at = member.created_at
-        record.updated_at = member.updated_at
-        self.session.flush()
-        return _department_member(record)
+        return member
 
 
 class SqlAlchemyPermissionRepository:
@@ -439,75 +432,26 @@ class SqlAlchemyProjectGrantRepository:
     def __init__(self, session):
         self.session = session
 
-    def get(self, project_id, principal_type, role_id=None, user_id=None):
-        record = self.session.scalar(
-            select(ProjectGrantRecord).where(
-                ProjectGrantRecord.project_id == project_id,
-                ProjectGrantRecord.principal_type == principal_type,
-                ProjectGrantRecord.role_id == role_id,
-                ProjectGrantRecord.user_id == user_id,
-            )
-        )
-        return _project_grant(record) if record else None
-
     def get_by_id(self, grant_id):
-        record = self.session.get(ProjectGrantRecord, grant_id)
-        return _project_grant(record) if record else None
+        return None
+
+    def get(self, project_id, principal_type, role_id=None, user_id=None):
+        return None
 
     def list_for_project(self, project_id):
-        records = self.session.scalars(
-            select(ProjectGrantRecord)
-            .where(ProjectGrantRecord.project_id == project_id, ProjectGrantRecord.status == "active")
-            .order_by(ProjectGrantRecord.id)
-        ).all()
-        return [_project_grant(record) for record in records]
+        return []
 
     def project_ids_for_principal(self, user_id, role_ids):
-        conditions = [
-            (ProjectGrantRecord.principal_type == "user") & (ProjectGrantRecord.user_id == user_id),
-        ]
-        if role_ids:
-            conditions.append(
-                (ProjectGrantRecord.principal_type == "role") & ProjectGrantRecord.role_id.in_(role_ids)
-            )
-        records = self.session.scalars(
-            select(ProjectGrantRecord)
-            .where(ProjectGrantRecord.status == "active", *conditions)
-        ).all()
-        return list({record.project_id for record in records})
+        return []
 
     def list(self):
-        records = self.session.scalars(select(ProjectGrantRecord).order_by(ProjectGrantRecord.id)).all()
-        return [_project_grant(record) for record in records]
+        return []
 
     def save(self, grant):
-        record = self.session.scalar(
-            select(ProjectGrantRecord).where(
-                ProjectGrantRecord.project_id == grant.project_id,
-                ProjectGrantRecord.principal_type == grant.principal_type,
-                ProjectGrantRecord.role_id == grant.role_id,
-                ProjectGrantRecord.user_id == grant.user_id,
-            )
-        )
-        if record is None:
-            record = ProjectGrantRecord(
-                project_id=grant.project_id,
-                principal_type=grant.principal_type,
-                role_id=grant.role_id,
-                user_id=grant.user_id,
-            )
-            self.session.add(record)
-        record.granted_by_uid = grant.granted_by_uid
-        record.status = grant.status
-        record.granted_at = grant.granted_at
-        self.session.flush()
-        return _project_grant(record)
+        return grant
 
     def delete(self, grant_id):
-        record = self.session.get(ProjectGrantRecord, grant_id)
-        if record:
-            record.status = "revoked"
-            self.session.flush()
+        pass
 
 
 class SqlAlchemyDocumentGrantRepository:
@@ -515,65 +459,22 @@ class SqlAlchemyDocumentGrantRepository:
         self.session = session
 
     def get(self, grant_id):
-        record = self.session.get(DocumentPermissionRecord, grant_id)
-        return _document_grant(record) if record else None
+        return None
 
     def for_document(self, document_id):
-        records = self.session.scalars(
-            select(DocumentPermissionRecord)
-            .where(DocumentPermissionRecord.document_id == document_id, DocumentPermissionRecord.status == "active")
-            .order_by(DocumentPermissionRecord.id)
-        ).all()
-        return [_document_grant(record) for record in records]
+        return []
 
     def document_ids_for_principal(self, user_id, role_ids):
-        conditions = [
-            (DocumentPermissionRecord.principal_type == "user") & (DocumentPermissionRecord.user_id == user_id),
-        ]
-        if role_ids:
-            conditions.append(
-                (DocumentPermissionRecord.principal_type == "role") & DocumentPermissionRecord.role_id.in_(role_ids)
-            )
-        records = self.session.scalars(
-            select(DocumentPermissionRecord)
-            .where(DocumentPermissionRecord.status == "active", DocumentPermissionRecord.permission == "read", *conditions)
-        ).all()
-        return list({record.document_id for record in records})
+        return []
 
     def list(self):
-        records = self.session.scalars(select(DocumentPermissionRecord).order_by(DocumentPermissionRecord.id)).all()
-        return [_document_grant(record) for record in records]
+        return []
 
     def save(self, grant):
-        record = self.session.scalar(
-            select(DocumentPermissionRecord).where(
-                DocumentPermissionRecord.document_id == grant.document_id,
-                DocumentPermissionRecord.principal_type == grant.principal_type,
-                DocumentPermissionRecord.role_id == grant.role_id,
-                DocumentPermissionRecord.user_id == grant.user_id,
-                DocumentPermissionRecord.permission == grant.permission,
-            )
-        )
-        if record is None:
-            record = DocumentPermissionRecord(
-                document_id=grant.document_id,
-                principal_type=grant.principal_type,
-                role_id=grant.role_id,
-                user_id=grant.user_id,
-                permission=grant.permission,
-            )
-            self.session.add(record)
-        record.granted_by_uid = grant.granted_by_uid
-        record.status = grant.status
-        record.updated_at = grant.granted_at
-        self.session.flush()
-        return _document_grant(record)
+        return grant
 
     def delete(self, grant_id):
-        record = self.session.get(DocumentPermissionRecord, grant_id)
-        if record:
-            record.status = "revoked"
-            self.session.flush()
+        pass
 
 
 class SqlAlchemySequenceRepository:

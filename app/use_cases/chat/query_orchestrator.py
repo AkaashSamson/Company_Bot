@@ -43,7 +43,7 @@ from app.infrastructure.observability.pipeline_tracer import (
 
 logger = logging.getLogger(__name__)
 
-RELEVANCE_PROMPT = "Was this response relevant to your question?"
+RELEVANCE_PROMPT = ""
 REFERENCES_CONFIRM_PROMPT = "Would you like to see the source references?"
 
 # Words/phrases that count as a positive response / relevant
@@ -1306,34 +1306,14 @@ class QueryOrchestrator:
                     )
         except (LLMProviderError, Exception) as llm_error:
             logger.warning(
-                "LLM generation failed: %s. Providing document references as a single paragraph response.",
+                "LLM generation failed: %s. Providing document references in collapsible citations.",
                 llm_error,
             )
             if selected_evidence:
-                paragraph_parts = []
-                for c in citations[:3]:
-                    text = c.get("text", "").strip()
-                    if text:
-                        cleaned = re.sub(r"\s+", " ", text).strip()
-                        src = c.get("source", "")
-                        sec = c.get("section", "")
-                        ref_header = ""
-                        if src and sec:
-                            ref_header = f"[{src} - {sec}]"
-                        elif src:
-                            ref_header = f"[{src}]"
-                        part = f"{ref_header} {cleaned}".strip()
-                        if part and part not in paragraph_parts:
-                            paragraph_parts.append(part)
-
-                fallback_body = " ".join(paragraph_parts).strip()
-                if not fallback_body:
-                    fallback_body = "I could not find that information in the available documents."
-
                 fallback_answer = (
                     "I'm having trouble reaching the AI provider right now. "
-                    "Here are the relevant references from the company policy documents:\n\n"
-                    f"{fallback_body}"
+                    "However, relevant information was found in the company policy documents. "
+                    "Please check the references below for details."
                 )
 
                 _pending_citations[session_id] = citations
@@ -1348,7 +1328,7 @@ class QueryOrchestrator:
 
                 return _finish({
                     "answer": fallback_answer,
-                    "citations": citations if defer_citations else [],
+                    "citations": citations,
                     "context": context,
                     "cache_hit": False,
                     "tokens": None,

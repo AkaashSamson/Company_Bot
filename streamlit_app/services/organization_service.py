@@ -81,3 +81,12 @@ class OrganizationService:
             timeout=15,
         )
         response.raise_for_status()
+
+    def leave_project(self, project_id):
+        response = requests.post(
+            f"{self.base_url}/api/projects/{project_id}/members/me/leave",
+            headers=self._headers(),
+            timeout=15,
+        )
+        response.raise_for_status()
+        return True

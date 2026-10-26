@@ -1,6 +1,10 @@
+import base64
 from datetime import datetime, timezone
-from typing import Callable
+import hashlib
 import logging
+from pathlib import Path
+import shutil
+from typing import Any, Callable, Optional
 
 from app.core.settings import DEPARTMENT_ID_PREFIX, DOCUMENT_ID_PREFIX, EMPLOYEE_ID_PREFIX, PROJECT_ID_PREFIX
 from app.domain.entities.organization_models import Document
@@ -102,6 +106,15 @@ class DocumentManagementService:
                 if document.project_id == project.project_id and document.status != "archived" and self._can_access(actor, document)
             ]
 
+    def get_document_status(self, principal: AuthenticatedPrincipal, document_id: str) -> dict:
+        doc = self.get_document(principal, document_id)
+        return {
+            "document_id": doc.document_id,
+            "status": doc.status,
+            "progress": 100 if doc.status == "active" else (0 if doc.status == "processing" else None),
+            "message": doc.description or ("Ready" if doc.status == "active" else doc.status),
+        }
+
     def register_document(
         self,
         principal: AuthenticatedPrincipal,
@@ -114,13 +127,56 @@ class DocumentManagementService:
         file_type: str | None = None,
         description: str | None = None,
         version: str = "1.0",
+        defer_ingestion: bool = False,
         background_tasks: Any = None,
     ):
+        raw_bytes = None
+        file_hash = None
+        parse_name = (
+            original_filename
+            or document_name
+            or source_path
+            or (f"{document_id}{file_type}" if file_type else document_id)
+        )
+        if (source_path or content) and parse_name:
+            ext = Path(parse_name).suffix.lower()
+            if ext:
+                from app.infrastructure.document.processor_factory import build_document_processor
+
+                proc = build_document_processor()
+                if not proc.supports(parse_name):
+                    supported = ", ".join(sorted(proc.supported_extensions()))
+                    raise ValueError(
+                        f"Unsupported document type: {ext or '(none)'} (supported: {supported})"
+                    )
+
+        if content is not None:
+            try:
+                raw_bytes = base64.b64decode(content, validate=True)
+            except Exception as error:
+                raise ValueError("Document content is not valid base64") from error
+            file_hash = hashlib.sha256(raw_bytes).hexdigest()
+        elif source_path is not None:
+            p = Path(source_path)
+            if p.exists():
+                raw_bytes = p.read_bytes()
+                file_hash = hashlib.sha256(raw_bytes).hexdigest()
+
         with self.unit_of_work_factory() as uow:
             actor = self._actor(uow, principal)
             document_id = document_id or self.business_id_generator.next(uow, "document")
             if uow.documents.get(document_id):
                 raise ConflictError("Document already exists")
+
+            if file_hash and project_id:
+                for existing in uow.documents.list():
+                    if (
+                        existing.project_id == project_id
+                        and getattr(existing, "file_hash", None) == file_hash
+                        and existing.status != "archived"
+                    ):
+                        raise ConflictError("Exact file already exists in this project")
+
             project = uow.projects.get(project_id) if project_id else None
             if project_id and project is None:
                 raise NotFoundError("Project not found")
@@ -144,8 +200,7 @@ class DocumentManagementService:
                     file_type = detected_ext.lstrip(".")
 
             now = utc_now()
-            # If background_tasks is supplied and ingestion is needed, start in "processing" state
-            is_async = background_tasks is not None and (source_path or content) and self.ingestion_handler
+            is_async = (defer_ingestion or background_tasks is not None) and (source_path or content) and self.ingestion_handler
             initial_status = "processing" if is_async else "active"
 
             document = Document(
@@ -159,21 +214,24 @@ class DocumentManagementService:
                 file_type=file_type,
                 description=description,
                 version=version or "1.0",
+                storage_location=None,
                 uploaded_by=actor.uid,
                 uploaded_at=now if (source_path or content) else None,
+                file_hash=file_hash,
             )
 
             # Synchronous path: run ingestion immediately before saving
             if not is_async and (source_path or content) and self.ingestion_handler:
                 self.ingestion_handler(source_path, document, content)
+                document.status = "active"
 
             document = uow.documents.save(document)
             uow.commit()
 
-        # Asynchronous path: dispatch ingestion to background worker
-        if is_async:
+        # Asynchronous path: dispatch ingestion if background_tasks was passed directly
+        if background_tasks is not None and is_async:
             background_tasks.add_task(
-                self.process_document_ingestion,
+                self.ingest_document,
                 document.document_id,
                 source_path,
                 content,
@@ -181,7 +239,7 @@ class DocumentManagementService:
 
         return document
 
-    def process_document_ingestion(
+    def ingest_document(
         self,
         document_id: str,
         source_path: str | None = None,
@@ -189,44 +247,47 @@ class DocumentManagementService:
     ):
         """Executes document ingestion in the background and updates document status."""
         logger.info("Starting background ingestion for document %r", document_id)
-        try:
-            with self.unit_of_work_factory() as uow:
-                doc = uow.documents.get(document_id)
-                if doc is None:
-                    logger.warning("Document %r not found for background ingestion", document_id)
-                    return
+        with self.unit_of_work_factory() as uow:
+            document = uow.documents.get(document_id)
+            if not document:
+                logger.warning("Document %r not found for background ingestion", document_id)
+                return
+            try:
+                if self.ingestion_handler:
+                    self.ingestion_handler(source_path, document, content)
+                document.status = "active"
+                document.updated_at = utc_now()
+                uow.documents.save(document)
+                uow.commit()
+                logger.info("Background ingestion completed successfully for document %r (status: active)", document_id)
+            except Exception as exc:
+                logger.error("Async ingestion failed for document %s: %s", document_id, exc, exc_info=True)
+                document.status = "failed"
+                document.description = f"{document.description or ''} [Failed: {exc}]".strip()
+                document.updated_at = utc_now()
+                uow.documents.save(document)
+                uow.commit()
 
-            if self.ingestion_handler:
-                self.ingestion_handler(source_path, doc, content)
-
-            with self.unit_of_work_factory() as uow:
-                doc = uow.documents.get(document_id)
-                if doc is not None:
-                    doc.status = "active"
-                    doc.updated_at = utc_now()
-                    uow.documents.save(doc)
-                    uow.commit()
-                    logger.info("Background ingestion completed successfully for document %r (status: active)", document_id)
-        except Exception as err:
-            logger.error("Background ingestion failed for document %r: %s", document_id, err, exc_info=True)
-            with self.unit_of_work_factory() as uow:
-                doc = uow.documents.get(document_id)
-                if doc is not None:
-                    doc.status = "failed"
-                    doc.updated_at = utc_now()
-                    uow.documents.save(doc)
-                    uow.commit()
+    # Alias for backwards compatibility with tests
+    process_document_ingestion = ingest_document
 
     def register_project_document(
         self,
         principal: AuthenticatedPrincipal,
         project_id: str,
+        defer_ingestion: bool = False,
         background_tasks: Any = None,
         **fields,
     ):
-        return self.register_document(principal, project_id=project_id, background_tasks=background_tasks, **fields)
+        return self.register_document(
+            principal,
+            project_id=project_id,
+            defer_ingestion=defer_ingestion,
+            background_tasks=background_tasks,
+            **fields,
+        )
 
-    def delete_document(self, principal: AuthenticatedPrincipal, document_id: str):
+    def archive_document(self, principal: AuthenticatedPrincipal, document_id: str):
         with self.unit_of_work_factory() as uow:
             actor = self._actor(uow, principal)
             document = uow.documents.get(document_id)
@@ -234,10 +295,63 @@ class DocumentManagementService:
                 raise NotFoundError("Document not found")
             if not self.authorization.can_manage_document(AuthenticatedPrincipal(actor.uid), document_id):
                 raise ForbiddenError("Document is outside manager scope")
+
             document.status = "archived"
             document.updated_at = utc_now()
+
+            # Relocate file to archived directory
+            if document.storage_location:
+                src_path = Path(document.storage_location)
+                if src_path.exists():
+                    archive_dir = src_path.parent / "archived"
+                    archive_dir.mkdir(parents=True, exist_ok=True)
+                    dest_path = archive_dir / src_path.name
+                    shutil.move(str(src_path), str(dest_path))
+                    document.storage_location = str(dest_path)
+            elif document.project_id:
+                project_dir = Path("input") / document.project_id
+                if project_dir.exists():
+                    matches = list(project_dir.glob(f"{document_id}_*"))
+                    if matches:
+                        src_path = matches[0]
+                        archive_dir = project_dir / "archived"
+                        archive_dir.mkdir(parents=True, exist_ok=True)
+                        dest_path = archive_dir / src_path.name
+                        shutil.move(str(src_path), str(dest_path))
+                        document.storage_location = str(dest_path)
+
             uow.documents.save(document)
             uow.commit()
+
+    def delete_document(self, principal: AuthenticatedPrincipal, document_id: str, permanent: bool = False):
+        if not permanent:
+            return self.archive_document(principal, document_id)
+
+        with self.unit_of_work_factory() as uow:
+            actor = self._actor(uow, principal)
+            document = uow.documents.get(document_id)
+            if document is None:
+                raise NotFoundError("Document not found")
+            if not self.authorization.can_manage_document(AuthenticatedPrincipal(actor.uid), document_id):
+                raise ForbiddenError("Document is outside manager scope")
+
+            if document.storage_location:
+                try:
+                    p = Path(document.storage_location)
+                    if p.exists():
+                        p.unlink()
+                except Exception as exc:
+                    logger.warning("Failed to unlink document %s file: %s", document_id, exc)
+
+            if hasattr(uow.documents, "purge"):
+                uow.documents.purge(document_id)
+            else:
+                try:
+                    uow.documents.delete(document_id, permanent=True)
+                except TypeError:
+                    uow.documents.delete(document_id)
+            uow.commit()
+
         if self.deletion_handler:
             try:
                 self.deletion_handler(document_id)

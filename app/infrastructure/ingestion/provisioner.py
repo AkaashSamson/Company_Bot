@@ -21,6 +21,13 @@ def _safe_document_id(document_id: str) -> str:
     return candidate
 
 
+def _safe_filename(name: str) -> str:
+    candidate = _UNSAFE_ID_CHARS.sub("_", name).strip(" ._")
+    if not candidate:
+        raise ValueError("filename contains no usable characters")
+    return candidate
+
+
 def _detect_extension(raw: bytes, name: str) -> str:
     """Resolve the file type for a content upload.
 
@@ -135,11 +142,23 @@ def provision_document(
     processed = processor.process(raw, parse_name)
 
     if content is not None:
-        destination = Path(DOCUMENTS_DIR) / f"{_safe_document_id(document.document_id)}{extension}"
+        target_name = document.original_filename or document.document_name or document.document_id
+        target_path = Path(target_name)
+        if target_path.suffix.lower():
+            base_name = target_path.stem
+            ext = target_path.suffix.lower()
+        else:
+            base_name = target_name
+            ext = extension
+        safe_base = _safe_filename(base_name)
+        project_folder = getattr(document, "project_id", None) or "unassigned"
+        folder = Path(DOCUMENTS_DIR) / project_folder
+        folder.mkdir(parents=True, exist_ok=True)
+        destination = folder / f"{document.document_id}_{safe_base}{ext}"
         destination.write_bytes(raw)
         logger.info("saved uploaded document to %s", destination)
         document.original_filename = document.original_filename or document.document_name
-        document.file_type = (processed.file_type or extension).lstrip(".")
+        document.file_type = (processed.file_type or ext).lstrip(".")
         document.storage_location = str(destination)
     else:
         document.original_filename = document.original_filename or Path(source_path).name
@@ -157,6 +176,10 @@ def provision_document(
     if not records:
         logger.warning("no chunks produced for document %r", document.document_id)
         return 0
+
+    for rec in records:
+        if "metadata" in rec:
+            rec["metadata"]["status"] = "active"
 
     store = store or ChromaVectorStore(collection_name=COLLECTION_NAME, persist_directory=str(BASE_DIR / ".chroma"))
     store.add_documents(records)

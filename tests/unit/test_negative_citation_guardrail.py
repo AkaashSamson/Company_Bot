@@ -32,7 +32,8 @@ def test_negative_llm_response_suppresses_citations_and_prompt():
     res = orchestrator.answer("Can I bring my dog to the office?", session_id="test_sess")
 
     assert res["citations"] == [], "Negative responses must not return citations"
-    assert RELEVANCE_PROMPT not in res["answer"], "Negative responses must not include reference prompt"
+    if RELEVANCE_PROMPT:
+        assert RELEVANCE_PROMPT not in res["answer"], "Negative responses must not include reference prompt"
 
 def test_empty_retrieval_negative_response_suppresses_prompt():
     mock_retrieval = MagicMock()
@@ -57,4 +58,5 @@ def test_empty_retrieval_negative_response_suppresses_prompt():
     res = orchestrator.answer("Something completely non-existent", session_id="test_sess")
 
     assert res["citations"] == []
-    assert RELEVANCE_PROMPT not in res["answer"]
+    if RELEVANCE_PROMPT:
+        assert RELEVANCE_PROMPT not in res["answer"]

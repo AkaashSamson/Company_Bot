@@ -20,9 +20,11 @@ importlib.reload(chat_service_module)
 from streamlit_app.services.chat_service import ChatService
 from streamlit_app.services.organization_service import OrganizationService
 from streamlit_app.services.authentication_service import AuthenticationService
+from streamlit_app.services.document_service import DocumentService
+from streamlit_app.sidebar import get_current_profile, render_sidebar
 
 
-st.set_page_config(page_title="KnowLayer HR Chatbot", page_icon="📘")
+st.set_page_config(page_title="KnowLayer HR Chatbot", page_icon="📘", layout="wide")
 
 cookies = bootstrap_cookies()
 if "auth" not in st.session_state:
@@ -37,144 +39,94 @@ if "last_response" not in st.session_state:
 
 if st.session_state.get("auth") is None:
     restore_auth(cookies)
-    st.title("KnowLayer Login")
-    with st.form("login"):
-        login_username = st.text_input("Username")
-        login_password = st.text_input("Password", type="password")
-        login_submitted = st.form_submit_button("Log in")
-    if login_submitted:
-        try:
-            auth = AuthenticationService().login(login_username, login_password)
-            st.session_state.auth = auth
-            st.rerun()
-        except requests.exceptions.HTTPError as error:
-            status_code = error.response.status_code if error.response is not None else None
-            if status_code == 401:
-                st.error("Invalid username or password.")
-            else:
-                st.error(f"Login failed (HTTP {status_code}). Please try again.")
-        except requests.exceptions.RequestException:
-            st.error(
-                "The authentication service is not reachable. "
-                "Start the FastAPI backend on http://127.0.0.1:8000 and try again."
-            )
+    st.write("")
+    st.write("")
+    _, col, _ = st.columns([0.5, 1, 0.5])
+    with col:
+        with st.container(border=True):
+            st.subheader("KnowLayer Login")
+            with st.form("login"):
+                login_username = st.text_input("Username")
+                login_password = st.text_input("Password", type="password")
+                login_submitted = st.form_submit_button("Log in", type="primary", use_container_width=True)
+            if login_submitted:
+                try:
+                    auth = AuthenticationService().login(login_username, login_password)
+                    st.session_state.auth = auth
+                    st.rerun()
+                except requests.exceptions.HTTPError as error:
+                    status_code = error.response.status_code if error.response is not None else None
+                    if status_code == 401:
+                        st.error("Invalid username or password.")
+                    else:
+                        st.error(f"Login failed (HTTP {status_code}). Please try again.")
+                except requests.exceptions.RequestException:
+                    st.error(
+                        "The authentication service is not reachable. "
+                        "Start the FastAPI backend on http://127.0.0.1:8000 and try again."
+                    )
     st.stop()
 
 persist_auth(cookies)
 
-def _logout():
-    st.session_state.auth = None
-    st.session_state.messages = []
-    st.session_state.last_response = None
-    st.session_state.session_id = str(uuid.uuid4())
-    try:
-        cookies.remove("knowlayer_auth")
-    except KeyError:
-        pass
-
-st.sidebar.button("Log out", on_click=_logout)
+render_sidebar()
 st.title("KnowLayer HR Policy Assistant")
+st.caption("Ask questions about company HR policies, documents, and project knowledge.")
 
-st.sidebar.page_link("app.py", label="Chat")
-st.sidebar.page_link("pages/profile.py", label="My Profile")
-st.sidebar.page_link("pages/users.py", label="Users")
-st.sidebar.page_link("pages/departments.py", label="Departments")
-st.sidebar.page_link("pages/projects.py", label="Projects")
-st.sidebar.page_link("pages/documents.py", label="Documents")
-st.sidebar.page_link("pages/explorer.py", label="Organization Explorer")
-st.sidebar.page_link("pages/roles.py", label="Roles")
-st.sidebar.page_link("pages/organization.py", label="Organization")
+profile = get_current_profile()
+user = profile.get("user") or {}
+permissions = set(profile.get("permissions") or [])
+user_role = (user.get("role") or "").lower()
+auth_uid = st.session_state.get("auth", {}).get("uid", "") if isinstance(st.session_state.get("auth"), dict) else ""
+is_admin = user_role == "admin" or auth_uid == "admin" or "*" in permissions or "ADMIN" in permissions
 
-st.sidebar.divider()
-st.sidebar.caption(f"Session: `{st.session_state.session_id}`")
-
-col_chat, col_cache = st.sidebar.columns(2)
-with col_chat:
-    if st.button("🗑️ Clear Chat", use_container_width=True, help="Reset conversation history and start a new session"):
-        st.session_state.messages = []
-        st.session_state.last_response = None
-        st.session_state.session_id = f"st-{uuid.uuid4().hex[:8]}"
-        st.rerun()
-
-with col_cache:
-    if st.button("🧹 Clear Cache", use_container_width=True, help="Flush backend semantic and prompt caches"):
-        try:
-            service = ChatService()
-            if hasattr(service, "clear_cache"):
-                service.clear_cache()
-            else:
-                base_url = (getattr(service, "base_url", None) or os.getenv("STREAMLIT_API_BASE_URL", "http://127.0.0.1:8000")).rstrip("/")
-                headers = service._headers() if hasattr(service, "_headers") else {}
-                res = requests.post(f"{base_url}/api/chat/cache/clear", headers=headers, timeout=10)
-                res.raise_for_status()
-            st.sidebar.success("Cache cleared!")
-        except requests.exceptions.HTTPError as e:
-            if e.response is not None and e.response.status_code == 404:
-                st.sidebar.warning(
-                    "The running FastAPI backend does not have `/api/chat/cache/clear` loaded yet. "
-                    "Please restart FastAPI with: `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload`"
-                )
-            else:
-                st.sidebar.error(f"Failed to clear cache: {e}")
-        except Exception as e:
-            st.sidebar.error(f"Failed to clear cache: {e}")
-
-
-
-chat_service = ChatService()
-
-with st.sidebar.expander("🩺 Provider Health & Circuits"):
-    col_ref, col_rst = st.columns([1, 1])
-    with col_ref:
-        if st.button("🔄 Refresh", use_container_width=True, key="refresh_health"):
-            st.rerun()
-    with col_rst:
-        if st.button("⚡ Reset", use_container_width=True, key="reset_health", help="Reset all circuit breakers to healthy"):
-            chat_service.reset_providers()
-            st.rerun()
-
-    health_data = chat_service.get_provider_health()
-    if health_data:
-        for provider_name, info in health_data.items():
-            status_val = str(info.get("status", "healthy")).lower()
-            if status_val == "healthy":
-                icon = "🟢"
-                badge = "Healthy"
-            elif status_val == "degraded":
-                icon = "🟡"
-                badge = "Degraded"
-            elif status_val == "recovering":
-                icon = "🔄"
-                badge = "Recovering"
-            else:
-                icon = "🔴"
-                badge = "Open / Tripped"
-
-            st.markdown(f"**{icon} {provider_name.upper()}** (`{badge}`)")
-            total_reqs = info.get("total_requests", 0)
-            succ_reqs = info.get("successful_requests", 0)
-            fail_reqs = info.get("failed_requests", 0)
-            avg_lat = info.get("average_latency_ms", 0.0)
-            succ_rate = info.get("success_rate", 100.0)
-            st.caption(
-                f"Success: {succ_rate}% ({succ_reqs}/{total_reqs}) | "
-                f"Failures: {fail_reqs} | Latency: {avg_lat:.0f}ms"
-            )
-    else:
-        st.caption("Provider health metrics unavailable.")
-
-
+# ---------------------------------------------------- In-flight ingestion banner
 try:
-    project_options = {"All authorized projects": None}
-    project_options.update({
-        project["project_name"]: project["project_id"]
-        for project in OrganizationService().list_projects()
-    })
-except requests.exceptions.RequestException:
-    project_options = {"All authorized projects": None}
+    docs = DocumentService().list_documents()
+    processing_docs = [d for d in docs if d.get("status") == "processing"]
+    if processing_docs:
+        doc_names = ", ".join([f"'{d.get('name') or d.get('document_id')}'" for d in processing_docs])
+        st.info(f"⏳ Ingesting {doc_names} in background... Documents will become searchable once indexing completes.")
+except Exception:
+    pass
 
-selected_project_name = st.selectbox("Project scope", list(project_options))
-selected_project_id = project_options[selected_project_name]
+# ---------------------------------------------------- Project scope & top actions
+project_options = {"General Knowledge Base (All Accessible Documents)": None}
+if is_admin:
+    try:
+        for project in OrganizationService().list_projects():
+            project_options[project["project_name"]] = project["project_id"]
+    except Exception:
+        pass
+else:
+    for project in profile.get("projects", []):
+        if project.get("is_member") or project.get("project_status") == "active":
+            project_options[project["project_name"]] = project["project_id"]
+
+top_col1, top_col2 = st.columns([3, 1])
+with top_col1:
+    selected_project_name = st.selectbox(
+        "Project scope",
+        list(project_options),
+        help="Filter policy answers and document retrieval to a specific project or the general knowledge base.",
+    )
+    selected_project_id = project_options[selected_project_name]
+
+with top_col2:
+    st.write("")
+    st.write("")
+    btn_col1, btn_col2 = st.columns(2)
+    with btn_col1:
+        if st.button("🗑️ Clear", help="Clear conversation history", use_container_width=True):
+            st.session_state.messages = []
+            st.session_state.last_response = None
+            st.session_state.session_id = str(uuid.uuid4())
+            st.rerun()
+    with btn_col2:
+        with st.popover("ℹ️ Info", use_container_width=True):
+            st.markdown(f"**Session:** `{st.session_state.session_id[:8]}...`")
+            st.markdown(f"**User:** {user.get('name') or user.get('username') or 'User'}")
+            st.markdown(f"**Scope:** {selected_project_name}")
 
 
 def _strip_citation_numbering(text: str) -> str:
@@ -194,7 +146,6 @@ def _strip_citation_numbering(text: str) -> str:
     )
     cleaned_lines = [num_pattern.sub("", line).strip() for line in text.splitlines()]
     return "\n".join(cleaned_lines).strip()
-
 
 
 # Replay full chat history with citations collapsed in an expander
@@ -218,9 +169,9 @@ user_input = st.chat_input("Ask about the HR policy...")
 if user_input:
     question_timestamp = datetime.now(timezone.utc).isoformat()
     st.session_state.messages.append({
-        "role": "user", 
+        "role": "user",
         "content": user_input,
-        "timestamp": question_timestamp
+        "timestamp": question_timestamp,
     })
     with st.chat_message("user"):
         st.markdown(user_input)
@@ -286,5 +237,3 @@ if user_input:
                     st.markdown(f"📄 **{src}**{sec_lbl}")
                     if txt:
                         st.markdown(f"> {_strip_citation_numbering(txt)}")
-
-

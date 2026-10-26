@@ -107,4 +107,6 @@ def require_auth() -> dict | None:
         st.page_link("app.py", label="Go to log in")
         st.stop()
     persist_auth(cookies)
+    from streamlit_app.sidebar import render_sidebar
+    render_sidebar()
     return auth

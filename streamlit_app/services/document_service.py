@@ -1,5 +1,4 @@
 import os
-
 import requests
 
 
@@ -27,15 +26,30 @@ class DocumentService:
             return None
         return None
 
-    def list_documents(self):
-        response = requests.get(f"{self.base_url}/api/documents", headers=self._headers(), timeout=15)
+    def _get(self, path: str, params: dict | None = None, timeout: float = 30):
+        url = f"{self.base_url}{path}" if path.startswith("/") else f"{self.base_url}/{path}"
+        response = requests.get(url, params=params, headers=self._headers(), timeout=timeout)
         response.raise_for_status()
         return response.json()
 
-    def get_document(self, document_id):
-        response = requests.get(f"{self.base_url}/api/documents/{document_id}", headers=self._headers(), timeout=15)
+    def _post(self, path: str, json_data: dict | None = None, timeout: float | None = None):
+        url = f"{self.base_url}{path}" if path.startswith("/") else f"{self.base_url}/{path}"
+        post_timeout = timeout if timeout is not None else 300
+        response = requests.post(url, json=json_data, headers=self._headers(), timeout=post_timeout)
         response.raise_for_status()
         return response.json()
+
+    def _delete(self, path: str, params: dict | None = None, timeout: float = 30):
+        url = f"{self.base_url}{path}" if path.startswith("/") else f"{self.base_url}/{path}"
+        response = requests.delete(url, params=params, headers=self._headers(), timeout=timeout)
+        response.raise_for_status()
+        return True
+
+    def list_documents(self):
+        return self._get("/api/documents")
+
+    def get_document(self, document_id: str):
+        return self._get(f"/api/documents/{document_id}", timeout=15)
 
     def create_document(self, payload, timeout: float | None = None):
         upload_timeout = timeout
@@ -46,15 +60,16 @@ class DocumentService:
                     upload_timeout = float(raw_timeout.strip())
                 except ValueError:
                     upload_timeout = None
-        response = requests.post(
-            f"{self.base_url}/api/documents",
-            json=payload,
-            headers=self._headers(),
-            timeout=upload_timeout,
-        )
-        response.raise_for_status()
-        return response.json()
+        return self._post("/api/documents", json_data=payload, timeout=upload_timeout)
 
-    def delete_document(self, document_id):
-        response = requests.delete(f"{self.base_url}/api/documents/{document_id}", headers=self._headers(), timeout=15)
-        response.raise_for_status()
+    def get_status(self, document_id: str):
+        return self._get(f"/api/documents/{document_id}/status")
+
+    def get_chunks(self, document_id: str):
+        return self._get(f"/api/documents/{document_id}/chunks")
+
+    def search_chunks(self, payload: dict):
+        return self._post("/api/documents/chunks/search", json_data=payload)
+
+    def delete_document(self, document_id: str, permanent: bool = False):
+        return self._delete(f"/api/documents/{document_id}", params={"permanent": permanent})

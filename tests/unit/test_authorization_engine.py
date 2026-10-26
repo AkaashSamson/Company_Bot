@@ -214,6 +214,28 @@ class TestProjectAccess:
         assert engine.can_manage_project_members(MANAGER, "p1") is True
         assert engine.can_manage_project_members(OUTSIDER, "p1") is False
 
+    def test_user_project_with_role_id_grants_access(self, ctx):
+        from app.domain.entities.organization_models import UserProject
+        uow, engine = ctx
+        tester_role = uow.roles.get_by_name("Tester")
+        uow.memberships.save(UserProject("dev", "p2", role_id=tester_role.role_id, status="active"))
+        assert engine.can_access_project(DEVELOPER, "p2") is True
+        assert "p2" in engine.accessible_project_ids(DEVELOPER)
+
+    def test_project_access_grant_role_expands_to_user_projects(self, ctx):
+        from app.use_cases.organization.project_access import ProjectAccessService
+        uow, engine = ctx
+        service = ProjectAccessService(lambda: uow, engine)
+        tester_role = uow.roles.get_by_name("Tester")
+        # p2 has manager_uid=None, let's assign pm as manager or use admin
+        p2 = uow.projects.get("p2")
+        p2.manager_uid = "mgr"
+        uow.projects.save(p2)
+        service.grant(MANAGER, "p2", "role", role_id=tester_role.role_id)
+        memberships = uow.memberships.list_for_project("p2")
+        uids = {m.uid for m in memberships}
+        assert "tester" in uids
+
 
 # ------------------------------------------------------------------- documents
 

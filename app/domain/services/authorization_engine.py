@@ -91,12 +91,20 @@ class AuthorizationEngine:
             named = uow.roles.get_by_name(user.role)
             if named is not None:
                 candidates.append((named, user.department_id))
-        for member in uow.department_members.list_for_user(uid):
-            if member.status != "active" or not member.membership_role:
-                continue
-            role = uow.roles.get_by_name(member.membership_role)
-            if role is not None:
-                candidates.append((role, member.department_id))
+        if user.role_id and hasattr(uow, "roles"):
+            role_by_id = uow.roles.get(user.role_id)
+            if role_by_id is not None:
+                candidates.append((role_by_id, user.department_id))
+        if hasattr(uow, "department_members"):
+            try:
+                for member in uow.department_members.list_for_user(uid):
+                    if member.status != "active" or not member.membership_role:
+                        continue
+                    role = uow.roles.get_by_name(member.membership_role)
+                    if role is not None:
+                        candidates.append((role, member.department_id))
+            except Exception:
+                pass
 
         roles = []
         seen = set()

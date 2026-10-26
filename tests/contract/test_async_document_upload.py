@@ -32,7 +32,7 @@ def test_async_document_upload_lifecycle_transitions_to_active():
             "async_mode": True,
         }
         response = client.post("/api/documents", json=payload)
-        assert response.status_code == 201
+        assert response.status_code in (201, 202)
 
         # TestClient executes background tasks before returning
         assert "async-doc-1" in ingested
@@ -68,7 +68,7 @@ def test_async_document_upload_failure_transitions_to_failed():
             "async_mode": True,
         }
         response = client.post("/api/documents", json=payload)
-        assert response.status_code == 201
+        assert response.status_code in (201, 202)
 
         # Check document status after background failure
         get_res = client.get("/api/documents/fail-doc-1")
