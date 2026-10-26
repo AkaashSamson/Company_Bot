@@ -44,10 +44,10 @@ def e2e_servers():
     env["PYTHONUNBUFFERED"] = "1"
 
     print("\n" + "=" * 60, flush=True)
-    print("🚀 [E2E Servers] Starting isolated test environment:", flush=True)
-    print(f"   • Database:  {TEST_DB_PATH}", flush=True)
-    print(f"   • Backend:   {BACKEND_URL} (logs -> fastapi_e2e.log)", flush=True)
-    print(f"   • Frontend:  {FRONTEND_URL} (logs -> streamlit_e2e.log)", flush=True)
+    print("[E2E Servers] Starting isolated test environment:", flush=True)
+    print(f"   - Database:  {TEST_DB_PATH}", flush=True)
+    print(f"   - Backend:   {BACKEND_URL} (logs -> fastapi_e2e.log)", flush=True)
+    print(f"   - Frontend:  {FRONTEND_URL} (logs -> streamlit_e2e.log)", flush=True)
     print("=" * 60, flush=True)
 
     backend_log = open("fastapi_e2e.log", "w", encoding="utf-8")
@@ -91,7 +91,7 @@ def e2e_servers():
     )
 
     # Wait for FastAPI backend
-    print("⏳ [E2E Servers] Waiting for FastAPI backend on :8001...", flush=True)
+    print("[E2E Servers] Waiting for FastAPI backend on :8001...", flush=True)
     backend_ready = False
     start_time = time.time()
     while time.time() - start_time < 60:
@@ -112,10 +112,10 @@ def e2e_servers():
         backend_proc.terminate()
         frontend_proc.terminate()
         raise TimeoutError("FastAPI backend failed to become ready within 60 seconds")
-    print(f"✅ [E2E Servers] FastAPI backend is live and healthy! ({time.time() - start_time:.1f}s)", flush=True)
+    print(f"[E2E Servers] [OK] FastAPI backend is live and healthy! ({time.time() - start_time:.1f}s)", flush=True)
 
     # Wait for Streamlit frontend
-    print("⏳ [E2E Servers] Waiting for Streamlit frontend on :8502...", flush=True)
+    print("[E2E Servers] Waiting for Streamlit frontend on :8502...", flush=True)
     frontend_ready = False
     start_time = time.time()
     while time.time() - start_time < 60:
@@ -136,12 +136,12 @@ def e2e_servers():
         backend_proc.terminate()
         frontend_proc.terminate()
         raise TimeoutError("Streamlit frontend failed to become ready within 60 seconds")
-    print(f"✅ [E2E Servers] Streamlit frontend is live and healthy! ({time.time() - start_time:.1f}s)", flush=True)
-    print("🌐 [E2E Servers] Test environment ready. Starting Playwright browser...\n", flush=True)
+    print(f"[E2E Servers] [OK] Streamlit frontend is live and healthy! ({time.time() - start_time:.1f}s)", flush=True)
+    print("[E2E Servers] Test environment ready. Starting Playwright browser...\n", flush=True)
 
     yield {"api_url": BACKEND_URL, "ui_url": FRONTEND_URL}
 
-    print("\n🛑 [E2E Servers] Shutting down isolated test servers...", flush=True)
+    print("\n[E2E Servers] Shutting down isolated test servers...", flush=True)
     frontend_proc.terminate()
     backend_proc.terminate()
     try:
@@ -155,7 +155,7 @@ def e2e_servers():
 
     backend_log.close()
     frontend_log.close()
-    print("✅ [E2E Servers] Test servers stopped. Logs preserved in fastapi_e2e.log and streamlit_e2e.log.", flush=True)
+    print("[E2E Servers] [OK] Test servers stopped. Logs preserved in fastapi_e2e.log and streamlit_e2e.log.", flush=True)
 
 
 class UIActions:
