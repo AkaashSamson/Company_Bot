@@ -279,10 +279,13 @@ class SqlAlchemyDocumentRepository:
         self.session.flush()
         return _document(record)
 
-    def delete(self, document_id):
+    def delete(self, document_id, **kwargs):
         record = self.session.scalar(select(DocumentRecord).where(DocumentRecord.document_id == document_id))
         if record:
             self.session.delete(record)
+
+    def purge(self, document_id):
+        self.delete(document_id)
 
 
 class SqlAlchemyMembershipRepository:

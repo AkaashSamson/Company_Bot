@@ -288,7 +288,10 @@ class DocumentManagementService:
             if hasattr(uow.documents, "purge"):
                 uow.documents.purge(document_id)
             else:
-                uow.documents.delete(document_id, permanent=True)
+                try:
+                    uow.documents.delete(document_id, permanent=True)
+                except TypeError:
+                    uow.documents.delete(document_id)
             uow.commit()
 
         if self.deletion_handler:
