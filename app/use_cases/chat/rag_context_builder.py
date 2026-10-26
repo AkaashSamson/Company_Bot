@@ -93,10 +93,25 @@ class RAGContextBuilder:
             if not text:
                 continue
 
-            # Build chunk header with metadata if available
+            # Build chunk header with specific source and page metadata
             chunk_lines = []
             if self.include_metadata and "metadata" in chunk:
-                pass  # We no longer prepend section headers because they are now cleanly embedded inside chunk text.
+                meta = chunk.get("metadata") or {}
+                source_name = meta.get("source") or meta.get("source_filename") or meta.get("document_id") or f"Doc {i}"
+                if "/" in str(source_name) or "\\" in str(source_name):
+                    import os
+                    source_name = os.path.basename(str(source_name))
+
+                page = meta.get("page_number") or meta.get("page")
+                section = meta.get("section_heading") or meta.get("section")
+
+                parts = [f"Source {i}: {source_name}"]
+                if page:
+                    parts.append(f"Page {page}")
+                if section and section != source_name and section != "Policy":
+                    parts.append(f"Section: {section}")
+
+                chunk_lines.append(f"[{', '.join(parts)}]")
 
             # Add chunk content
             chunk_lines.append(text)

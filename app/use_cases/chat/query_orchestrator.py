@@ -20,6 +20,7 @@ from app.infrastructure.faq.mongo_faq_store import MongoFAQStore
 _UNSET = object()
 from app.infrastructure.llm.fallback_llm_provider import FallbackLLMProvider
 from app.infrastructure.llm.groq_client import GroqClient
+from app.infrastructure.llm.openai_client import OpenAIClient
 from app.infrastructure.llm.openrouter_client import OpenRouterClient
 from app.infrastructure.logging.conversation_logger import ConversationLogger
 from app.infrastructure.logging.database_employee_id_provider import DatabaseEmployeeIdProvider
@@ -316,7 +317,7 @@ class QueryOrchestrator:
             self.conversation_logger = ConversationLogger(employee_id_provider=prov)
 
         self.llm = llm or FallbackLLMProvider(
-            primary=OpenRouterClient(),
+            primary=OpenAIClient(),
             fallback=GroqClient(),
         )
         self.memory = memory or SessionMemoryService()

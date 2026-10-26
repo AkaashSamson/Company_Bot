@@ -81,7 +81,7 @@ class VisualEnricher:
         if not pictures:
             return ()
         self._classify(document, pictures)
-        output: list[ProcessedChunk] = []
+        candidates = []
         for picture in pictures:
             label = self._label(picture)
             if DOCLING_SKIP_DECORATIVE_OCR and label in DECORATIVE_LABELS:
@@ -118,10 +118,43 @@ class VisualEnricher:
             if route == "IGNORE":
                 continue
 
-            contract = self._describe(
-                picture.image_bytes,
-                picture_ref=picture.ref,
-            )
+            candidates.append((picture, route))
+
+        if not candidates:
+            return ()
+
+        # Parallelize VLM description across threads if multiple candidates exist
+        import concurrent.futures
+        descriptions: dict[str, Any] = {}
+        if len(candidates) > 1:
+            max_workers = min(3, len(candidates))
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_map = {
+                    executor.submit(self._describe, pic.image_bytes, picture_ref=pic.ref): pic.ref
+                    for pic, _ in candidates
+                }
+                for future in concurrent.futures.as_completed(future_map):
+                    ref = future_map[future]
+                    try:
+                        descriptions[ref] = future.result()
+                    except Exception as err:
+                        logger.warning("VLM description failed for %s: %s", ref, err)
+                        descriptions[ref] = None
+        else:
+            pic, _ = candidates[0]
+            try:
+                descriptions[pic.ref] = self._describe(pic.image_bytes, picture_ref=pic.ref)
+            except Exception as err:
+                logger.warning("VLM description failed for %s: %s", pic.ref, err)
+                descriptions[pic.ref] = None
+
+        # Assemble chunks in deterministic order
+        output: list[ProcessedChunk] = []
+        for picture, route in candidates:
+            contract = descriptions.get(picture.ref)
+            if not contract:
+                continue
+
             search_text = (
                 contract.to_search_text()
                 if isinstance(contract, VisualOutputContract)

@@ -50,6 +50,19 @@ user_name_by_uid = {u["uid"]: u["name"] or u["uid"] for u in users}
 role_name_by_id = {r["role_id"]: r["name"] for r in roles}
 document_options = {d["document_name"]: d["document_id"] for d in documents}
 
+processing_docs = [d for d in documents if d.get("status") == "processing"]
+if processing_docs:
+    col_msg, col_ref = st.columns([4, 1])
+    with col_msg:
+        st.info(
+            f"⏳ **Ingestion in progress** for {len(processing_docs)} document(s): "
+            f"{', '.join(d.get('document_name', d.get('document_id', '')) for d in processing_docs)}. "
+            "Indexing runs in the background."
+        )
+    with col_ref:
+        if st.button("🔄 Refresh", key="refresh_processing"):
+            st.rerun()
+
 with st.expander("Upload document", expanded=True):
     uploaded_file = st.file_uploader("Choose a file to provision for Q&A", type=["pdf", "docx", "txt", "md", "rst"])
     if uploaded_file is not None:
@@ -64,8 +77,9 @@ with st.expander("Upload document", expanded=True):
                     "document_name": document_name,
                     "project_id": project_options[project_name],
                     "content": content,
+                    "async_mode": True,
                 })
-                st.success("Document uploaded and provisioned for retrieval.")
+                st.success("✅ Document uploaded! Ingestion is running in the background.")
                 st.rerun()
             except Exception as error:
                 st.error(format_error(error))
@@ -87,7 +101,22 @@ else:
         project_name_by_id.get(detail.get("project_id"), detail.get("project_id") or "Unassigned"),
     )
     col2.metric("Uploader", user_name_by_uid.get(uploaded_by, uploaded_by or "-"))
-    col3.metric("Status", detail.get("status", "-"))
+
+    raw_status = detail.get("status", "-")
+    status_display = {
+        "active": "🟢 Ready (Active)",
+        "processing": "🟡 Processing...",
+        "failed": "🔴 Failed",
+        "archived": "⚪ Archived",
+    }.get(raw_status, raw_status)
+    col3.metric("Status", status_display)
+
+    if raw_status == "processing":
+        st.warning("⏳ This document is currently being parsed, chunked, and vectorized in the background. It will become active for Q&A as soon as processing finishes.")
+        if st.button("🔄 Check Status", key="check_doc_status"):
+            st.rerun()
+    elif raw_status == "failed":
+        st.error("❌ Document ingestion failed. Please check the document file format or re-upload.")
 
     col1, col2, col3 = st.columns(3)
     col1.metric("Type", detail.get("file_type") or "-")

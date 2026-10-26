@@ -8,8 +8,10 @@ from pathlib import Path
 from typing import Any, List, Optional, Sequence, Union
 
 from app.core.settings import (
+    AZURE_OPENAI_API_KEY,
     CONVERSATION_LOG_DIR,
     GROQ_API_KEY,
+    OPENAI_API_KEY,
     OPENROUTER_API_KEY,
 )
 from app.domain.entities.conversation_log import (
@@ -69,7 +71,7 @@ class ConversationLogger:
         if sensitive_values:
             self._sensitive_values.extend(s for s in sensitive_values if s and len(s) >= 4)
         else:
-            for secret in (OPENROUTER_API_KEY, GROQ_API_KEY):
+            for secret in (OPENAI_API_KEY, AZURE_OPENAI_API_KEY, OPENROUTER_API_KEY, GROQ_API_KEY):
                 if secret and len(secret) >= 4:
                     self._sensitive_values.append(secret)
 

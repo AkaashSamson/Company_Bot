@@ -61,15 +61,19 @@ def _strip_reasoning(raw: str) -> str:
         if stripped and (_THINKING_HEADER.search(stripped) or _INSTRUCTION_ECHO.search(stripped)):
             last_header_idx = i
 
-    if last_header_idx == -1:
-        return text
+    if last_header_idx != -1:
+        after = "\n".join(lines[last_header_idx + 1:]).strip()
+        if not after:
+            paragraphs = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
+            cleaned = paragraphs[-1] if paragraphs else text
+        else:
+            cleaned = after
+    else:
+        cleaned = text
 
-    after = "\n".join(lines[last_header_idx + 1:]).strip()
-    if not after:
-        paragraphs = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
-        return paragraphs[-1] if paragraphs else text
-
-    return after
+    # Clean generic [Document Context] or 【Document Context】 tags while preserving specific citations
+    cleaned = re.sub(r"[【\[]\s*Document[\u202f\s]+Context\s*[】\]]", "", cleaned, flags=re.IGNORECASE)
+    return cleaned.strip()
 
 
 class OpenRouterClient(LLMProvider):

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 
 from app.api.dependencies import (
     get_current_principal,
@@ -42,14 +42,33 @@ def list_documents(
         raise _error(error) from error
 
 
-@router.post("/documents", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
-def create_document(
-    payload: DocumentCreate,
+@router.get("/documents/{document_id}", response_model=DocumentResponse)
+def get_document(
+    document_id: str,
     principal=Depends(get_current_principal),
     service=Depends(get_document_management_service),
 ):
     try:
-        return service.register_document(principal, **payload.model_dump())
+        return service.get_document(principal, document_id)
+    except Exception as error:
+        raise _error(error) from error
+
+
+@router.post("/documents", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
+def create_document(
+    payload: DocumentCreate,
+    background_tasks: BackgroundTasks,
+    principal=Depends(get_current_principal),
+    service=Depends(get_document_management_service),
+):
+    try:
+        data = payload.model_dump()
+        use_async = data.pop("async_mode", False)
+        return service.register_document(
+            principal,
+            background_tasks=background_tasks if use_async else None,
+            **data,
+        )
     except Exception as error:
         raise _error(error) from error
 
@@ -70,11 +89,19 @@ def list_project_documents(
 def create_project_document(
     project_id: str,
     payload: DocumentCreate,
+    background_tasks: BackgroundTasks,
     principal=Depends(get_current_principal),
     service=Depends(get_document_management_service),
 ):
     try:
-        return service.register_document(principal, project_id=project_id, **payload.model_dump(exclude={"project_id"}))
+        data = payload.model_dump(exclude={"project_id"})
+        use_async = data.pop("async_mode", False)
+        return service.register_document(
+            principal,
+            project_id=project_id,
+            background_tasks=background_tasks if use_async else None,
+            **data,
+        )
     except Exception as error:
         raise _error(error) from error
 

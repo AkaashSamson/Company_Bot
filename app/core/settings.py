@@ -33,6 +33,10 @@ DOCLING_PDF_OCR_SCALE = float(os.getenv("DOCLING_PDF_OCR_SCALE", "1.5"))
 DOCLING_SKIP_BLANK_PAGES = (
     os.getenv("DOCLING_SKIP_BLANK_PAGES", "true").lower() == "true"
 )
+DOCLING_NUM_THREADS = int(os.getenv("DOCLING_NUM_THREADS", str(os.cpu_count() or 8)))
+DOCLING_AUTO_OCR_SELECTIVE = (
+    os.getenv("DOCLING_AUTO_OCR_SELECTIVE", "true").lower() == "true"
+)
 DOCLING_CITATION_PDF_ENABLED = os.getenv(
     "DOCLING_CITATION_PDF_ENABLED", "false"
 ).lower() == "true"
@@ -80,6 +84,13 @@ FAQ_CACHE_FILE = os.getenv(
 MONGODB_SERVER_SELECTION_TIMEOUT_MS = int(
     os.getenv("MONGODB_SERVER_SELECTION_TIMEOUT_MS", "2000")
 )
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY", "")
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT", "")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./instance/knowlayer.db")
@@ -116,7 +127,7 @@ LANGCHAIN_ENDPOINT = os.getenv("LANGCHAIN_ENDPOINT", "https://api.smith.langchai
 
 LLM_MODEL = os.getenv(
     "LLM_MODEL",
-    "openrouter/anthropic/claude-3.5-sonnet",
+    "gpt-4o",
 )
 
 GROQ_MODEL = os.getenv(
