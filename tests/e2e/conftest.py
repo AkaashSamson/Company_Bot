@@ -192,6 +192,10 @@ class UIActions:
         logout_btn = sidebar.get_by_role("button", name="Log out")
         if logout_btn.is_visible():
             logout_btn.click()
+            self.page.wait_for_timeout(1000)
+            go_to_login_link = self.page.get_by_role("link", name="Go to log in")
+            if go_to_login_link.is_visible():
+                go_to_login_link.click()
             expect(self.page.get_by_role("button", name="Log in")).to_be_visible(timeout=10000)
 
     def navigate_to(self, page_label: str):

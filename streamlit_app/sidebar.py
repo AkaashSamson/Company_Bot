@@ -24,7 +24,10 @@ def logout_user():
         cookies.remove("knowlayer_auth")
     except Exception:
         pass
-    st.rerun()
+    try:
+        st.switch_page("app.py")
+    except Exception:
+        st.rerun()
 
 
 def render_sidebar():

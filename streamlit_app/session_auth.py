@@ -103,7 +103,10 @@ def require_auth() -> dict | None:
             st.session_state.auth = None
             auth = None
     if auth is None:
-        st.warning("You must log in to view this page.")
+        try:
+            st.switch_page("app.py")
+        except Exception:
+            st.warning("You must log in to view this page.")
         st.page_link("app.py", label="Go to log in")
         st.stop()
     persist_auth(cookies)
