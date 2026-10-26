@@ -27,7 +27,9 @@ class ChromaVectorStore:
         persist_directory: Optional[str] = None,
     ):
         self.collection_name = collection_name
-        self.persist_directory = Path(persist_directory or ".chroma").resolve()
+        self.persist_directory = Path(
+            persist_directory or os.getenv("CHROMA_PERSIST_DIRECTORY", ".chroma")
+        ).resolve()
         self.persist_directory.mkdir(parents=True, exist_ok=True)
 
         key = str(self.persist_directory)
