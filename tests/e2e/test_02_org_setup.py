@@ -27,14 +27,14 @@ def test_act2_sarah_org_setup_and_lead_onboarding(ui):
     ui.fill_input("Department name *", "Engineering", container="Create Department")
     ui.select_dropdown("Default billable policy", "billable", container="Create Department")
     ui.page.get_by_role("button", name="Create department").click()
-    expect(ui.page.get_by_text("Department created successfully", exact=False)).to_be_visible()
+    expect(ui.page.locator('[data-testid^="glide-cell-"]').filter(has_text="Engineering").first).to_be_attached()
 
     # Create Human Resources
     print("   - Creating Human Resources department...", flush=True)
     ui.fill_input("Department name *", "Human Resources", container="Create Department")
     ui.select_dropdown("Default billable policy", "non-billable", container="Create Department")
     ui.page.get_by_role("button", name="Create department").click()
-    expect(ui.page.get_by_text("Department created successfully", exact=False)).to_be_visible()
+    expect(ui.page.locator('[data-testid^="glide-cell-"]').filter(has_text="Human Resources").first).to_be_attached()
     print("   [OK] Engineering & Human Resources departments created!", flush=True)
 
     # 3. NEG-ORG-01: Duplicate Department Name Rejection
@@ -58,7 +58,7 @@ def test_act2_sarah_org_setup_and_lead_onboarding(ui):
     ui.select_dropdown("Department", "Human Resources", container="Add User")
     ui.fill_input("Initial password", "Password123!", container="Add User")
     ui.page.get_by_role("button", name="Create user").click()
-    expect(ui.page.get_by_text("Roy Miller", exact=False).first).to_be_visible()
+    expect(ui.page.locator('[data-testid^="glide-cell-"]').filter(has_text="Roy Miller").first).to_be_attached()
 
     # Onboard Marcus Vance (Engineering Manager)
     print("   - Onboarding Marcus Vance (Engineering Manager)...", flush=True)
@@ -69,7 +69,7 @@ def test_act2_sarah_org_setup_and_lead_onboarding(ui):
     ui.select_dropdown("Department", "Engineering", container="Add User")
     ui.fill_input("Initial password", "Password123!", container="Add User")
     ui.page.get_by_role("button", name="Create user").click()
-    expect(ui.page.get_by_text("Marcus Vance", exact=False).first).to_be_visible()
+    expect(ui.page.locator('[data-testid^="glide-cell-"]').filter(has_text="Marcus Vance").first).to_be_attached()
     print("   [OK] Roy Miller & Marcus Vance onboarded as Managers!", flush=True)
 
     # 5. POS-ORG-04: Sarah Logout

@@ -28,8 +28,8 @@ def test_act1_admin_bootstrap_and_sarah_creation(ui):
     ui.fill_input("Initial password", "Password123!", container="Add User")
     ui.page.get_by_role("button", name="Create user").click()
 
-    # Verify Sarah is listed
-    expect(ui.page.get_by_text("Sarah Chen", exact=False).first).to_be_visible()
+    # Verify Sarah is listed in the Users dataframe
+    expect(ui.page.locator('[data-testid^="glide-cell-"]').filter(has_text="Sarah Chen").first).to_be_attached()
     print("   [OK] Delegated admin Sarah Chen created successfully!", flush=True)
 
     # 3. NEG-BOOT-01: Verify Admin Role Immutability on Roles Page
