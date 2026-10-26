@@ -114,20 +114,28 @@ class OpenAIClient(LLMProvider):
         client: Optional[Any] = None,
         **kwargs,
     ):
-        if not api_key and OPENAI_API_KEY and not AZURE_OPENAI_API_KEY:
-            is_azure = False
-            self.api_key = OPENAI_API_KEY
-            self.endpoint = endpoint if endpoint is not None else OPENAI_BASE_URL
-        else:
-            self.api_key = api_key if api_key is not None else (AZURE_OPENAI_API_KEY or OPENAI_API_KEY)
-            self.endpoint = endpoint if endpoint is not None else (AZURE_OPENAI_ENDPOINT or OPENAI_BASE_URL)
-            is_azure = bool(
-                self.endpoint and ("azure.com" in self.endpoint.lower() or "azure" in self.endpoint.lower())
-            ) or bool(self.api_version and self.endpoint and "azure" in (self.endpoint or "").lower())
-
         self.api_version = api_version if api_version is not None else AZURE_OPENAI_API_VERSION
         self.deployment = deployment if deployment is not None else AZURE_OPENAI_DEPLOYMENT
         self.model = model if model is not None else (OPENAI_MODEL or LLM_MODEL or "gpt-4o")
+
+        if api_key is None:
+            if OPENAI_API_KEY and not AZURE_OPENAI_API_KEY:
+                is_azure = False
+                self.api_key = OPENAI_API_KEY
+                self.endpoint = endpoint if endpoint is not None else OPENAI_BASE_URL
+            else:
+                self.api_key = AZURE_OPENAI_API_KEY or OPENAI_API_KEY
+                self.endpoint = endpoint if endpoint is not None else (AZURE_OPENAI_ENDPOINT or OPENAI_BASE_URL)
+                is_azure = bool(
+                    self.endpoint and ("azure.com" in self.endpoint.lower() or "azure" in self.endpoint.lower())
+                ) or bool(self.api_version and self.endpoint and "azure" in self.endpoint.lower())
+        else:
+            self.api_key = api_key
+            self.endpoint = endpoint if endpoint is not None else (AZURE_OPENAI_ENDPOINT or OPENAI_BASE_URL)
+            is_azure = bool(
+                self.endpoint and ("azure.com" in self.endpoint.lower() or "azure" in self.endpoint.lower())
+            ) or bool(self.api_version and self.endpoint and "azure" in self.endpoint.lower())
+
         self.effective_model = (self.deployment if is_azure and self.deployment else self.model) or "gpt-4o"
         self.timeout = timeout
         self.max_tokens = max_tokens
