@@ -53,6 +53,7 @@ if st.session_state.get("auth") is None:
                 try:
                     auth = AuthenticationService().login(login_username, login_password)
                     st.session_state.auth = auth
+                    st.session_state.pop("logged_out", None)
                     st.rerun()
                 except requests.exceptions.HTTPError as error:
                     status_code = error.response.status_code if error.response is not None else None
@@ -79,6 +80,11 @@ permissions = set(profile.get("permissions") or [])
 user_role = (user.get("role") or "").lower()
 auth_uid = st.session_state.get("auth", {}).get("uid", "") if isinstance(st.session_state.get("auth"), dict) else ""
 is_admin = user_role == "admin" or auth_uid == "admin" or "*" in permissions or "ADMIN" in permissions
+if isinstance(st.session_state.get('auth'), dict):
+    if 'user' not in st.session_state.auth or not st.session_state.auth.get('user'):
+        st.session_state.auth['user'] = user
+    if 'permissions' not in st.session_state.auth or not st.session_state.auth.get('permissions'):
+        st.session_state.auth['permissions'] = list(permissions)
 
 # ---------------------------------------------------- In-flight ingestion banner
 try:

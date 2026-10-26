@@ -1,3 +1,4 @@
+import requests
 import os
 import shutil
 import subprocess
@@ -193,10 +194,15 @@ class UIActions:
         if logout_btn.is_visible():
             logout_btn.click()
             self.page.wait_for_timeout(1000)
-            go_to_login_link = self.page.get_by_role("link", name="Go to log in")
-            if go_to_login_link.is_visible():
-                go_to_login_link.click()
-            expect(self.page.get_by_role("button", name="Log in")).to_be_visible(timeout=10000)
+        go_to_login_link = self.page.get_by_role("link", name="Go to log in")
+        if go_to_login_link.is_visible():
+            go_to_login_link.click()
+        try:
+            self.page.context.clear_cookies()
+        except Exception:
+            pass
+        self.goto_home()
+        expect(self.page.get_by_role("button", name="Log in")).to_be_visible(timeout=15000)
 
     def navigate_to(self, page_label: str):
         """Click sidebar navigation link."""
@@ -261,34 +267,153 @@ class UIActions:
             following = scope.locator(
                 f'xpath=following::div[@data-testid="stSelectbox"][.//*[contains(text(), "{label}") or text()="{label}"]][1]'
             )
-            if following.count() > 0:
-                selectbox = following.first
-            else:
-                selectbox = scope.locator('xpath=following::div[@data-testid="stSelectbox"][1]')
+            selectbox = following.first if following.count() > 0 else scope.locator('xpath=following::div[@data-testid="stSelectbox"][1]')
         else:
             matching = scope.locator('[data-testid="stSelectbox"]').filter(has_text=label)
-            visible_matching = matching.locator(':visible')
-            selectbox = visible_matching.first if visible_matching.count() > 0 else matching.first
+            selectbox = matching.first
 
         select_trigger = selectbox.locator('[data-baseweb="select"]')
         if select_trigger.count() > 0:
             select_trigger.click()
         else:
             selectbox.click()
-        self.page.wait_for_timeout(300)
 
-        option = self.page.locator('[role="option"]').filter(has_text=option_text).first
-        if option.is_visible():
-            option.click()
-        else:
-            inp = selectbox.locator("input")
-            if inp.count() > 0:
-                inp.fill(option_text)
-                inp.press("Enter")
-        self.page.wait_for_timeout(500)
+        # Streamlit BaseWeb renders option popovers in a portal.
+        # Wait for option to appear and click it:
+        try:
+            self.page.get_by_role("option", name=option_text, exact=True).click(timeout=5000)
+        except Exception:
+            opt = self.page.locator('[role="option"]').filter(has_text=option_text).first
+            if opt.count() > 0:
+                opt.click(timeout=3000)
+            else:
+                inp = selectbox.locator("input")
+                if inp.count() > 0:
+                    inp.fill(option_text)
+                    self.page.get_by_role("option", name=option_text).first.click(timeout=3000)
+
+        self.page.wait_for_timeout(400)
 
 
 @pytest.fixture
 def ui(page: Page, e2e_servers) -> UIActions:
     """Provides high-level UI action helpers."""
     return UIActions(page, base_url=e2e_servers["ui_url"])
+
+
+def _get_admin_token(backend_url: str = BACKEND_URL) -> str:
+    """Helper to obtain an admin bearer token from the FastAPI backend."""
+    resp = requests.post(
+        f"{backend_url}/api/auth/login",
+        json={"username": "admin", "password": "change-me-before-first-login"},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()["access_token"]
+
+
+@pytest.fixture
+def ensure_act1_state(e2e_servers):
+    """Ensures Act 1 state: System Admin bootstrapped and Sarah Chen exists as an Admin."""
+    backend_url = e2e_servers["api_url"]
+    token = _get_admin_token(backend_url)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    users_resp = requests.get(f"{backend_url}/api/users", headers=headers, timeout=10)
+    users = users_resp.json() if users_resp.status_code == 200 else []
+    sarah = next((u for u in users if u.get("username") == "sarah.admin"), None)
+
+    if not sarah:
+        depts_resp = requests.get(f"{backend_url}/api/departments", headers=headers, timeout=10)
+        depts = depts_resp.json() if depts_resp.status_code == 200 else []
+        admin_dept_id = next((d["department_id"] for d in depts if d.get("department_name") == "Administration"), None) or (depts[0]["department_id"] if depts else "admin")
+
+        requests.post(
+            f"{backend_url}/api/users",
+            headers=headers,
+            json={
+                "username": "sarah.admin",
+                "name": "Sarah Chen",
+                "email": "sarah@nexora.com",
+                "role": "Admin",
+                "department_id": admin_dept_id,
+                "initial_password": "Password123!",
+            },
+            timeout=10,
+        ).raise_for_status()
+
+    return {"sarah_username": "sarah.admin", "sarah_password": "Password123!"}
+
+
+@pytest.fixture
+def ensure_act2_state(ensure_act1_state, e2e_servers):
+    """Ensures Act 2 state: Sarah Chen, Engineering & HR departments, and leads (Roy & Marcus) exist."""
+    backend_url = e2e_servers["api_url"]
+    token = _get_admin_token(backend_url)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Ensure departments
+    depts_resp = requests.get(f"{backend_url}/api/departments", headers=headers, timeout=10)
+    depts = {d["department_name"]: d["department_id"] for d in (depts_resp.json() if depts_resp.status_code == 200 else [])}
+
+    if "Engineering" not in depts:
+        r = requests.post(
+            f"{backend_url}/api/departments",
+            headers=headers,
+            json={"department_name": "Engineering", "default_billable_policy": "billable"},
+            timeout=10,
+        )
+        r.raise_for_status()
+        depts["Engineering"] = r.json()["department_id"]
+
+    if "Human Resources" not in depts:
+        r = requests.post(
+            f"{backend_url}/api/departments",
+            headers=headers,
+            json={"department_name": "Human Resources", "default_billable_policy": "non-billable"},
+            timeout=10,
+        )
+        r.raise_for_status()
+        depts["Human Resources"] = r.json()["department_id"]
+
+    # Ensure leads
+    users_resp = requests.get(f"{backend_url}/api/users", headers=headers, timeout=10)
+    users = {u.get("username"): u for u in (users_resp.json() if users_resp.status_code == 200 else [])}
+
+    if "roy.hr" not in users:
+        requests.post(
+            f"{backend_url}/api/users",
+            headers=headers,
+            json={
+                "username": "roy.hr",
+                "name": "Roy Miller",
+                "email": "roy@nexora.com",
+                "role": "Manager",
+                "department_id": depts["Human Resources"],
+                "initial_password": "Password123!",
+            },
+            timeout=10,
+        ).raise_for_status()
+
+    if "marcus.eng" not in users:
+        requests.post(
+            f"{backend_url}/api/users",
+            headers=headers,
+            json={
+                "username": "marcus.eng",
+                "name": "Marcus Vance",
+                "email": "marcus@nexora.com",
+                "role": "Manager",
+                "department_id": depts["Engineering"],
+                "initial_password": "Password123!",
+            },
+            timeout=10,
+        ).raise_for_status()
+
+    return {
+        "departments": depts,
+        "leads": {
+            "roy": {"username": "roy.hr", "password": "Password123!"},
+            "marcus": {"username": "marcus.eng", "password": "Password123!"},
+        },
+    }

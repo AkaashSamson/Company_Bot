@@ -110,6 +110,13 @@ def require_auth() -> dict | None:
         st.page_link("app.py", label="Go to log in")
         st.stop()
     persist_auth(cookies)
-    from streamlit_app.sidebar import render_sidebar
+    from streamlit_app.sidebar import get_current_profile, render_sidebar
     render_sidebar()
+    if isinstance(auth, dict):
+        profile = get_current_profile()
+        if 'user' not in auth or not auth.get('user'):
+            auth['user'] = profile.get('user') or {}
+        if 'permissions' not in auth or not auth.get('permissions'):
+            auth['permissions'] = profile.get('permissions') or []
+        st.session_state.auth = auth
     return auth
