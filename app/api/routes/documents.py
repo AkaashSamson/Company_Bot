@@ -37,11 +37,12 @@ def _error(error):
 
 @router.get("/documents", response_model=list[DocumentResponse])
 def list_documents(
+    include_archived: bool = Query(False),
     principal=Depends(get_current_principal),
     service=Depends(get_document_management_service),
 ):
     try:
-        return service.list_documents(principal)
+        return service.list_documents(principal, include_archived=include_archived)
     except Exception as error:
         raise _error(error) from error
 
@@ -194,6 +195,18 @@ def delete_document(
     except Exception as error:
         raise _error(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/documents/{document_id}/restore", response_model=DocumentResponse)
+def restore_document(
+    document_id: str,
+    principal=Depends(get_current_principal),
+    service=Depends(get_document_management_service),
+):
+    try:
+        return service.restore_document(principal, document_id)
+    except Exception as error:
+        raise _error(error) from error
 
 
 @router.get("/documents/{document_id}/access", response_model=list[DocumentGrantResponse])

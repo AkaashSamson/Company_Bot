@@ -372,7 +372,7 @@ class AuthorizationEngine:
         with self.unit_of_work_factory() as uow:
             user = self._active_user(uow, principal.uid)
             document = uow.documents.get(document_id)
-            if user is None or document is None or document.status != "active":
+            if user is None or document is None or document.status not in ("active", "archived", "processing", "failed"):
                 return False
             if user.role.casefold() == "admin":
                 return True

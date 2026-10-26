@@ -147,3 +147,35 @@ def test_permanent_delete_purges_chunks(test_setup):
     chunks_resp = client.get(f"/api/documents/{doc_id}/chunks")
     assert chunks_resp.status_code == 200
     assert len(chunks_resp.json()) == 0
+
+
+def test_archive_document_listing_toggle_and_restore(test_setup):
+    client, uow, store = test_setup
+    content = base64.b64encode(b"Toggle me.").decode("utf-8")
+    payload = {"document_name": "toggle_me.txt", "project_id": "PRJ-ARCHIVE", "content": content}
+    res = client.post("/api/documents", json=payload)
+    doc_id = res.json()["document_id"]
+
+    # Initially active
+    list_res = client.get("/api/documents")
+    assert any(d["document_id"] == doc_id for d in list_res.json())
+
+    # Archive document
+    client.delete(f"/api/documents/{doc_id}")
+
+    # Excluded by default
+    list_default = client.get("/api/documents")
+    assert not any(d["document_id"] == doc_id for d in list_default.json())
+
+    # Included when include_archived=true
+    list_archived = client.get("/api/documents?include_archived=true")
+    assert any(d["document_id"] == doc_id and d["status"] == "archived" for d in list_archived.json())
+
+    # Restore document
+    restore_res = client.post(f"/api/documents/{doc_id}/restore")
+    assert restore_res.status_code == 200
+    assert restore_res.json()["status"] == "active"
+
+    # Visible again in default list
+    list_after_restore = client.get("/api/documents")
+    assert any(d["document_id"] == doc_id and d["status"] == "active" for d in list_after_restore.json())

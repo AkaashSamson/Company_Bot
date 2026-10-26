@@ -34,8 +34,7 @@ class DocumentService:
 
     def _post(self, path: str, json_data: dict | None = None, timeout: float | None = None):
         url = f"{self.base_url}{path}" if path.startswith("/") else f"{self.base_url}/{path}"
-        post_timeout = timeout if timeout is not None else 300
-        response = requests.post(url, json=json_data, headers=self._headers(), timeout=post_timeout)
+        response = requests.post(url, json=json_data, headers=self._headers(), timeout=timeout)
         response.raise_for_status()
         return response.json()
 
@@ -45,8 +44,9 @@ class DocumentService:
         response.raise_for_status()
         return True
 
-    def list_documents(self):
-        return self._get("/api/documents")
+    def list_documents(self, include_archived: bool = False):
+        params = {"include_archived": "true"} if include_archived else None
+        return self._get("/api/documents", params=params)
 
     def get_document(self, document_id: str):
         return self._get(f"/api/documents/{document_id}", timeout=15)
@@ -73,3 +73,6 @@ class DocumentService:
 
     def delete_document(self, document_id: str, permanent: bool = False):
         return self._delete(f"/api/documents/{document_id}", params={"permanent": permanent})
+
+    def restore_document(self, document_id: str):
+        return self._post(f"/api/documents/{document_id}/restore")

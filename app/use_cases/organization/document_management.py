@@ -61,8 +61,21 @@ class DocumentManagementService:
         if not self.authorization.can_view_project_documents(AuthenticatedPrincipal(actor.uid), project.project_id):
             raise ForbiddenError("Project documents are outside viewer scope")
 
-    def _can_access(self, actor, document):
+    def _can_access(self, actor, document, include_archived: bool = False):
         if document.status == "archived":
+            if not include_archived:
+                return False
+            if actor.role.casefold() == "admin" or document.uploaded_by == actor.uid:
+                return True
+            if document.project_id is None:
+                return True
+            with self.unit_of_work_factory() as uow:
+                project = uow.projects.get(document.project_id)
+                if project and self.authorization._can_manage_project(uow, actor, project):
+                    return True
+                membership = uow.memberships.get(actor.uid, document.project_id)
+                if membership and membership.status == "active":
+                    return True
             return False
         if document.status == "active":
             return self.authorization.can_read_document(AuthenticatedPrincipal(actor.uid), document.document_id)
@@ -80,20 +93,20 @@ class DocumentManagementService:
                 return True
         return False
 
-    def get_document(self, principal: AuthenticatedPrincipal, document_id: str) -> Document:
+    def get_document(self, principal: AuthenticatedPrincipal, document_id: str, include_archived: bool = True) -> Document:
         with self.unit_of_work_factory() as uow:
             actor = self._actor(uow, principal)
             document = uow.documents.get(document_id)
-            if document is None or document.status == "archived":
+            if document is None or (document.status == "archived" and not include_archived):
                 raise NotFoundError("Document not found")
-            if not self._can_access(actor, document):
+            if not self._can_access(actor, document, include_archived=include_archived):
                 raise ForbiddenError("Document is outside access scope")
             return document
 
-    def list_documents(self, principal: AuthenticatedPrincipal):
+    def list_documents(self, principal: AuthenticatedPrincipal, include_archived: bool = False):
         with self.unit_of_work_factory() as uow:
             actor = self._actor(uow, principal)
-            return [document for document in uow.documents.list() if self._can_access(actor, document)]
+            return [document for document in uow.documents.list() if self._can_access(actor, document, include_archived=include_archived)]
 
     def list_project_documents(self, principal: AuthenticatedPrincipal, project_id: str):
         with self.unit_of_work_factory() as uow:
@@ -322,6 +335,31 @@ class DocumentManagementService:
 
             uow.documents.save(document)
             uow.commit()
+
+    def restore_document(self, principal: AuthenticatedPrincipal, document_id: str):
+        with self.unit_of_work_factory() as uow:
+            actor = self._actor(uow, principal)
+            document = uow.documents.get(document_id)
+            if document is None:
+                raise NotFoundError("Document not found")
+            if not self.authorization.can_manage_document(AuthenticatedPrincipal(actor.uid), document_id):
+                raise ForbiddenError("Document is outside manager scope")
+
+            document.status = "active"
+            document.updated_at = utc_now()
+
+            # Relocate file back from archived directory if present
+            if document.storage_location:
+                src_path = Path(document.storage_location)
+                if src_path.exists() and src_path.parent.name == "archived":
+                    dest_dir = src_path.parent.parent
+                    dest_path = dest_dir / src_path.name
+                    shutil.move(str(src_path), str(dest_path))
+                    document.storage_location = str(dest_path)
+
+            document = uow.documents.save(document)
+            uow.commit()
+            return document
 
     def delete_document(self, principal: AuthenticatedPrincipal, document_id: str, permanent: bool = False):
         if not permanent:

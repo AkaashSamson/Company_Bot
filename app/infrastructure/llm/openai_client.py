@@ -203,7 +203,6 @@ class OpenAIClient(LLMProvider):
 
             usage = getattr(response, "usage", None)
             self._track_tokens(usage)
-            self._add_tokens_to_langsmith(usage)
 
             return _strip_reasoning(raw)
 
@@ -275,7 +274,6 @@ class OpenAIClient(LLMProvider):
 
             usage = getattr(response, "usage", None)
             self._track_tokens(usage)
-            self._add_tokens_to_langsmith(usage)
 
             prompt_tokens, completion_tokens, total_tokens = _extract_usage(usage)
             tokens = LLMTokenUsage(
@@ -321,23 +319,7 @@ class OpenAIClient(LLMProvider):
             )
 
     def _track_tokens(self, usage: Any) -> None:
-        """Extract and track token usage from response."""
-        try:
-            prompt_tokens, completion_tokens, _ = _extract_usage(usage)
-            tracker = get_token_tracker()
-            tracker.track(
-                model=self.effective_model,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                session_id=self.session_id,
-                cache_hit=False,
-                provider="openai",
-            )
-        except Exception as e:
-            logger.warning("Failed to track token usage: %s", e)
-
-    def _add_tokens_to_langsmith(self, usage: Any) -> None:
-        """Add token usage metadata to LangSmith trace."""
+        """Extract, store, and track token usage from response."""
         try:
             if usage is None:
                 return
@@ -358,24 +340,17 @@ class OpenAIClient(LLMProvider):
                 self.effective_model,
             )
 
-            try:
-                from langsmith import get_run_tree
-                run = get_run_tree()
-                if run:
-                    if not hasattr(run, "_metadata"):
-                        run._metadata = {}
-                    run._metadata.update({
-                        "prompt_tokens": prompt_tokens,
-                        "completion_tokens": completion_tokens,
-                        "total_tokens": total_tokens,
-                        "model": self.effective_model,
-                    })
-                    logger.debug("Added token metadata to LangSmith run: %s", run.id)
-            except Exception as e:
-                logger.debug("Could not add tokens to LangSmith: %s", e)
-
+            tracker = get_token_tracker()
+            tracker.track(
+                model=self.effective_model,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                session_id=self.session_id,
+                cache_hit=False,
+                provider="openai",
+            )
         except Exception as e:
-            logger.debug("Failed to process token usage: %s", e)
+            logger.warning("Failed to track token usage: %s", e)
 
     def get_last_tokens(self) -> Optional[dict]:
         """Get the token usage from the last generate() call."""

@@ -84,9 +84,15 @@ with tab_library:
                 except Exception as error:
                     st.error(f"Upload failed: {format_error(error)}")
 
+    col_hdr, col_tog = st.columns([3, 1])
+    with col_hdr:
+        st.subheader("Document Library")
+    with col_tog:
+        show_archived = st.toggle("📁 Show Archived", value=False, key="show_archived_docs", help="Include archived documents in the table and inspector")
+
     # Fetch documents
     try:
-        documents = document_service.list_documents()
+        documents = document_service.list_documents(include_archived=show_archived)
     except Exception as error:
         st.error("The document service is unavailable. Check that FastAPI is running and you are logged in.")
         st.caption(f"Technical detail: {format_error(error)}")
@@ -106,10 +112,10 @@ with tab_library:
             return
 
         status_icons = {
-            "active": "Active",
-            "processing": "Processing",
-            "archived": "Archived",
-            "failed": "Failed",
+            "active": "🟢 Active",
+            "processing": "🟡 Ingesting",
+            "archived": "⚪ Archived",
+            "failed": "🔴 Failed",
         }
 
         # Table summary
@@ -136,7 +142,15 @@ with tab_library:
                 c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
                 c1.write(f"**{d_name}** (`{d_id}`) - {status_icons.get(st_val, st_val)}")
 
-                if st_val != "archived":
+                if st_val == "archived":
+                    if c2.button("Restore", key=f"rest_{d_id}", help="Restore document back to active for Q&A"):
+                        try:
+                            document_service.restore_document(d_id)
+                            st.success(f"Restored {d_name} to active")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(format_error(e))
+                else:
                     if c2.button("Archive", key=f"arch_{d_id}", help="Soft-archive: moves to archive folder, preserves vectors for chat toggle"):
                         try:
                             document_service.delete_document(d_id, permanent=False)
