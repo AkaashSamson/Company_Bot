@@ -84,6 +84,7 @@ if can_create:
                         "department_id": department_options[department_name],
                         "initial_password": initial_password or None,
                     })
+                    st.toast(f"User {name} created successfully.")
                     st.success(f"User {name} created successfully.")
                     st.rerun()
                 except Exception as error:

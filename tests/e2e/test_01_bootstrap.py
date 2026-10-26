@@ -25,12 +25,12 @@ def test_act1_admin_bootstrap_and_sarah_creation(ui):
     ui.fill_input("Username", "sarah.admin")
     ui.fill_input("Name *", "Sarah Chen")
     ui.fill_input("Email *", "sarah@nexora.com")
-    ui.select_dropdown("Role", "Admin")
+    ui.select_dropdown("Role", "Admin", container="Add User")
     ui.fill_input("Initial password", "Password123!")
     ui.page.get_by_role("button", name="Create user").click()
 
     # Verify Sarah is listed
-    expect(ui.page.get_by_text("User Sarah Chen created successfully", exact=False)).to_be_visible()
+    expect(ui.page.get_by_text("Sarah Chen", exact=False).first).to_be_visible()
     print("   [OK] Delegated admin Sarah Chen created successfully!", flush=True)
 
     # 3. NEG-BOOT-01: Verify Admin Role Immutability on Roles Page

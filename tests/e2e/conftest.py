@@ -211,9 +211,9 @@ class UIActions:
 
     def open_expander(self, label: str):
         """Expand a Streamlit st.expander if closed."""
-        expander = self.page.locator('[data-testid="stExpander"]').filter(has_text=label)
-        summary = expander.locator("summary")
-        if summary.count() > 0 and summary.get_attribute("aria-expanded") != "true":
+        expander = self.page.locator('[data-testid="stExpander"]').filter(has_text=label).first
+        summary = expander.locator("summary").first
+        if summary.is_visible() and summary.get_attribute("aria-expanded") != "true":
             summary.click()
             self.page.wait_for_timeout(500)
 
