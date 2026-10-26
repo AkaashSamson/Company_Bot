@@ -18,7 +18,7 @@ __pycache__/
 htmlcov/
 
 # Local databases & Chroma vector store
-.chroma/
+.chroma*/
 *.sqlite3
 *.db
 company_bot.db
@@ -50,3 +50,7 @@ Thumbs.db
 # Experiments & scratch
 experiments/
 input/DOC-005.pdf
+
+# Runtime document storage subfolders & archives
+input/archived/
+input/*/
