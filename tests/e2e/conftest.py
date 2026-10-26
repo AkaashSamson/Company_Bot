@@ -178,8 +178,8 @@ class UIActions:
             self.page.wait_for_timeout(1000)
 
         # Fill login form
-        self.page.get_by_label("Username").fill(username)
-        self.page.get_by_label("Password").fill(password)
+        self.page.get_by_role("textbox", name="Username").fill(username)
+        self.page.get_by_role("textbox", name="Password").fill(password)
         self.page.get_by_role("button", name="Log in").click()
 
         # Wait for sidebar to render logout button indicating authenticated session
