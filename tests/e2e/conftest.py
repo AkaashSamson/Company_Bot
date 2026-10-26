@@ -209,8 +209,11 @@ class UIActions:
         # 1. Check if container matches an st.expander
         expander = self.page.locator('[data-testid="stExpander"]').filter(has_text=container).first
         if expander.count() > 0:
-            summary = expander.locator("summary").first
-            if summary.is_visible() and summary.get_attribute("aria-expanded") != "true":
+            is_open = expander.evaluate(
+                "el => (el.tagName.toLowerCase() === 'details' ? el : el.querySelector('details'))?.open === true"
+            )
+            if not is_open:
+                summary = expander.locator("summary").first
                 summary.click()
                 self.page.wait_for_timeout(400)
             return expander
@@ -237,10 +240,14 @@ class UIActions:
     def open_expander(self, label: str):
         """Expand a Streamlit st.expander if closed."""
         expander = self.page.locator('[data-testid="stExpander"]').filter(has_text=label).first
-        summary = expander.locator("summary").first
-        if summary.is_visible() and summary.get_attribute("aria-expanded") != "true":
-            summary.click()
-            self.page.wait_for_timeout(500)
+        if expander.count() > 0:
+            is_open = expander.evaluate(
+                "el => (el.tagName.toLowerCase() === 'details' ? el : el.querySelector('details'))?.open === true"
+            )
+            if not is_open:
+                summary = expander.locator("summary").first
+                summary.click()
+                self.page.wait_for_timeout(500)
 
     def select_dropdown(self, label: str, option_text: str, container: str | None = None):
         """Select an option in a Streamlit st.selectbox by label, optionally scoped to a container."""
