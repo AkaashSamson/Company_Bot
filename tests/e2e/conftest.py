@@ -201,6 +201,25 @@ class UIActions:
         self.page.wait_for_load_state("domcontentloaded")
         self.page.wait_for_timeout(1500)
 
+    def open_expander(self, label: str):
+        """Expand a Streamlit st.expander if closed."""
+        expander = self.page.locator('[data-testid="stExpander"]').filter(has_text=label)
+        summary = expander.locator("summary")
+        if summary.count() > 0 and summary.get_attribute("aria-expanded") != "true":
+            summary.click()
+            self.page.wait_for_timeout(500)
+
+    def select_dropdown(self, label: str, option_text: str):
+        """Select an option in a Streamlit st.selectbox by label."""
+        selectbox = self.page.locator('[data-testid="stSelectbox"]').filter(has_text=label)
+        trigger = selectbox.locator('[data-baseweb="select"]')
+        if trigger.count() > 0:
+            trigger.click()
+        else:
+            selectbox.click()
+        self.page.locator('li[role="option"]').filter(has_text=option_text).click()
+        self.page.wait_for_timeout(500)
+
 
 @pytest.fixture
 def ui(page: Page, e2e_servers) -> UIActions:

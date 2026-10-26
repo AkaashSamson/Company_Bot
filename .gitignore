@@ -21,6 +21,7 @@ htmlcov/
 .chroma*/
 *.sqlite3
 *.db
+*.db*
 company_bot.db
 instance/
 
