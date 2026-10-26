@@ -39,7 +39,7 @@ def e2e_servers():
     env["DATABASE_URL"] = f"sqlite:///./{TEST_DB_PATH}"
     env["CHROMA_PERSIST_DIRECTORY"] = TEST_CHROMA_DIR
     env["COLLECTION_NAME"] = "e2e_collection"
-    env["STREAMLIT_API_BASE_URL"] = f"{BACKEND_URL}/api"
+    env["STREAMLIT_API_BASE_URL"] = BACKEND_URL
     env["DOC_INGESTION_REFRESH_INTERVAL"] = "1"
     env["PYTHONUNBUFFERED"] = "1"
 
