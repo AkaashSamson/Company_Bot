@@ -201,9 +201,13 @@ class UIActions:
         self.page.wait_for_load_state("domcontentloaded")
         self.page.wait_for_timeout(1500)
 
-    def fill_input(self, label: str, value: str):
-        """Fill a Streamlit text input or textarea by role and name, avoiding tooltip collision."""
-        self.page.get_by_role("textbox", name=label).fill(value)
+    def fill_input(self, label: str, value: str, container: str | None = None):
+        """Fill a Streamlit text input or textarea by role and name, optionally scoped to a container."""
+        if container:
+            scope = self.page.locator('[data-testid="stExpander"]').filter(has_text=container)
+        else:
+            scope = self.page
+        scope.get_by_role("textbox", name=label).first.fill(value)
 
     def open_expander(self, label: str):
         """Expand a Streamlit st.expander if closed."""
@@ -213,15 +217,15 @@ class UIActions:
             summary.click()
             self.page.wait_for_timeout(500)
 
-    def select_dropdown(self, label: str, option_text: str):
-        """Select an option in a Streamlit st.selectbox by label."""
-        selectbox = self.page.locator('[data-testid="stSelectbox"]').filter(has_text=label)
-        trigger = selectbox.locator('[data-baseweb="select"]')
-        if trigger.count() > 0:
-            trigger.click()
+    def select_dropdown(self, label: str, option_text: str, container: str | None = None):
+        """Select an option in a Streamlit st.selectbox by label, optionally scoped to a container."""
+        if container:
+            scope = self.page.locator('[data-testid="stExpander"]').filter(has_text=container)
         else:
-            selectbox.click()
-        self.page.locator('li[role="option"]').filter(has_text=option_text).click()
+            scope = self.page
+        selectbox = scope.locator('[data-testid="stSelectbox"]').filter(has_text=label).first
+        selectbox.click()
+        self.page.locator('li[role="option"]').filter(has_text=option_text).first.click()
         self.page.wait_for_timeout(500)
 
 
