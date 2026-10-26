@@ -68,9 +68,9 @@ for p in projects:
         user_project_ids.add(p["project_id"])
 
 # ==============================================================================
-# SECTION 1: ?? My Projects
+# SECTION 1: My Projects
 # ==============================================================================
-st.header("?? My Projects")
+st.header("My Projects")
 my_projects = [p for p in projects if p["project_id"] in user_project_ids]
 
 if not my_projects:
@@ -88,12 +88,12 @@ else:
         with st.container():
             col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 1, 2])
             col1.write(f"**{p_name}** (`{p_id}`)")
-            col2.write(f"?? {dept_name}")
-            col3.write(f"?? Manager: {mgr_name}")
+            col2.write(f"Department: {dept_name}" if dept_name else "No department")
+            col3.write(f"Manager: {mgr_name}")
             col4.write(f"`{st_val}`")
 
             if is_manager:
-                col5.caption("?? Manager (Transfer before leaving)")
+                col5.caption("Manager (Transfer before leaving)")
             else:
                 if col5.button("Leave Project", key=f"leave_{p_id}", help="Leave this project"):
                     try:
@@ -105,9 +105,9 @@ else:
             st.divider()
 
 # ==============================================================================
-# SECTION 2: ?? Project Details & Explorer
+# SECTION 2: Project Details & Explorer
 # ==============================================================================
-st.header("?? Project Details & Explorer")
+st.header("Project Details & Explorer")
 if not project_options:
     st.info("No projects available.")
 else:
@@ -122,7 +122,7 @@ else:
     col3.metric("Manager", user_name_by_uid.get(manager_uid, manager_uid or "Unassigned"))
 
     if detail.get("description"):
-        st.caption(f"?? {detail['description']}")
+        st.caption(detail['description'])
 
     member_col, document_col = st.columns(2)
     with member_col:
@@ -168,13 +168,13 @@ else:
             st.write("No documents in this project.")
 
 # ==============================================================================
-# SECTION 3: ?? Project Administration (Gated)
+# SECTION 3: Project Administration (Gated)
 # ==============================================================================
 if can_manage:
     st.divider()
-    st.header("?? Project Administration")
+    st.header("Project Administration")
 
-    with st.expander("? Create New Project", expanded=False):
+    with st.expander("Create New Project", expanded=False):
         with st.form("create-project-form"):
             new_prj_id = st.text_input("Project ID (optional, auto-generated if blank)")
             new_prj_name = st.text_input("Project Name *")
@@ -204,7 +204,7 @@ if can_manage:
                 except Exception as error:
                     st.error(f"Failed to create project: {format_error(error)}")
 
-    with st.expander("?? Manage Project Membership", expanded=False):
+    with st.expander("Manage Project Membership", expanded=False):
         sel_proj_name = st.selectbox("Project", list(project_options) or ["No projects"], key="mem-proj-select")
         sel_user_name = st.selectbox("User", list(user_options) or ["No users"], key="mem-user-select")
         col_assign, col_revoke = st.columns(2)
@@ -227,7 +227,7 @@ if can_manage:
                 except Exception as error:
                     st.error(format_error(error))
 
-    with st.expander("?? Update Project", expanded=False):
+    with st.expander("Update Project", expanded=False):
         if not project_options:
             st.info("No projects available to update.")
         else:

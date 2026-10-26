@@ -50,13 +50,13 @@ except Exception:
 user_name_by_uid = {u["uid"]: u["name"] or u["uid"] for u in users}
 role_name_by_id = {r["role_id"]: r["name"] for r in roles}
 
-tab_library, tab_observability = st.tabs(["?? Document Library", "?? Chunk Inspector & Vector Search"])
+tab_library, tab_observability = st.tabs(["Document Library", "Chunk Inspector & Vector Search"])
 
 # ==============================================================================
 # TAB 1: Document Library
 # ==============================================================================
 with tab_library:
-    with st.expander("?? Upload & Ingest New Document", expanded=False):
+    with st.expander("Upload & Ingest New Document", expanded=False):
         uploaded_file = st.file_uploader(
             "Choose a document file",
             type=["pdf", "docx", "txt", "md", "rst"],
@@ -99,17 +99,17 @@ with tab_library:
     @st.fragment(run_every=refresh_interval if has_processing else None)
     def render_documents_table(docs):
         if has_processing:
-            st.info(f"? Ingestion in progress. Auto-refreshing every {refresh_interval}s...")
+            st.info(f"Ingestion in progress. Auto-refreshing every {refresh_interval}s...")
 
         if not docs:
             st.info("No documents found. Upload a file above to provision it for Q&A.")
             return
 
         status_icons = {
-            "active": "?? active",
-            "processing": "? processing",
-            "archived": "? archived",
-            "failed": "?? failed",
+            "active": "Active",
+            "processing": "Processing",
+            "archived": "Archived",
+            "failed": "Failed",
         }
 
         # Table summary
@@ -176,9 +176,9 @@ with tab_library:
         col3.metric("Uploaded at", str(detail.get("uploaded_at") or "-")[:19])
 
         if detail.get("storage_location"):
-            st.caption(f"?? Storage location: `{detail.get('storage_location')}`")
+            st.caption(f"Storage location: `{detail.get('storage_location')}`")
         if detail.get("description"):
-            st.caption(f"?? {detail['description']}")
+            st.caption(detail['description'])
 
     # ------------------------------------------------- access configuration
     st.divider()
@@ -248,7 +248,7 @@ with tab_library:
 # TAB 2: Chunk Inspector & Vector Search Sandbox
 # ==============================================================================
 with tab_observability:
-    st.header("?? Chunk Observability & Vector Search Sandbox")
+    st.header("Chunk Observability & Vector Search Sandbox")
 
     # 1. Chunk Inspector Sub-panel
     st.subheader("1. In-Page Chunk Inspector")

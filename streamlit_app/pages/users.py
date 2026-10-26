@@ -53,7 +53,7 @@ role_options = {role["name"]: role["name"] for role in roles}
 # ------------------------------------------------------------ Add User (Gated: USER_CREATE)
 can_create = is_admin or "USER_CREATE" in permissions
 if can_create:
-    with st.expander("? Add User", expanded=False):
+    with st.expander("Add User", expanded=False):
         with st.form("create-user"):
             username = st.text_input("Username", help="Login handle; leave blank to use the generated employee ID.")
             name = st.text_input("Name *")
@@ -94,7 +94,7 @@ can_update = is_admin or "USER_UPDATE" in permissions
 can_delete = is_admin or "USER_DELETE" in permissions
 
 if (can_update or can_delete) and user_options:
-    with st.expander("?? Manage User", expanded=False):
+    with st.expander("Manage User", expanded=False):
         selected_label = st.selectbox("Select User", list(user_options))
         selected_uid = user_options[selected_label]
         current = next((u for u in users if u["uid"] == selected_uid), {})
@@ -165,7 +165,7 @@ if (can_update or can_delete) and user_options:
                             st.error(format_error(error))
 
 # ------------------------------------------------------------ View user access
-with st.expander("?? View User Access & Permissions", expanded=False):
+with st.expander("View User Access & Permissions", expanded=False):
     if not user_options:
         st.info("No users available.")
     else:

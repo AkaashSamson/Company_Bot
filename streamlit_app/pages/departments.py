@@ -4,7 +4,7 @@ from streamlit_app.services.admin_api import AdminAPI
 from streamlit_app.services.ui_helpers import format_error, unavailable
 from streamlit_app.session_auth import require_auth
 
-st.set_page_config(page_title="Departments | KnowLayer", page_icon="??", layout="wide")
+st.set_page_config(page_title="Departments | KnowLayer", page_icon="🏢", layout="wide")
 auth = require_auth()
 st.title("Departments")
 
@@ -48,7 +48,7 @@ user_options = {u["name"] or u["uid"]: u["uid"] for u in users}
 
 # ------------------------------------------------------------------ create
 if can_create:
-    with st.expander("? Create Department", expanded=False):
+    with st.expander("Create Department", expanded=False):
         with st.form("create-department"):
             department_name = st.text_input("Department name *")
             description = st.text_area("Description")
@@ -71,7 +71,7 @@ if can_create:
 
 # ------------------------------------------------------------------ update
 if can_update and department_options:
-    with st.expander("?? Update Department", expanded=False):
+    with st.expander("Update Department", expanded=False):
         selected_label = st.selectbox("Select Department", list(department_options), key="update-dept-select")
         department_id = department_options[selected_label]
         current = next((d for d in departments if d["department_id"] == department_id), {})
@@ -106,7 +106,7 @@ if can_update and department_options:
 
 # ------------------------------------------------------------------ assign
 if can_assign and department_options and user_options:
-    with st.expander("?? Assign Employee to Department", expanded=False):
+    with st.expander("Assign Employee to Department", expanded=False):
         dept_label = st.selectbox("Department", list(department_options), key="assign-dept")
         user_label = st.selectbox("User", list(user_options), key="assign-user")
         membership_role = st.text_input("Membership role", value="Member")
