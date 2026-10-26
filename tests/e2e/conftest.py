@@ -43,6 +43,16 @@ def e2e_servers():
     env["DOC_INGESTION_REFRESH_INTERVAL"] = "1"
     env["PYTHONUNBUFFERED"] = "1"
 
+    print("\n" + "=" * 60, flush=True)
+    print("🚀 [E2E Servers] Starting isolated test environment:", flush=True)
+    print(f"   • Database:  {TEST_DB_PATH}", flush=True)
+    print(f"   • Backend:   {BACKEND_URL} (logs -> fastapi_e2e.log)", flush=True)
+    print(f"   • Frontend:  {FRONTEND_URL} (logs -> streamlit_e2e.log)", flush=True)
+    print("=" * 60, flush=True)
+
+    backend_log = open("fastapi_e2e.log", "w", encoding="utf-8")
+    frontend_log = open("streamlit_e2e.log", "w", encoding="utf-8")
+
     # 1. Start FastAPI backend
     backend_proc = subprocess.Popen(
         [
@@ -56,8 +66,8 @@ def e2e_servers():
             "127.0.0.1",
         ],
         env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=backend_log,
+        stderr=backend_log,
     )
 
     # 2. Start Streamlit frontend
@@ -76,17 +86,20 @@ def e2e_servers():
             "false",
         ],
         env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=frontend_log,
+        stderr=frontend_log,
     )
 
     # Wait for FastAPI backend
+    print("⏳ [E2E Servers] Waiting for FastAPI backend on :8001...", flush=True)
     backend_ready = False
     start_time = time.time()
     while time.time() - start_time < 60:
         if backend_proc.poll() is not None:
-            _, err = backend_proc.communicate()
-            raise RuntimeError(f"FastAPI backend died on startup: {err.decode(errors='ignore')}")
+            backend_log.flush()
+            with open("fastapi_e2e.log", "r", encoding="utf-8", errors="ignore") as f:
+                err = f.read()
+            raise RuntimeError(f"FastAPI backend died on startup:\n{err}")
         try:
             with urllib.request.urlopen(f"{BACKEND_URL}/api/documents/status", timeout=1) as resp:
                 if resp.status == 200:
@@ -99,14 +112,18 @@ def e2e_servers():
         backend_proc.terminate()
         frontend_proc.terminate()
         raise TimeoutError("FastAPI backend failed to become ready within 60 seconds")
+    print(f"✅ [E2E Servers] FastAPI backend is live and healthy! ({time.time() - start_time:.1f}s)", flush=True)
 
     # Wait for Streamlit frontend
+    print("⏳ [E2E Servers] Waiting for Streamlit frontend on :8502...", flush=True)
     frontend_ready = False
     start_time = time.time()
     while time.time() - start_time < 60:
         if frontend_proc.poll() is not None:
-            _, err = frontend_proc.communicate()
-            raise RuntimeError(f"Streamlit frontend died on startup: {err.decode(errors='ignore')}")
+            frontend_log.flush()
+            with open("streamlit_e2e.log", "r", encoding="utf-8", errors="ignore") as f:
+                err = f.read()
+            raise RuntimeError(f"Streamlit frontend died on startup:\n{err}")
         try:
             with urllib.request.urlopen(f"{FRONTEND_URL}/_stcore/health", timeout=1) as resp:
                 if resp.status == 200:
@@ -119,10 +136,12 @@ def e2e_servers():
         backend_proc.terminate()
         frontend_proc.terminate()
         raise TimeoutError("Streamlit frontend failed to become ready within 60 seconds")
+    print(f"✅ [E2E Servers] Streamlit frontend is live and healthy! ({time.time() - start_time:.1f}s)", flush=True)
+    print("🌐 [E2E Servers] Test environment ready. Starting Playwright browser...\n", flush=True)
 
     yield {"api_url": BACKEND_URL, "ui_url": FRONTEND_URL}
 
-    # Teardown processes
+    print("\n🛑 [E2E Servers] Shutting down isolated test servers...", flush=True)
     frontend_proc.terminate()
     backend_proc.terminate()
     try:
@@ -134,7 +153,9 @@ def e2e_servers():
     except subprocess.TimeoutExpired:
         backend_proc.kill()
 
-    _clean_test_artifacts()
+    backend_log.close()
+    frontend_log.close()
+    print("✅ [E2E Servers] Test servers stopped. Logs preserved in fastapi_e2e.log and streamlit_e2e.log.", flush=True)
 
 
 class UIActions:
