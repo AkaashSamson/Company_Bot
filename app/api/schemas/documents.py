@@ -13,7 +13,7 @@ class DocumentCreate(BaseModel):
     file_type: str | None = Field(default=None, min_length=1, max_length=32)
     description: str | None = Field(default=None, max_length=500)
     version: str = Field(default="1.0", min_length=1, max_length=32)
-    async_mode: bool = False
+    async_mode: bool = True
 
 
 class DocumentResponse(BaseModel):

@@ -77,12 +77,19 @@ with tab_library:
                         "project_id": project_options[project_name],
                         "content": content_b64,
                         "description": description.strip() or None,
+                        "async_mode": True,
                     }
                     res = document_service.create_document(payload)
-                    st.success(f"Document upload initiated (Status: {res.get('status', 'processing')}). Ingestion running in background.")
+                    st.session_state["has_processing_docs"] = True
+                    msg = f"Document upload initiated (Status: {res.get('status', 'processing')}). Ingestion running in background."
+                    st.session_state["doc_upload_msg"] = msg
+                    st.toast(msg, icon="🚀")
                     st.rerun()
                 except Exception as error:
                     st.error(f"Upload failed: {format_error(error)}")
+
+    if "doc_upload_msg" in st.session_state:
+        st.success(st.session_state.pop("doc_upload_msg"))
 
     col_hdr, col_tog = st.columns([3, 1])
     with col_hdr:
@@ -99,13 +106,25 @@ with tab_library:
         documents = []
 
     document_options = {d["document_name"]: d["document_id"] for d in documents}
-    has_processing = any(d.get("status") == "processing" for d in documents)
-    refresh_interval = int(os.getenv("DOC_INGESTION_REFRESH_INTERVAL", "5"))
+    has_processing = st.session_state.get("has_processing_docs") or any(d.get("status") == "processing" for d in documents)
+    refresh_interval = int(os.getenv("DOC_INGESTION_REFRESH_INTERVAL", "1"))
 
     @st.fragment(run_every=refresh_interval if has_processing else None)
-    def render_documents_table(docs):
-        if has_processing:
+    def render_documents_table(include_archived: bool):
+        try:
+            docs = document_service.list_documents(include_archived=include_archived)
+        except Exception:
+            docs = []
+
+        is_processing = any(d.get("status") == "processing" for d in docs)
+        was_processing = st.session_state.get("has_processing_docs", False)
+        st.session_state["has_processing_docs"] = is_processing
+
+        if is_processing:
             st.info(f"Ingestion in progress. Auto-refreshing every {refresh_interval}s...")
+        elif was_processing:
+            st.session_state["has_processing_docs"] = False
+            st.rerun()
 
         if not docs:
             st.info("No documents found. Upload a file above to provision it for Q&A.")
@@ -168,7 +187,7 @@ with tab_library:
                         except Exception as e:
                             st.error(format_error(e))
 
-    render_documents_table(documents)
+    render_documents_table(show_archived)
 
     # ------------------------------------------------------------ detail view
     st.divider()
@@ -280,7 +299,10 @@ with tab_observability:
                 chunks = document_service.get_chunks(selected_insp_id)
                 st.write(f"**Total chunks in ChromaDB:** `{len(chunks)}`")
                 if chunks:
-                    for chunk in chunks:
+                    max_preview = 10
+                    if len(chunks) > max_preview:
+                        st.caption(f"Showing first {max_preview} of {len(chunks)} chunks to keep page responsive.")
+                    for chunk in chunks[:max_preview]:
                         idx = chunk.get("index", 0)
                         text = chunk.get("text", "")
                         meta = chunk.get("metadata", {})

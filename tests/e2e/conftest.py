@@ -43,6 +43,8 @@ def e2e_servers():
     env["STREAMLIT_API_BASE_URL"] = BACKEND_URL
     env["DOC_INGESTION_REFRESH_INTERVAL"] = "1"
     env["PYTHONUNBUFFERED"] = "1"
+    env["PYTEST_CURRENT_TEST"] = "1"
+    env["DOCLING_VISUAL_ENRICHMENT_ENABLED"] = "false"
 
     print("\n" + "=" * 60, flush=True)
     print("[E2E Servers] Starting isolated test environment:", flush=True)
@@ -51,8 +53,8 @@ def e2e_servers():
     print(f"   - Frontend:  {FRONTEND_URL} (logs -> streamlit_e2e.log)", flush=True)
     print("=" * 60, flush=True)
 
-    backend_log = open("fastapi_e2e.log", "w", encoding="utf-8")
-    frontend_log = open("streamlit_e2e.log", "w", encoding="utf-8")
+    backend_log = open("fastapi_e2e.log", "w", encoding="utf-8", buffering=1)
+    frontend_log = open("streamlit_e2e.log", "w", encoding="utf-8", buffering=1)
 
     # 1. Start FastAPI backend
     backend_proc = subprocess.Popen(
@@ -95,9 +97,10 @@ def e2e_servers():
     print("[E2E Servers] Waiting for FastAPI backend on :8001...", flush=True)
     backend_ready = False
     start_time = time.time()
-    while time.time() - start_time < 60:
+    while time.time() - start_time < 120:
+        backend_log.flush()
         if backend_proc.poll() is not None:
-            backend_log.flush()
+            backend_log.close()
             with open("fastapi_e2e.log", "r", encoding="utf-8", errors="ignore") as f:
                 err = f.read()
             raise RuntimeError(f"FastAPI backend died on startup:\n{err}")
@@ -112,7 +115,14 @@ def e2e_servers():
     if not backend_ready:
         backend_proc.terminate()
         frontend_proc.terminate()
-        raise TimeoutError("FastAPI backend failed to become ready within 60 seconds")
+        backend_log.flush()
+        frontend_log.flush()
+        backend_log.close()
+        frontend_log.close()
+        with open("fastapi_e2e.log", "r", encoding="utf-8", errors="ignore") as f:
+            err = f.read()
+        print(f"\n[E2E Servers] [ERROR] FastAPI backend failed to start. Logs:\n{err}\n", flush=True)
+        raise TimeoutError(f"FastAPI backend failed to become ready within 120 seconds:\n{err}")
     print(f"[E2E Servers] [OK] FastAPI backend is live and healthy! ({time.time() - start_time:.1f}s)", flush=True)
 
     # Wait for Streamlit frontend
@@ -120,8 +130,9 @@ def e2e_servers():
     frontend_ready = False
     start_time = time.time()
     while time.time() - start_time < 60:
+        frontend_log.flush()
         if frontend_proc.poll() is not None:
-            frontend_log.flush()
+            frontend_log.close()
             with open("streamlit_e2e.log", "r", encoding="utf-8", errors="ignore") as f:
                 err = f.read()
             raise RuntimeError(f"Streamlit frontend died on startup:\n{err}")
@@ -136,7 +147,14 @@ def e2e_servers():
     if not frontend_ready:
         backend_proc.terminate()
         frontend_proc.terminate()
-        raise TimeoutError("Streamlit frontend failed to become ready within 60 seconds")
+        backend_log.flush()
+        frontend_log.flush()
+        backend_log.close()
+        frontend_log.close()
+        with open("streamlit_e2e.log", "r", encoding="utf-8", errors="ignore") as f:
+            err = f.read()
+        print(f"\n[E2E Servers] [ERROR] Streamlit frontend failed to start. Logs:\n{err}\n", flush=True)
+        raise TimeoutError(f"Streamlit frontend failed to become ready within 60 seconds:\n{err}")
     print(f"[E2E Servers] [OK] Streamlit frontend is live and healthy! ({time.time() - start_time:.1f}s)", flush=True)
     print("[E2E Servers] Test environment ready. Starting Playwright browser...\n", flush=True)
 
@@ -154,8 +172,10 @@ def e2e_servers():
     except subprocess.TimeoutExpired:
         backend_proc.kill()
 
-    backend_log.close()
-    frontend_log.close()
+    if not backend_log.closed:
+        backend_log.close()
+    if not frontend_log.closed:
+        frontend_log.close()
     print("[E2E Servers] [OK] Test servers stopped. Logs preserved in fastapi_e2e.log and streamlit_e2e.log.", flush=True)
 
 
@@ -258,6 +278,14 @@ class UIActions:
                 summary = expander.locator("summary").first
                 summary.click()
                 self.page.wait_for_timeout(500)
+
+    def upload_file(self, file_path: str, container: str | None = None):
+        """Upload a file using Streamlit st.file_uploader, optionally scoped to a container."""
+        scope = self._resolve_scope(container)
+        uploader = scope.locator('[data-testid="stFileUploader"]').first
+        file_input = uploader.locator('input[type="file"]')
+        file_input.set_input_files(file_path)
+        self.page.wait_for_timeout(1000)
 
     def select_dropdown(self, label: str, option_text: str, container: str | None = None):
         """Select an option in a Streamlit st.selectbox by label, optionally scoped to a container."""
