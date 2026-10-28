@@ -42,13 +42,7 @@ try:
 except Exception:
     users = []
 
-try:
-    roles = admin.list_roles()
-except Exception:
-    roles = []
-
 user_name_by_uid = {u["uid"]: u["name"] or u["uid"] for u in users}
-role_name_by_id = {r["role_id"]: r["name"] for r in roles}
 
 tab_library, tab_observability = st.tabs(["Document Library", "Chunk Inspector & Vector Search"])
 
@@ -212,70 +206,6 @@ with tab_library:
             st.caption(f"Storage location: `{detail.get('storage_location')}`")
         if detail.get("description"):
             st.caption(detail['description'])
-
-    # ------------------------------------------------- access configuration
-    st.divider()
-    st.subheader("Access Configuration")
-    if not document_options:
-        st.info("No documents available for access configuration.")
-    else:
-        access_label = st.selectbox("Document", list(document_options), key="access-doc-select")
-        access_id = document_options[access_label]
-
-        try:
-            grants = admin.list_document_access_grants(access_id)
-        except Exception as error:
-            st.error(format_error(error))
-            grants = []
-
-        if grants:
-            grant_rows = []
-            for grant in grants:
-                grant_rows.append({
-                    "ID": grant.get("internal_id"),
-                    "Principal": "Role" if grant.get("principal_type") == "role" else "User",
-                    "Role/User": role_name_by_id.get(grant.get("role_id"), grant.get("role_id"))
-                    if grant.get("principal_type") == "role"
-                    else user_name_by_uid.get(grant.get("user_id"), grant.get("user_id")),
-                    "Permission": grant.get("permission"),
-                    "Status": grant.get("status"),
-                    "Granted by": user_name_by_uid.get(grant.get("granted_by_uid"), grant.get("granted_by_uid") or "-"),
-                })
-            st.dataframe(grant_rows, use_container_width=True)
-
-            revoke_ids = [str(grant["internal_id"]) for grant in grants if grant.get("status") == "active"]
-            if revoke_ids:
-                revoke_id = st.selectbox("Grant to revoke", revoke_ids, key="revoke-grant-select")
-                if st.button("Revoke grant"):
-                    try:
-                        admin.revoke_document_access(int(revoke_id))
-                        st.success("Grant revoked.")
-                        st.rerun()
-                    except Exception as error:
-                        st.error(format_error(error))
-        else:
-            st.info("No explicit access grants for this document.")
-
-        with st.expander("Grant Access"):
-            principal_type = st.selectbox("Principal type", ["role", "user"], key="grant-principal-type")
-            if principal_type == "role":
-                role_names = list(role_name_by_id.values())
-                role_label = st.selectbox("Role", role_names or ["No roles"], key="grant-role-select")
-                role_id = next((rid for rid, name in role_name_by_id.items() if name == role_label), None)
-                principal_payload = {"principal_type": "role", "role_id": role_id}
-            else:
-                user_names = list(user_name_by_uid.values())
-                user_label = st.selectbox("User", user_names or ["No users"], key="grant-user-select")
-                user_id = next((uid for uid, name in user_name_by_uid.items() if name == user_label), None)
-                principal_payload = {"principal_type": "user", "user_id": user_id}
-            permission = st.selectbox("Permission", ["read"], key="grant-permission-select")
-            if st.button("Grant access", key="grant-access-btn"):
-                try:
-                    admin.grant_document_access(access_id, {**principal_payload, "permission": permission})
-                    st.success("Access granted.")
-                    st.rerun()
-                except Exception as error:
-                    st.error(format_error(error))
 
 # ==============================================================================
 # TAB 2: Chunk Inspector & Vector Search Sandbox

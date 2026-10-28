@@ -70,7 +70,7 @@ def test_act3_roy_hr_policy_ingestion_and_employee_onboarding(ui, ensure_act2_st
 
     # Wait for background embedding and Chroma indexing to complete (Status transitions to Active)
     expect(
-        ui.page.get_by_text("🟢 Active", exact=False).first
+        ui.page.locator("p").filter(has_text="🟢 Active").first
     ).to_be_visible(timeout=45000)
     print("   [OK] Document 'timesheet_policy.md' successfully indexed and Active!", flush=True)
 

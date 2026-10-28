@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Callable
 
 from app.core.settings import DEPARTMENT_ID_PREFIX, DOCUMENT_ID_PREFIX, EMPLOYEE_ID_PREFIX, PROJECT_ID_PREFIX
-from app.domain.entities.organization_models import Project
+from app.domain.entities.organization_models import Project, UserProject
 from app.domain.ports.authorization_service import AuthenticatedPrincipal
 from app.domain.services.authorization_engine import AuthorizationEngine
 from app.domain.services.business_id_generator import build_business_id_generator
@@ -59,8 +59,12 @@ class ProjectManagementService:
     ):
         with self.unit_of_work_factory() as uow:
             actor = uow.users.get_by_uid(actor_uid)
-            if actor is None or actor.status != "active" or not self.authorization.is_admin(AuthenticatedPrincipal(actor_uid)):
-                raise ForbiddenError("Admin access required")
+            if actor is None or actor.status != "active":
+                raise ForbiddenError("Active authenticated user required")
+            if not (self.authorization.is_admin(AuthenticatedPrincipal(actor_uid)) or self.authorization.has_permission(AuthenticatedPrincipal(actor_uid), "PROJECT_CREATE")):
+                raise ForbiddenError("Admin or Manager access required")
+            if not self.authorization.is_admin(AuthenticatedPrincipal(actor_uid)) and actor.department_id != department_id:
+                raise ForbiddenError("Cannot create project outside your department")
             if not uow.departments.get(department_id):
                 raise NotFoundError("Department not found")
             if manager_uid:
@@ -86,6 +90,16 @@ class ProjectManagementService:
                 created_by_uid=actor_uid,
             )
             project = uow.projects.save(project)
+            if manager_uid:
+                uow.memberships.save(
+                    UserProject(
+                        uid=manager_uid,
+                        project_id=project.project_id,
+                        status="active",
+                        assigned_at=now,
+                        assigned_by_uid=actor_uid,
+                    )
+                )
             uow.commit()
             return project
 
@@ -104,11 +118,19 @@ class ProjectManagementService:
             if "department_id" in changes and changes["department_id"]:
                 if not uow.departments.get(changes["department_id"]):
                     raise NotFoundError("Department not found")
-                if actor.role.casefold() != "admin":
+                if changes["department_id"] != project.department_id and not self.authorization.is_admin(AuthenticatedPrincipal(actor_uid)):
                     raise ForbiddenError("Only admins can move a project to another department")
             if "manager_uid" in changes:
-                if actor.role.casefold() != "admin":
-                    raise ForbiddenError("Only admins can change the project manager")
+                can_change_mgr = (
+                    self.authorization.is_admin(AuthenticatedPrincipal(actor_uid))
+                    or project.manager_uid == actor.uid
+                    or (
+                        actor.department_id == project.department_id
+                        and self.authorization.has_permission(AuthenticatedPrincipal(actor_uid), "PROJECT_UPDATE")
+                    )
+                )
+                if not can_change_mgr:
+                    raise ForbiddenError("Only admins, the project manager, or department managers can change the project manager")
                 manager_uid = changes["manager_uid"]
                 if manager_uid is not None:
                     manager = uow.users.get_by_uid(manager_uid)
@@ -117,6 +139,21 @@ class ProjectManagementService:
                     target_department_id = changes.get("department_id") or project.department_id
                     if manager.department_id != target_department_id:
                         raise ForbiddenError("Project manager must belong to the project department")
+                    existing_mem = uow.memberships.get(manager_uid, project.project_id)
+                    if existing_mem is None:
+                        uow.memberships.save(
+                            UserProject(
+                                uid=manager_uid,
+                                project_id=project.project_id,
+                                status="active",
+                                assigned_at=utc_now(),
+                                assigned_by_uid=actor_uid,
+                            )
+                        )
+                    elif existing_mem.status != "active":
+                        existing_mem.status = "active"
+                        existing_mem.left_at = None
+                        uow.memberships.save(existing_mem)
             for field, value in changes.items():
                 if value is None and field not in ("description", "manager_uid", "start_date", "end_date"):
                     continue

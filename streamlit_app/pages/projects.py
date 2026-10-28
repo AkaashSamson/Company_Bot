@@ -9,6 +9,9 @@ st.set_page_config(page_title="Projects | KnowLayer", layout="wide")
 auth = require_auth()
 st.title("Projects")
 
+if "project_toast" in st.session_state:
+    st.toast(st.session_state.pop("project_toast"), icon="✅")
+
 auth_uid = auth.get("uid", "") if isinstance(auth, dict) else ""
 user_info = auth.get("user", {}) if isinstance(auth, dict) else {}
 user_role = (user_info.get("role") or "").lower()
@@ -66,7 +69,7 @@ def render_my_projects():
     user_memberships = []
     if auth_uid:
         try:
-            user_memberships = admin.list_user_memberships(auth_uid)
+            user_memberships = service.list_user_project_memberships(auth_uid)
         except Exception:
             user_memberships = []
 
@@ -98,12 +101,13 @@ def render_my_projects():
                 col4.write(f"`{st_val}`")
 
                 if is_manager:
+                    col5.button("Leave Project", key=f"leave_{p_id}", disabled=True, help="Transfer manager role before leaving")
                     col5.caption("Manager (Transfer before leaving)")
                 else:
                     if col5.button("Leave Project", key=f"leave_{p_id}", help="Leave this project"):
                         try:
                             service.leave_project(p_id)
-                            st.success(f"Left project {p_name}.")
+                            st.session_state["project_toast"] = f"Left project {p_name}."
                             st.rerun()
                         except Exception as exc:
                             st.error(f"Failed to leave: {format_error(exc)}")
@@ -176,7 +180,7 @@ def render_project_explorer():
 def render_project_administration():
     """Render administrative forms to create, assign, and update projects."""
     with st.expander("Create New Project", expanded=False):
-        with st.form("create-project-form"):
+        with st.form("create-project-form", clear_on_submit=True):
             new_prj_id = st.text_input("Project ID (optional, auto-generated if blank)")
             new_prj_name = st.text_input("Project Name *")
             new_prj_dept = st.selectbox("Department *", list(department_options) or ["No departments"], key="create-prj-dept")
@@ -200,7 +204,7 @@ def render_project_administration():
                         payload["manager_uid"] = user_options.get(new_prj_mgr)
 
                     service.create_project(payload)
-                    st.success("Project created successfully.")
+                    st.session_state["project_toast"] = "Project created successfully."
                     st.rerun()
                 except Exception as error:
                     st.error(f"Failed to create project: {format_error(error)}")
@@ -214,7 +218,7 @@ def render_project_administration():
             if st.button("Assign Member", key="assign-mem-btn"):
                 try:
                     service.assign_member(project_options[sel_proj_name], user_options[sel_user_name])
-                    st.success("Member assigned successfully.")
+                    st.session_state["project_toast"] = "Member assigned successfully."
                     st.rerun()
                 except Exception as error:
                     st.error(format_error(error))
@@ -223,7 +227,7 @@ def render_project_administration():
             if st.button("Revoke Member", key="revoke-mem-btn"):
                 try:
                     service.revoke_member(project_options[sel_proj_name], user_options[sel_user_name])
-                    st.success("Membership revoked.")
+                    st.session_state["project_toast"] = "Membership revoked."
                     st.rerun()
                 except Exception as error:
                     st.error(format_error(error))
@@ -270,11 +274,13 @@ def render_project_administration():
                         payload["project_name"] = new_name
                     payload["description"] = new_description
                     if new_department in department_options:
-                        payload["department_id"] = department_options[new_department]
+                        new_dept_id = department_options[new_department]
+                        if new_dept_id != current.get("department_id"):
+                            payload["department_id"] = new_dept_id
                     payload["manager_uid"] = user_options.get(new_manager) if new_manager != "Unassigned" else None
 
                     admin.update_project(update_id, payload)
-                    st.success("Project updated successfully.")
+                    st.session_state["project_toast"] = "Project updated successfully."
                     st.rerun()
                 except Exception as error:
                     st.error(format_error(error))

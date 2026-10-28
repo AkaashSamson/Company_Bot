@@ -94,3 +94,12 @@ def test_list_members_forbidden_outside_department():
     uow = InMemoryUnitOfWork([viewer], [Department("d1", "Engineering"), Department("d2", "QA")], [project])
     with pytest.raises(ForbiddenError):
         _service(uow).list_members("v1", "p1")
+
+def test_list_for_user_returns_user_project_memberships():
+    user = User("u1", "User", "u@example.com", "Developer", "d1")
+    project = Project("p1", "Project A", "d1")
+    memberships = [UserProject("u1", "p1")]
+    uow = InMemoryUnitOfWork([user], [Department("d1", "Engineering")], [project], memberships)
+    user_memberships = _service(uow).list_for_user("u1", "u1")
+    assert len(user_memberships) == 1
+    assert user_memberships[0].project_id == "p1"

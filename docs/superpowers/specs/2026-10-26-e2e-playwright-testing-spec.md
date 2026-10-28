@@ -138,26 +138,31 @@ Stored in `tests/fixtures/synthetic_data/`:
 ### Act 4: Engineering Projects & Manager Handoff (`tests/e2e/test_04_projects.py`)
 1. **`POS-ENG-01: Marcus Login & Onboard Elena`**:
    - Marcus logs in with `marcus.eng` / `Password123!`.
-   - Navigates to `/users` $\rightarrow$ creates `elena.dev`: Name `Elena Rostova`, Email `elena@nexora.com`, Dept `Engineering`, Role `Employee`.
+   - Navigates to `/users` $\rightarrow$ creates `elena.dev`: Name `Elena Rostova`, Email `elena@nexora.com`, Dept `Engineering`, Role `Developer`.
 2. **`POS-ENG-02: Create Project Titan & Upload Blueprint`**:
    - Marcus navigates to `/projects` $\rightarrow$ "Create New Project": Name `Project Titan`, Dept `Engineering`, Manager `Marcus Vance`.
    - Navigates to `/documents` $\rightarrow$ uploads `titan_architecture.md` scoped to `Project Titan`.
    - Status switches from `Processing` to `Active`.
-3. **`POS-ENG-03: Grant Roy Cross-Department Access to Titan`**:
-   - Marcus opens "Access Configuration" on `/documents`.
-   - Selects document `titan_architecture.md`.
-   - Grants `user` access to `Roy Miller` with permission `read`.
-   - Grant appears in Document Access Grants table.
-4. **`POS-ENG-04: Create Project Apollo & Add Elena`**:
-   - Marcus navigates to `/projects` $\rightarrow$ creates `Project Apollo` with himself as manager.
+3. **`POS-ENG-03: Grant Roy Cross-Department Access via Project Titan Membership`**:
+   - Marcus navigates to `/projects` $\rightarrow$ opens "Manage Project Membership".
+   - Selects Project `Project Titan` and User `Roy Miller` (HR Manager).
+   - Clicks "Assign Member" $\rightarrow$ `user_projects` membership row persisted.
+4. **`POS-ENG-04: Verify Roy Access to Titan Documents`**:
+   - Marcus logs out cleanly.
+   - Roy Miller logs in with `roy.hr` / `Password123!`.
+   - Navigates to `/documents` $\rightarrow$ verifies `titan_architecture.md` is visible under `Project Titan` (confirming cross-department project access boundary).
+   - Roy logs out cleanly.
+5. **`POS-ENG-05: Create Project Apollo & Add Elena`**:
+   - Marcus logs back in with `marcus.eng` / `Password123!`.
+   - Navigates to `/projects` $\rightarrow$ creates `Project Apollo` with himself as manager.
    - In "Manage Project Membership", adds `Elena Rostova` to `Project Apollo`.
-5. **`NEG-ENG-01: Marcus Locked from Leaving Apollo as Manager`**:
+6. **`NEG-ENG-01: Marcus Locked from Leaving Apollo as Manager`**:
    - Under "My Projects" table, `Project Apollo` has "Leave Project" button disabled with caption `"Manager (Transfer before leaving)"`.
-6. **`POS-ENG-05: Transfer Apollo Manager Role to Elena & Leave`**:
+7. **`POS-ENG-06: Transfer Apollo Manager Role to Elena & Leave`**:
    - In "Update Project", Marcus changes Apollo Manager from `Marcus Vance` to `Elena Rostova`.
    - Page refreshes $\rightarrow$ "Leave Project" button is now enabled for Marcus.
    - Marcus clicks "Leave Project" $\rightarrow$ project removed from his "My Projects" table.
-7. **`POS-ENG-06: Marcus Logout`**:
+8. **`POS-ENG-07: Marcus Logout`**:
    - Marcus logs out.
 
 ---

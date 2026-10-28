@@ -126,17 +126,23 @@ def test_project_manager_cannot_update_other_project():
         _service(uow).update_project("m1", "p2", {"description": "nope"})
 
 
-def test_only_admin_can_change_project_manager():
-    manager = User("m1", "Manager", "m@example.com", "Developer", "d2")
+def test_project_manager_or_authorized_role_can_change_manager():
+    manager = User("m1", "Manager", "m@example.com", "Developer", "d1")
     replacement = User("r1", "Replacement", "r@example.com", "Developer", "d1")
+    outsider = User("out1", "Outsider", "out@example.com", "Developer", "d2")
     project = Project("p1", "Project A", "d1", manager_uid="m1")
-    uow = _uow([manager, replacement], [Department("d1", "Engineering"), Department("d2", "QA")], [project])
+    uow = _uow([manager, replacement, outsider], [Department("d1", "Engineering"), Department("d2", "QA")], [project])
+
     with pytest.raises(ForbiddenError):
-        _service(uow).update_project("m1", "p1", {"manager_uid": "r1"})
+        _service(uow).update_project("out1", "p1", {"manager_uid": "r1"})
+
+    updated = _service(uow).update_project("m1", "p1", {"manager_uid": "r1"})
+    assert updated.manager_uid == "r1"
+
     admin = User("a1", "Admin", "a@example.com", "Admin", "d1")
     uow.users.save(admin)
-    updated = _service(uow).update_project("a1", "p1", {"manager_uid": "r1"})
-    assert updated.manager_uid == "r1"
+    updated2 = _service(uow).update_project("a1", "p1", {"manager_uid": "m1"})
+    assert updated2.manager_uid == "m1"
 
 
 def test_non_admin_cannot_move_project_between_departments():
@@ -145,3 +151,10 @@ def test_non_admin_cannot_move_project_between_departments():
     uow = _uow([manager], [Department("d1", "Engineering"), Department("d2", "QA")], [project])
     with pytest.raises(ForbiddenError):
         _service(uow).update_project("m1", "p1", {"department_id": "d2"})
+
+def test_manager_can_update_project_with_same_department():
+    manager = User("m1", "Manager", "m@example.com", "Manager", "d1")
+    project = Project("p1", "Project A", "d1")
+    uow = _uow([manager], [Department("d1", "Engineering")], [project])
+    updated = _service(uow).update_project("m1", "p1", {"department_id": "d1", "description": "same dept"})
+    assert updated.description == "same dept"

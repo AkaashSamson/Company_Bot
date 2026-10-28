@@ -134,17 +134,32 @@ class AuthorizationEngine:
     def _has_document_grant(self, uow, user: User, document_id: str) -> bool:
         return document_id in uow.document_grants.document_ids_for_principal(user.uid, self._role_ids(uow, user))
 
-    @staticmethod
-    def _can_manage_project(uow, user: User, project) -> bool:
-        if user.role.casefold() == "admin":
+    def _is_admin_user(self, uow, user: User) -> bool:
+        if not user or user.status != "active":
+            return False
+        if user.role and user.role.casefold() == "admin":
             return True
-        if user.role.casefold() == "manager" and user.department_id == project.department_id:
+        perms = self._permission_names(uow, user)
+        if "*" in perms or "ADMIN" in perms:
             return True
-        return project.manager_uid == user.uid
+        for role in self._roles_for_user(uow, user.uid):
+            if role.scope == "global" and role.name.casefold() == "admin":
+                return True
+        return False
 
-    @staticmethod
-    def _membership_project_ids(uow, user: User) -> list[str]:
-        if user.role.casefold() == "admin":
+    def _can_manage_project(self, uow, user: User, project) -> bool:
+        if self._is_admin_user(uow, user):
+            return True
+        if project.manager_uid == user.uid:
+            return True
+        if user.department_id == project.department_id:
+            perms = self._permission_names(uow, user)
+            if "PROJECT_MANAGE_MEMBERS" in perms or "PROJECT_UPDATE" in perms or (user.role and user.role.casefold() == "manager"):
+                return True
+        return False
+
+    def _membership_project_ids(self, uow, user: User) -> list[str]:
+        if self._is_admin_user(uow, user):
             return [project.project_id for project in uow.projects.list_active()]
         return [
             membership.project_id
@@ -177,7 +192,7 @@ class AuthorizationEngine:
             return False
         with self.unit_of_work_factory() as uow:
             user = self._active_user(uow, principal.uid)
-            return bool(user and user.role.casefold() == "admin")
+            return self._is_admin_user(uow, user)
 
     def roles_for_user(self, uid: str) -> Sequence[Role]:
         with self.unit_of_work_factory() as uow:
@@ -197,7 +212,7 @@ class AuthorizationEngine:
             user = self._active_user(uow, principal.uid)
             if user is None:
                 return False
-            if user.role.casefold() == "admin":
+            if self._is_admin_user(uow, user):
                 return True
             return permission in self._permission_names(uow, user)
 

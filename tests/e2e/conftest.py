@@ -239,12 +239,10 @@ class UIActions:
         # 1. Check if container matches an st.expander
         expander = self.page.locator('[data-testid="stExpander"]').filter(has_text=container).first
         if expander.count() > 0:
-            is_open = expander.evaluate(
-                "el => (el.tagName.toLowerCase() === 'details' ? el : el.querySelector('details'))?.open === true"
-            )
+            details = expander.locator("details").first if expander.locator("details").count() > 0 else expander
+            is_open = details.get_attribute("open") is not None
             if not is_open:
-                summary = expander.locator("summary").first
-                summary.click()
+                expander.locator("summary").first.click()
                 self.page.wait_for_timeout(400)
             return expander
 
@@ -271,13 +269,11 @@ class UIActions:
         """Expand a Streamlit st.expander if closed."""
         expander = self.page.locator('[data-testid="stExpander"]').filter(has_text=label).first
         if expander.count() > 0:
-            is_open = expander.evaluate(
-                "el => (el.tagName.toLowerCase() === 'details' ? el : el.querySelector('details'))?.open === true"
-            )
+            details = expander.locator("details").first if expander.locator("details").count() > 0 else expander
+            is_open = details.get_attribute("open") is not None
             if not is_open:
-                summary = expander.locator("summary").first
-                summary.click()
-                self.page.wait_for_timeout(500)
+                expander.locator("summary").first.click()
+                self.page.wait_for_timeout(400)
 
     def upload_file(self, file_path: str, container: str | None = None):
         """Upload a file using Streamlit st.file_uploader, optionally scoped to a container."""
@@ -300,27 +296,33 @@ class UIActions:
             matching = scope.locator('[data-testid="stSelectbox"]').filter(has_text=label)
             selectbox = matching.first
 
+        # 1. If option is already selected in this selectbox, skip immediately
+        try:
+            if option_text.lower() in selectbox.inner_text().lower():
+                return
+        except Exception:
+            pass
+
+        # 2. Click selectbox to open dropdown
         select_trigger = selectbox.locator('[data-baseweb="select"]')
         if select_trigger.count() > 0:
             select_trigger.click()
         else:
             selectbox.click()
 
-        # Streamlit BaseWeb renders option popovers in a portal.
-        # Wait for option to appear and click it:
+        # 3. Wait for and click option in popover
+        option_locator = self.page.locator('[role="option"]').filter(has_text=option_text).first
         try:
-            self.page.get_by_role("option", name=option_text, exact=True).click(timeout=5000)
+            option_locator.wait_for(state="visible", timeout=2000)
+            option_locator.click()
         except Exception:
-            opt = self.page.locator('[role="option"]').filter(has_text=option_text).first
-            if opt.count() > 0:
-                opt.click(timeout=3000)
-            else:
-                inp = selectbox.locator("input")
-                if inp.count() > 0:
-                    inp.fill(option_text)
-                    self.page.get_by_role("option", name=option_text).first.click(timeout=3000)
+            inp = selectbox.locator("input")
+            if inp.count() > 0:
+                inp.fill(option_text)
+                self.page.wait_for_timeout(200)
+            option_locator.click(timeout=3000)
 
-        self.page.wait_for_timeout(400)
+        self.page.wait_for_timeout(300)
 
 
 @pytest.fixture
@@ -439,6 +441,7 @@ def ensure_act2_state(ensure_act1_state, e2e_servers):
         ).raise_for_status()
 
     return {
+        "admin": ensure_act1_state,
         "departments": depts,
         "leads": {
             "roy": {"username": "roy.hr", "password": "Password123!"},
