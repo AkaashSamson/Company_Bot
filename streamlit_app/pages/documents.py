@@ -1,4 +1,5 @@
 import base64
+from pathlib import Path
 
 import streamlit as st
 
@@ -59,9 +60,17 @@ with st.expander("Upload document", expanded=True):
             submitted = st.form_submit_button("Upload and provision")
         if submitted:
             try:
+                # Ensure the filename extension is preserved even if user edits the title in the input box
+                orig_ext = Path(uploaded_file.name).suffix.lower()
+                clean_name = document_name.strip()
+                if orig_ext and not clean_name.lower().endswith(orig_ext):
+                    clean_name = f"{clean_name}{orig_ext}"
+
                 content = base64.b64encode(uploaded_file.getvalue()).decode("utf-8")
                 document_service.create_document({
-                    "document_name": document_name,
+                    "document_name": clean_name,
+                    "original_filename": uploaded_file.name,
+                    "file_type": orig_ext.lstrip("."),
                     "project_id": project_options[project_name],
                     "content": content,
                 })

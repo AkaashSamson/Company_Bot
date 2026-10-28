@@ -283,26 +283,7 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-last_msg = st.session_state.messages[-1] if st.session_state.messages else None
-show_feedback_buttons = (
-    last_msg is not None
-    and last_msg.get("role") == "assistant"
-    and "relevant to your question" in last_msg.get("content", "").lower()
-)
-
-feedback_input = None
-if show_feedback_buttons:
-    col_fb1, col_fb2, _ = st.columns([1, 1, 3])
-    with col_fb1:
-        if st.button("👍 Yes, relevant", key=f"fb_yes_{len(st.session_state.messages)}", help="Confirm response was relevant and view document references"):
-            feedback_input = "Yes"
-    with col_fb2:
-        if st.button("👎 No, not relevant", key=f"fb_no_{len(st.session_state.messages)}", help="Clear cache and request another LLM-generated response"):
-            feedback_input = "No, not relevant"
-
-user_input = st.chat_input("Ask about the HR policy...")
-if feedback_input:
-    user_input = feedback_input
+user_input = st.chat_input("Ask about the documents...")
 
 if user_input:
     question_timestamp = datetime.now(timezone.utc).isoformat()
@@ -351,8 +332,5 @@ if user_input:
     })
     with st.chat_message("assistant"):
         st.markdown(full_content)
-
-    if feedback_input:
-        st.rerun()
 
 

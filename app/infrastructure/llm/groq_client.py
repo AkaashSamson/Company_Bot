@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
-from app.core.settings import GROQ_API_KEY, GROQ_MODEL
+from app.core.settings import GROQ_API_KEY, GROQ_MODEL, LLM_TEMPERATURE
 from app.domain.services.llm_provider import LLMProvider, LLMProviderError
 from app.infrastructure.llm.provider_health import get_provider_health_monitor, ProviderType
 from app.infrastructure.llm.llm_response import (
@@ -33,12 +33,14 @@ class GroqClient(LLMProvider):
         self,
         api_key: str = GROQ_API_KEY,
         model: str = GROQ_MODEL,
+        temperature: float = LLM_TEMPERATURE,
         timeout: float = 60.0,
         max_tokens: int = 1024,
         health_monitor: Optional[Any] = None,
     ):
         self.api_key = api_key
         self.model = model
+        self.temperature = temperature
         self.max_tokens = max_tokens
         self.health_monitor = health_monitor or get_provider_health_monitor()
         self._last_tokens: Optional[dict] = None
@@ -63,10 +65,16 @@ class GroqClient(LLMProvider):
                 self.health_monitor.record_request_failure(ProviderType.GROQ.value)
             raise LLMProviderError("GROQ_API_KEY is not configured.")
 
+        sanitized_messages = [
+            {"role": m.get("role", "user"), "content": m.get("content", "")}
+            for m in messages
+            if isinstance(m, dict)
+        ]
         payload = {
             "model": self.model,
-            "messages": messages,
+            "messages": sanitized_messages,
             "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
         }
 
         try:
@@ -148,6 +156,7 @@ class GroqClient(LLMProvider):
             "model": self.model,
             "messages": messages,
             "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
         }
 
         try:

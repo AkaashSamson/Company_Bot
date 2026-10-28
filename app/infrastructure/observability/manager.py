@@ -210,6 +210,27 @@ class ObservabilityManager(BaseObservabilityProvider):
                             latency_ms=duration_ms,
                             metadata=out_meta,
                         )
+                elif stage_val.startswith("jev_") and hasattr(provider, "record_decision_call"):
+                    in_meta = getattr(span, "input_metadata", {}) or {}
+                    out_meta = getattr(span, "output_metadata", {}) or {}
+                    model_name = in_meta.get("model", "typesafe/jev-1.14")
+                    token_vo = None
+                    if getattr(span, "prompt_tokens", 0) or getattr(span, "completion_tokens", 0):
+                        token_vo = TokenUsage(
+                            prompt_tokens=getattr(span, "prompt_tokens", 0),
+                            completion_tokens=getattr(span, "completion_tokens", 0),
+                            total_tokens=getattr(span, "tokens_used", 0),
+                        )
+                    provider.record_decision_call(
+                        name=stage_val,
+                        state=in_meta.get("state", ""),
+                        questions=in_meta.get("questions", {}),
+                        selection=out_meta.get("selection", out_meta),
+                        model=model_name,
+                        token_usage=token_vo,
+                        latency_ms=duration_ms,
+                        metadata=out_meta,
+                    )
 
             if root_span:
                 output_payload = {"final_response": getattr(trace, "final_response", None)}
@@ -219,6 +240,35 @@ class ObservabilityManager(BaseObservabilityProvider):
 
         except Exception as exc:
             logger.warning("ObservabilityManager failed to dispatch trace %s: %s", getattr(trace, "trace_id", "unknown"), exc)
+
+    def record_decision_call(
+        self,
+        name: str,
+        state: str,
+        questions: Dict[str, Any],
+        selection: Dict[str, Any],
+        model: str = "typesafe/jev-1.14",
+        token_usage: Optional[TokenUsage] = None,
+        latency_ms: float = 0.0,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Record an individual decision / guardrail call to the active provider."""
+        with self._lock:
+            provider = self._active_provider
+        if hasattr(provider, "record_decision_call"):
+            try:
+                provider.record_decision_call(
+                    name=name,
+                    state=state,
+                    questions=questions,
+                    selection=selection,
+                    model=model,
+                    token_usage=token_usage,
+                    latency_ms=latency_ms,
+                    metadata=metadata,
+                )
+            except Exception as exc:
+                logger.warning("ObservabilityManager record_decision_call failed: %s", exc)
 
 
 

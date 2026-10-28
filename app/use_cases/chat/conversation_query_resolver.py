@@ -8,8 +8,8 @@ class ConversationQueryResolver:
     """Resolve dependent follow-ups into standalone retrieval queries."""
 
     _DEPENDENCY_PATTERN = re.compile(
-        r"\b(it|this|that|these|those|they|them|their|its|such)\b|"
-        r"^\s*(and|also|what about|how about)\b",
+        r"\b(it|this|that|these|those|they|them|their|its|such|then)\b|"
+        r"^\s*(and|also|what about|how about|why|who|how many|can i|is it|what if)\b",
         re.IGNORECASE,
     )
 
@@ -48,4 +48,8 @@ class ConversationQueryResolver:
 
     @classmethod
     def _is_dependent(cls, question: str) -> bool:
+        cleaned = question.strip()
+        words = cleaned.split()
+        if len(words) <= 4 and "?" in cleaned:
+            return True
         return bool(cls._DEPENDENCY_PATTERN.search(question))

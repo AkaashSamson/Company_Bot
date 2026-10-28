@@ -59,6 +59,14 @@ class PipelineStage(Enum):
     QUALITY_ASSESSMENT = "quality_assessment"
     CACHE_WRITE = "cache_write"
 
+    # JEV (System-1 judge) guardrail / decision stages
+    JEV_INPUT_SAFETY = "jev_input_safety"
+    JEV_OUTPUT_SAFETY = "jev_output_safety"
+    JEV_QUERY_INTENT = "jev_query_intent"
+    JEV_FOLLOWUP_INTENT = "jev_followup_intent"
+    JEV_CONTEXT_SUFFICIENCY = "jev_context_sufficiency"
+    JEV_GROUNDEDNESS = "jev_groundedness"
+
 
 @dataclass
 class StageSpan:
@@ -93,6 +101,10 @@ class StageSpan:
     def set_output(self, **kwargs) -> None:
         """Set output metadata fields for this stage."""
         self.output_metadata.update(kwargs)
+
+    def set_input(self, **kwargs) -> None:
+        """Set input metadata fields for this stage."""
+        self.input_metadata.update(kwargs)
 
     def record_tokens(
         self,
@@ -220,6 +232,12 @@ class TraceContext:
             self.span.tokens_used = self.tokens_used
         if self.tracer and hasattr(self.tracer, "record_tokens"):
             self.tracer.record_tokens(self.stage, prompt_tokens, completion_tokens)
+
+    def set_input(self, **kwargs) -> None:
+        """Set input metadata for this stage."""
+        self.input_metadata.update(kwargs)
+        if self.span:
+            self.span.input_metadata.update(kwargs)
 
     def set_output(self, **kwargs) -> None:
         """Set output metadata for this stage."""

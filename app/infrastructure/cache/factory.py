@@ -62,6 +62,10 @@ def create_cache(
     
     Returns an instance adhering to SemanticCachePort.
     """
+    if not SEMANTIC_CACHE_ENABLED:
+        logger.info("create_cache: SEMANTIC_CACHE_ENABLED is False, cache disabled.")
+        return None
+
     selected_backend = (backend or "").lower().strip()
     if not selected_backend:
         if LANGCACHE_ENABLED and (langcache_api_key or LANGCACHE_API_KEY):
@@ -70,6 +74,9 @@ def create_cache(
             selected_backend = "quality"
 
     logger.info("create_cache backend=%s", selected_backend)
+
+    if selected_backend in ("none", "disabled", "false"):
+        return None
 
     if selected_backend == "langcache":
         return LangCacheAdapter(

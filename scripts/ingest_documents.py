@@ -15,7 +15,13 @@ from app.use_cases.ingestion.document_processing import build_chunk_records_from
 load_dotenv()
 
 
+import argparse
+
 def main():
+    parser = argparse.ArgumentParser(description="Ingest documents into Chroma vector store.")
+    parser.add_argument("--reset", action="store_true", help="Clear all vectors in the collection before ingesting.")
+    args = parser.parse_args()
+
     documents_dir = os.getenv("DOCUMENTS_DIR", str(BASE_DIR / "input"))
     collection_name = os.getenv("COLLECTION_NAME", COLLECTION_NAME)
     persist_directory = str(BASE_DIR / ".chroma")
@@ -31,6 +37,17 @@ def main():
         return
 
     store = ChromaVectorStore(collection_name=collection_name, persist_directory=persist_directory)
+
+    if args.reset:
+        try:
+            store.client.delete_collection(name=collection_name)
+            store.collection = store.client.get_or_create_collection(
+                name=collection_name,
+                metadata={"hnsw:space": "cosine"},
+            )
+            print(f"Cleared collection: {collection_name}")
+        except Exception as e:
+            print(f"Notice on collection reset: {e}")
 
     for file_path in files:
         path = Path(file_path)
@@ -53,7 +70,7 @@ def main():
         store.add_documents(records)
         print(f"Processed {path.name}: {len(records)} chunks")
 
-    print(f"Stored documents in collection: {collection_name}")
+    print(f"Stored documents in collection: {collection_name} (Total chunks: {store.collection.count()})")
 
 
 if __name__ == "__main__":

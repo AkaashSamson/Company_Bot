@@ -34,9 +34,13 @@ from app.infrastructure.observability.pipeline_tracer import (
     get_pipeline_tracer,
 )
 
+from app.infrastructure.llm.jev_client import JevClient
+from app.domain.ports.jev_guardrail import JevGuardrailPort
+from app.domain.services.guardrails import SecurityGuardrails
+
 logger = logging.getLogger(__name__)
 
-RELEVANCE_PROMPT = "Was this response relevant to your question?"
+RELEVANCE_PROMPT = ""
 REFERENCES_CONFIRM_PROMPT = "Would you like to see the source references?"
 
 # Words/phrases that count as a positive response / relevant
@@ -175,6 +179,7 @@ class QueryOrchestrator:
         query_normalizer=None,
         pipeline_tracer=None,
         document_timestamp_lookup: Optional[Callable[[str], Optional[float]]] = None,
+        jev=None,
     ):
         self.retrieval = retrieval or RetrievalService()
         self.reranker = reranker or getattr(self.retrieval, "reranker", None)
@@ -215,27 +220,37 @@ class QueryOrchestrator:
             ollama_model = os.getenv("OLLAMA_MODEL", "llama3.1")
             self.llm = llm or OpenRouterClient(base_url=ollama_url, model=ollama_model, api_key="ollama")
         else:
-            self.llm = llm or FallbackLLMProvider(
-                primary=OpenRouterClient(),
-                fallback=GroqClient(),
-            )
+            primary_choice = os.getenv("LLM_PRIMARY_PROVIDER", "openrouter").lower()
+            if primary_choice == "groq":
+                self.llm = llm or FallbackLLMProvider(
+                    primary=GroqClient(),
+                    fallback=OpenRouterClient(),
+                )
+            else:
+                self.llm = llm or FallbackLLMProvider(
+                    primary=OpenRouterClient(),
+                    fallback=GroqClient(),
+                )
         self.memory = memory or SessionMemoryService()
         self.query_resolver = query_resolver or ConversationQueryResolver(
             self.llm,
             memory=self.memory,
         )
+        self.jev: JevGuardrailPort = jev or JevClient()
+        try:
+            if getattr(self.jev, "pipeline_tracer", None) is None:
+                self.jev.pipeline_tracer = self.pipeline_tracer  # type: ignore[attr-defined]
+        except Exception:
+            pass
 
     @contextmanager
     def _stage_ctx(self, stage: PipelineStage, input_metadata: Optional[dict[str, Any]] = None):
         """Safely trace a pipeline stage if pipeline_tracer is configured (Task AB-6.2)."""
         if self.pipeline_tracer:
-            try:
-                with self.pipeline_tracer.trace_stage(stage, input_metadata=input_metadata) as span:
-                    yield span
-                return
-            except Exception as e:
-                logger.warning("Failed to trace stage %s: %s", stage, e)
-        yield None
+            with self.pipeline_tracer.trace_stage(stage, input_metadata=input_metadata) as span:
+                yield span
+        else:
+            yield None
 
     def _safe_log_conversation(
         self,
@@ -317,6 +332,12 @@ class QueryOrchestrator:
                 res.setdefault("is_latest", True)
                 if "corrections" not in res:
                     res["corrections"] = list(query_corrections)
+                # Output Guardrail: Post-generation safety and credential leak check
+                is_rejection = bool(res.get("is_rejection"))
+                if not is_rejection and "answer" in res and isinstance(res["answer"], str) and res["answer"]:
+                    out_guard = SecurityGuardrails.validate_output(res["answer"], jev_client=self.jev)
+                    res["answer"] = out_guard.sanitized_text
+                    res["output_guardrail_provider"] = out_guard.provider
             ans_text = res.get("answer", "") if isinstance(res, dict) else str(res)
             self._safe_log_conversation(
                 session_id=session_id,
@@ -367,7 +388,26 @@ class QueryOrchestrator:
                     })
             except Exception:
                 pass
+
             return res
+
+        # ── Pre-flight Input Security Guardrails (Injection, Jailbreak, Script Detection) ──
+        try:
+            input_guard = SecurityGuardrails.validate_input(question, jev_client=self.jev)
+        except Exception as exc:
+            logger.error("Critical failure during input guardrail: %s. Using local fallback.", exc)
+            input_guard = SecurityGuardrails._local_validate_input(question, provider="local_fallback")
+
+        if not input_guard.is_safe:
+            return _finish({
+                "answer": input_guard.rejection_reason,
+                "citations": [],
+                "cache_hit": False,
+                "tokens": None,
+                "is_rejection": True,
+                "input_guardrail_provider": input_guard.provider,
+            })
+        question = input_guard.sanitized_text
 
         # ── 0. Relevance / References follow-up ─────────────────────────
         asked_relevance = (
@@ -379,19 +419,51 @@ class QueryOrchestrator:
         )
         asked_references = _last_assistant_offered_references(conversation_history)
 
-        # Allow user dissatisfaction feedback even if the relevance prompt was omitted/truncated
+        # JEV System-1 Decision: Disambiguate follow-up query vs yes/no feedback confirmation
+        # Evaluates user query in context of the previous assistant message.
+        jev_intent_type = None
+        if (asked_relevance or asked_references or session_id in _last_interaction):
+            try:
+                prev_assistant_msg = ""
+                if conversation_history:
+                    for m in reversed(conversation_history):
+                        if m.get("role") == "assistant":
+                            prev_assistant_msg = m.get("content", "")
+                            break
+                if not prev_assistant_msg and session_id in _last_interaction:
+                    prev_assistant_msg = _last_interaction[session_id].get("answer", "")
+
+                jev_res = self.jev.classify_followup_intent(
+                    current_input=question,
+                    last_bot_prompt_type="relevance" if asked_relevance else "references",
+                    previous_assistant_message=prev_assistant_msg,
+                )
+                jev_intent_type = jev_res.get("intent")
+            except Exception as e:
+                logger.debug("Jev followup intent evaluation failed: %s", e)
+
+        # If user is asking a follow-up query, bypass feedback hijacking
+        is_followup_query = jev_intent_type == "followup_query"
+
+        # Allow user dissatisfaction feedback only if it's NOT a new follow-up question
         is_feedback_turn = (
-            asked_relevance
-            or (
-                session_id in _last_interaction
-                and (_is_not_relevant(question) or _is_relevant(question))
+            not is_followup_query
+            and (
+                asked_relevance
+                or (
+                    session_id in _last_interaction
+                    and (_is_not_relevant(question) or _is_relevant(question))
+                )
             )
         )
 
         # ── 0-pre. Did the bot ask "Would you like to see the source references?" ──
         asked_refs_confirm = (
-            _asked_references_confirm.get(session_id, False)
-            or _last_assistant_asked_references_confirm(conversation_history)
+            not is_followup_query
+            and (
+                _asked_references_confirm.get(session_id, False)
+                or _last_assistant_asked_references_confirm(conversation_history)
+            )
         )
         if asked_refs_confirm:
             _asked_references_confirm.pop(session_id, None)
@@ -823,7 +895,7 @@ class QueryOrchestrator:
                     }
                     _alternative_answer_given[session_id] = False
                     cache_hit_payload = {
-                        "answer": cached["answer"] + f"\n\n{RELEVANCE_PROMPT}",
+                        "answer": cached["answer"] + (f"\n\n{RELEVANCE_PROMPT}" if RELEVANCE_PROMPT else ""),
                         "citations": [] if defer_citations else [faq_citation],
                         "cache_hit": True,
                         "matched_faq": cached["question"],
@@ -878,7 +950,10 @@ class QueryOrchestrator:
             if hasattr(self.retrieval, "retrieve_raw_candidates"):
                 raw_candidates = self.retrieval.retrieve_raw_candidates(retrieval_query, **retrieval_kwargs)
             else:
-                raw_candidates = self.retrieval.retrieve(retrieval_query, rerank=False, **retrieval_kwargs)
+                try:
+                    raw_candidates = self.retrieval.retrieve(retrieval_query, rerank=False, **retrieval_kwargs)
+                except TypeError:
+                    raw_candidates = self.retrieval.retrieve(retrieval_query, **retrieval_kwargs)
 
             if ret_span:
                 ret_span.set_output(
@@ -933,7 +1008,8 @@ class QueryOrchestrator:
         else:
             reranked_candidates = raw_candidates[:RAG_FINAL_K] if raw_candidates else []
 
-        selected_evidence = self.retrieval.select_relevant(
+        select_fn = getattr(self.retrieval, "select_relevant", RetrievalService.select_relevant)
+        selected_evidence = select_fn(
             retrieval_query,
             reranked_candidates,
             max_evidence=RAG_FINAL_K,
@@ -949,6 +1025,7 @@ class QueryOrchestrator:
             )
             if denied is not None:
                 return _finish(denied)
+
             no_info_ans = "I could not find that information in the available documents."
             _pending_citations[session_id] = []
             _last_interaction[session_id] = {
@@ -964,6 +1041,47 @@ class QueryOrchestrator:
                 "cache_hit": False,
                 "tokens": None,
             })
+
+        # ── Context Sufficiency & Answerability Gate (ADR-02) ───────────
+        # Determine whether retrieved chunks contain sufficient factual evidence to answer without hallucination
+        context_texts = [e.get("text", "") for e in selected_evidence if isinstance(e, dict)]
+        sufficiency = None
+        try:
+            sufficiency = self.jev.evaluate_context_sufficiency(question=question, context_chunks=context_texts)
+        except Exception as e:
+            logger.debug("Jev context sufficiency evaluation failed: %s", e)
+
+        if sufficiency and not sufficiency.get("can_be_answered", True):
+            logger.info(
+                "Jev context sufficiency: Chunks do NOT contain answer for query (reason=%s). Avoiding hallucination.",
+                sufficiency.get("reason"),
+            )
+            # Chunks do not contain sufficient facts to answer the question:
+            # Safely abstain without invoking the generative LLM to prevent hallucinations!
+            no_info_ans = "I could not find that information in the available documents."
+            _pending_citations[session_id] = []
+            _last_interaction[session_id] = {
+                "question": question,
+                "context": "",
+                "selected_evidence": [],
+                "answer": no_info_ans,
+            }
+            _alternative_answer_given[session_id] = False
+            return _finish({
+                "answer": no_info_ans,
+                "citations": [],
+                "cache_hit": False,
+                "tokens": None,
+            })
+
+        # When chunks can answer the query: filter evidence to the relevant chunk indices
+        if sufficiency and sufficiency.get("relevant_chunk_indices"):
+            valid_indices = [
+                i for i in sufficiency["relevant_chunk_indices"]
+                if isinstance(i, int) and 0 <= i < len(selected_evidence)
+            ]
+            if valid_indices:
+                selected_evidence = [selected_evidence[i] for i in valid_indices]
 
         context = "\n\n".join(
             result.get("text", "")
@@ -1025,11 +1143,21 @@ class QueryOrchestrator:
                     text = c.get("text", "").strip()
                     if text:
                         cleaned = re.sub(r"\s+", " ", text).strip()
-                        if cleaned and cleaned not in paragraph_parts:
-                            paragraph_parts.append(cleaned)
+                        if len(cleaned) > 300:
+                            cleaned = cleaned[:300].rsplit(" ", 1)[0] + "..."
+                        label = f"{c.get('source', 'Document')} - {c.get('section', '')}".strip(" -")
+                        entry = f"[{label}] {cleaned}"
+                        if entry not in paragraph_parts:
+                            paragraph_parts.append(entry)
 
-                fallback_answer = " ".join(paragraph_parts).strip()
-                if not fallback_answer:
+                if paragraph_parts:
+                    fallback_answer = (
+                        "I'm having trouble reaching the AI provider right now, so I can't write a proper answer. "
+                        "Here are the most relevant references from the company policy documents, "
+                        "which may not directly answer your question: "
+                        + " ".join(paragraph_parts)
+                    )
+                else:
                     fallback_answer = "I could not find that information in the available documents."
 
                 _pending_citations[session_id] = citations
@@ -1049,7 +1177,9 @@ class QueryOrchestrator:
                     "tokens": None,
                 })
 
-            no_info_ans = f"I could not find that information in the available documents.\n\n{RELEVANCE_PROMPT}"
+            no_info_ans = "I could not find that information in the available documents."
+            if RELEVANCE_PROMPT:
+                no_info_ans = f"{no_info_ans}\n\n{RELEVANCE_PROMPT}"
             _pending_citations[session_id] = []
             _last_interaction[session_id] = {
                 "question": question,
@@ -1070,7 +1200,38 @@ class QueryOrchestrator:
         if is_negative:
             citations = []
             _pending_citations[session_id] = []
-            answer = answer.replace(RELEVANCE_PROMPT, "").strip()
+            if answer.strip().lower().startswith("i could not find"):
+                answer = answer.replace(RELEVANCE_PROMPT, "").strip() if RELEVANCE_PROMPT else answer.strip()
+
+        # ── JEV Claim-Level Groundedness Evaluation (ADR-01 & ADR-04) ───
+        if not is_negative and selected_evidence and answer:
+            try:
+                context_texts = [e.get("text", "") for e in selected_evidence if isinstance(e, dict)]
+                ground_res = self.jev.evaluate_groundedness(
+                    question=question,
+                    context_chunks=context_texts,
+                    answer=answer,
+                )
+                if not ground_res.get("is_grounded", True) and ground_res.get("hallucination_score", 0.0) >= 0.7:
+                    logger.warning(
+                        "Jev flagged answer as ungrounded (score=%.2f, unsupported=%s). Triggering safe abstention.",
+                        ground_res.get("hallucination_score"),
+                        ground_res.get("unsupported_claims"),
+                    )
+                    answer = (
+                        "I found relevant company policy documentation, but I cannot confirm all specific details "
+                        "with complete certainty from the text. Please refer directly to the referenced documents or consult HR."
+                    )
+                    if RELEVANCE_PROMPT:
+                        answer = f"{answer}\n\n{RELEVANCE_PROMPT}"
+                else:
+                    supported_indices = ground_res.get("supported_chunk_indices")
+                    if supported_indices and isinstance(supported_indices, list):
+                        valid_indices = set(i for i in supported_indices if isinstance(i, int) and 0 <= i < len(citations))
+                        if valid_indices:
+                            citations = [citations[i] for i in sorted(valid_indices)]
+            except Exception as ground_err:
+                logger.warning("Jev groundedness evaluation failed, proceeding with generation: %s", ground_err)
 
         if hasattr(self.faq_store, "save") and not is_negative:
             try:
@@ -1199,10 +1360,9 @@ class QueryOrchestrator:
             except Exception:
                 pass
 
-        # Ensure answer ends with RELEVANCE_PROMPT so feedback buttons always render
         if "Would you like to see the references for this?" in answer:
-            answer = answer.replace("Would you like to see the references for this?", RELEVANCE_PROMPT)
-        if defer_citations and RELEVANCE_PROMPT not in answer and REFERENCES_CONFIRM_PROMPT not in answer:
+            answer = answer.replace("Would you like to see the references for this?", "").strip()
+        if RELEVANCE_PROMPT and defer_citations and RELEVANCE_PROMPT not in answer and REFERENCES_CONFIRM_PROMPT not in answer:
             answer = answer.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
 
 

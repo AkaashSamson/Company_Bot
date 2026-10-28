@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
-from app.core.settings import LLM_MODEL, OPENROUTER_API_KEY
+from app.core.settings import LLM_MODEL, LLM_TEMPERATURE, OPENROUTER_API_KEY
 from app.domain.services.llm_provider import LLMProvider, LLMProviderError
 from app.infrastructure.llm.provider_health import get_provider_health_monitor, ProviderType
 from app.infrastructure.llm.llm_response import (
@@ -79,6 +79,7 @@ class OpenRouterClient(LLMProvider):
         self,
         api_key: str = OPENROUTER_API_KEY,
         model: str = LLM_MODEL,
+        temperature: float = LLM_TEMPERATURE,
         timeout: float = 60.0,
         max_tokens: int = 1024,
         session_id: Optional[str] = None,
@@ -88,6 +89,7 @@ class OpenRouterClient(LLMProvider):
         self.base_url = kwargs.get("base_url") or "https://openrouter.ai/api/v1/chat/completions"
         self.api_key = api_key
         self.model = model
+        self.temperature = temperature
         self.max_tokens = max_tokens
         self.session_id = session_id
         self.health_monitor = health_monitor or get_provider_health_monitor()
@@ -111,10 +113,16 @@ class OpenRouterClient(LLMProvider):
                 self.health_monitor.record_request_failure(ProviderType.OPENROUTER.value)
             raise LLMProviderError("OPENROUTER_API_KEY is not configured.")
 
+        sanitized_messages = [
+            {"role": m.get("role", "user"), "content": m.get("content", "")}
+            for m in messages
+            if isinstance(m, dict)
+        ]
         payload = {
             "model": self.model,
-            "messages": messages,
+            "messages": sanitized_messages,
             "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
         }
 
         try:
@@ -198,6 +206,7 @@ class OpenRouterClient(LLMProvider):
             "model": self.model,
             "messages": messages,
             "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
         }
 
         try:

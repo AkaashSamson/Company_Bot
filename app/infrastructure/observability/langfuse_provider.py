@@ -27,6 +27,8 @@ def _resolve_observation_type(name: str) -> str:
     Valid types: 'span', 'generation', 'retriever', 'tool', 'agent', 'chain', 'guardrail'.
     """
     lower = name.lower()
+    if lower.startswith("jev_"):
+        return "guardrail"
     if "retrieval" in lower or "retriever" in lower or "vector" in lower:
         return "retriever"
     if "generation" in lower or "llm" in lower:
@@ -215,10 +217,12 @@ class LangfuseProvider(BaseObservabilityProvider):
                     },
                 }
 
-                # Attach generation model & token metrics for LLM stages
-                if obs_type == "generation" or "generation" in stage_val.lower():
-                    model_name = getattr(span, "input_metadata", {}).get("model", "unknown")
-                    span_kwargs["model"] = model_name
+                # Attach model & token metrics for generation and guardrail / JEV stages
+                is_jev_or_guardrail = (obs_type == "guardrail") or stage_val.startswith("JEV_")
+                if obs_type == "generation" or "generation" in stage_val.lower() or is_jev_or_guardrail:
+                    model_name = getattr(span, "input_metadata", {}).get("model")
+                    if model_name:
+                        span_kwargs["model"] = model_name
                     p_tok = getattr(span, "prompt_tokens", 0)
                     c_tok = getattr(span, "completion_tokens", 0)
                     t_tok = getattr(span, "tokens_used", 0) or (p_tok + c_tok)
@@ -246,8 +250,23 @@ class LangfuseProvider(BaseObservabilityProvider):
                         except Exception:
                             pass
 
+                    out_meta = getattr(span, "output_metadata", {}) or {}
                     if getattr(span, "error", None):
                         child_obs.update(level="ERROR", status_message=str(span.error))
+                    elif is_jev_or_guardrail:
+                        # Highlight threats or policy blocks in Langfuse UI
+                        is_safe = out_meta.get("is_safe")
+                        has_leak = out_meta.get("has_leak")
+                        is_grounded = out_meta.get("is_grounded")
+                        if is_safe is False:
+                            threat = out_meta.get("threat_type") or out_meta.get("selection", {}).get("threat_type", "attack")
+                            child_obs.update(level="WARNING", status_message=f"Threat blocked: {threat}")
+                        elif has_leak is True:
+                            leak = out_meta.get("leak_type") or out_meta.get("selection", {}).get("leak_type", "leak")
+                            child_obs.update(level="WARNING", status_message=f"Leak detected: {leak}")
+                        elif is_grounded is False:
+                            score = out_meta.get("hallucination_score", 1.0)
+                            child_obs.update(level="WARNING", status_message=f"Ungrounded answer (score={score})")
 
                     dur_ms = getattr(span, "duration_ms", 0.0) or 0.0
                     # Ensure at least 0.1ms (100,000 ns) so span is visible and strictly monotonic
@@ -331,6 +350,46 @@ class LangfuseProvider(BaseObservabilityProvider):
             gen.end()
         except Exception as exc:
             logger.warning("Langfuse record_llm_call failed: %s", exc)
+
+    def record_decision_call(
+        self,
+        name: str,
+        state: str,
+        questions: Dict[str, Any],
+        selection: Dict[str, Any],
+        model: str = "typesafe/jev-1.14",
+        token_usage: Optional[TokenUsage] = None,
+        latency_ms: float = 0.0,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Record an individual decision / guardrail call as a Langfuse guardrail observation."""
+        if not self.enabled or self._client is None:
+            logger.debug("Langfuse dry-run recorded decision call: %s (%s)", name, model)
+            return
+
+        try:
+            p_tok = token_usage.prompt_tokens if token_usage else 0
+            c_tok = token_usage.completion_tokens if token_usage else 0
+            t_tok = token_usage.total_tokens if token_usage else (p_tok + c_tok)
+            obs = self._client.start_observation(
+                name=name,
+                as_type="guardrail",
+                model=model,
+                input={"state": state, "questions": questions},
+                output={"selection": selection},
+                usage_details={
+                    "input": p_tok,
+                    "output": c_tok,
+                    "total": t_tok,
+                } if t_tok > 0 else None,
+                metadata={
+                    **(metadata or {}),
+                    "latency_ms": latency_ms,
+                },
+            )
+            obs.end()
+        except Exception as exc:
+            logger.warning("Langfuse record_decision_call failed: %s", exc)
 
     def flush(self) -> None:
         """Flush the Langfuse client event queue to ensure all background events are pushed."""
