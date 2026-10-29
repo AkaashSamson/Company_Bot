@@ -141,6 +141,19 @@ class UserManagementService:
         with self.unit_of_work_factory() as uow:
             return list(uow.users.list())
 
+    def list_department_users(self, actor_uid, department_id):
+        with self.unit_of_work_factory() as uow:
+            actor = uow.users.get_by_uid(actor_uid)
+            if actor is None or actor.status != "active":
+                raise ForbiddenError("Active authenticated user required")
+            department = uow.departments.get(department_id)
+            if department is None:
+                raise NotFoundError("Department not found")
+            return [
+                user for user in uow.users.list()
+                if user.department_id == department_id and user.status == "active"
+            ]
+
     def update_user(self, actor_uid, uid, changes):
         with self.unit_of_work_factory() as uow:
             actor = uow.users.get_by_uid(actor_uid)
