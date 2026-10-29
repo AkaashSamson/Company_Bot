@@ -4,12 +4,9 @@ from sqlalchemy import select, update
 
 from app.domain.entities.organization_models import (
     Department,
-    DepartmentMember,
     Document,
-    DocumentGrant,
     Permission,
     Project,
-    ProjectGrant,
     Role,
     User,
     UserProject,
@@ -24,11 +21,6 @@ from app.infrastructure.persistence.sqlalchemy.models import (
     UserProjectRecord,
     UserRecord,
 )
-
-DepartmentMemberRecord = None
-DocumentPermissionRecord = None
-ProjectGrantRecord = None
-BusinessIdSequenceRecord = None
 
 
 def _user(record: UserRecord) -> User:
@@ -86,14 +78,6 @@ def _membership(record: UserProjectRecord) -> UserProject:
     )
 
 
-def _department_member(record: DepartmentMemberRecord) -> DepartmentMember:
-    return DepartmentMember(
-        record.user_id, record.department_id, record.membership_role,
-        record.billable_status, record.assigned_by_uid, record.status,
-        record.assigned_at, record.left_at, record.created_at, record.updated_at,
-    )
-
-
 def _permission(record: PermissionRecord) -> Permission:
     return Permission(record.id, record.name, record.description, record.created_at, record.updated_at)
 
@@ -103,25 +87,6 @@ def _role(record: RoleRecord) -> Role:
         record.id, record.name, record.description, record.scope,
         record.department_id, record.status, record.created_by_uid,
         record.created_at, record.updated_at,
-    )
-
-
-def _project_grant(record: ProjectGrantRecord) -> ProjectGrant:
-    return ProjectGrant(
-        record.project_id, record.principal_type,
-        role_id=record.role_id, user_id=record.user_id,
-        granted_by_uid=record.granted_by_uid, status=record.status,
-        granted_at=record.granted_at, internal_id=record.id,
-    )
-
-
-def _document_grant(record: DocumentPermissionRecord) -> DocumentGrant:
-    return DocumentGrant(
-        record.document_id, record.principal_type,
-        permission=record.permission,
-        role_id=record.role_id, user_id=record.user_id,
-        granted_by_uid=record.granted_by_uid, status=record.status,
-        granted_at=record.created_at, internal_id=record.id,
     )
 
 
@@ -325,23 +290,6 @@ class SqlAlchemyMembershipRepository:
             self.session.flush()
 
 
-class SqlAlchemyDepartmentMemberRepository:
-    def __init__(self, session):
-        self.session = session
-
-    def get(self, user_id, department_id):
-        return None
-
-    def list_for_user(self, user_id):
-        return []
-
-    def list_for_department(self, department_id):
-        return []
-
-    def save(self, member):
-        return member
-
-
 class SqlAlchemyPermissionRepository:
     def __init__(self, session):
         self.session = session
@@ -426,121 +374,3 @@ class SqlAlchemyRoleRepository:
         for permission_id in sorted(set(permission_ids)):
             self.session.add(RolePermissionRecord(role_id=role_id, permission_id=permission_id, granted_by_uid=granted_by_uid))
         self.session.flush()
-
-
-class SqlAlchemyProjectGrantRepository:
-    def __init__(self, session):
-        self.session = session
-
-    def get_by_id(self, grant_id):
-        return None
-
-    def get(self, project_id, principal_type, role_id=None, user_id=None):
-        return None
-
-    def list_for_project(self, project_id):
-        return []
-
-    def project_ids_for_principal(self, user_id, role_ids):
-        return []
-
-    def list(self):
-        return []
-
-    def save(self, grant):
-        return grant
-
-    def delete(self, grant_id):
-        pass
-
-
-class SqlAlchemyDocumentGrantRepository:
-    def __init__(self, session):
-        self.session = session
-
-    def get(self, grant_id):
-        return None
-
-    def for_document(self, document_id):
-        return []
-
-    def document_ids_for_principal(self, user_id, role_ids):
-        return []
-
-    def list(self):
-        return []
-
-    def save(self, grant):
-        return grant
-
-    def delete(self, grant_id):
-        pass
-
-
-class SqlAlchemySequenceRepository:
-    """Atomic, persistent business-ID counters.
-
-    ``allocate`` is a single ``UPDATE ... RETURNING`` statement so concurrent
-    transactions always receive distinct values: each writer atomically bumps
-    ``last_value`` regardless of any stale reads. The ``INSERT ... ON CONFLICT
-    DO NOTHING`` before it merely guarantees the counter row exists on first
-    use without failing under concurrent first allocation.
-    """
-
-    def __init__(self, session):
-        self.session = session
-
-    @staticmethod
-    def _insert_ignore(dialect_name, values):
-        """Dialect-aware INSERT ... ON CONFLICT DO NOTHING."""
-        if dialect_name.startswith("postgresql"):
-            from sqlalchemy.dialects.postgresql import insert as postgres_insert
-
-            statement = postgres_insert(BusinessIdSequenceRecord).values(**values)
-            return statement.on_conflict_do_nothing(index_elements=[BusinessIdSequenceRecord.sequence_key])
-        from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-
-        statement = sqlite_insert(BusinessIdSequenceRecord).values(**values)
-        return statement.on_conflict_do_nothing(index_elements=[BusinessIdSequenceRecord.sequence_key])
-
-    def get(self, sequence_key):
-        record = self.session.get(BusinessIdSequenceRecord, sequence_key)
-        return record.last_value if record else None
-
-    def initialize(self, sequence_key, prefix, last_value):
-        statement = self._insert_ignore(
-            self.session.get_bind().dialect.name,
-            {
-                "sequence_key": sequence_key,
-                "prefix": prefix,
-                "last_value": last_value,
-                "updated_at": datetime.now(timezone.utc),
-            },
-        )
-        self.session.execute(statement)
-        self.session.flush()
-
-    def allocate(self, sequence_key, by=1):
-        ensure = self._insert_ignore(
-            self.session.get_bind().dialect.name,
-            {
-                "sequence_key": sequence_key,
-                "prefix": "",
-                "last_value": 0,
-                "updated_at": datetime.now(timezone.utc),
-            },
-        )
-        self.session.execute(ensure)
-        value = self.session.scalar(
-            update(BusinessIdSequenceRecord)
-            .where(BusinessIdSequenceRecord.sequence_key == sequence_key)
-            .values(
-                last_value=BusinessIdSequenceRecord.last_value + by,
-                updated_at=datetime.now(timezone.utc),
-            )
-            .returning(BusinessIdSequenceRecord.last_value)
-        )
-        self.session.flush()
-        if value is None:
-            raise RuntimeError(f"Failed to allocate business ID for sequence {sequence_key!r}")
-        return value

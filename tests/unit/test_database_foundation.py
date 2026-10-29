@@ -330,3 +330,14 @@ def test_sqlalchemy_user_repository_crud(database):
         assert loaded.job_title == "Cosmetic Title"
         assert loaded.password_hash == "secure_hash_val"
         assert loaded.password_representation == "secure_hash_val"
+
+
+def test_unit_of_work_has_no_zombie_stubs():
+    from app.infrastructure.persistence.sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork
+    from app.infrastructure.persistence.sqlalchemy.session import create_engine_and_session_factory
+    engine, session_factory = create_engine_and_session_factory("sqlite:///:memory:")
+    with SqlAlchemyUnitOfWork(session_factory) as uow:
+        assert not hasattr(uow, "department_members")
+        assert not hasattr(uow, "project_grants")
+        assert not hasattr(uow, "document_grants")
+        assert not hasattr(uow, "sequences")
