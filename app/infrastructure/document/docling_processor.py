@@ -131,16 +131,28 @@ def get_docling_converter(is_digital_pdf: bool = False) -> DocumentConverter:
     """Get or construct a shared, pre-warmed DocumentConverter with multi-core acceleration."""
     key = is_digital_pdf and DOCLING_AUTO_OCR_SELECTIVE
     if key not in _cached_converters:
+        import torch
         from docling.datamodel.pipeline_options import (
+            AcceleratorDevice,
             AcceleratorOptions,
             OcrAutoOptions,
             OcrMode,
             PdfPipelineOptions,
+            TableFormerMode,
+            TableStructureOptions,
         )
         from docling.document_converter import PdfFormatOption
 
+        device = AcceleratorDevice.CUDA if torch.cuda.is_available() else AcceleratorDevice.AUTO
         pdf_options = PdfPipelineOptions()
-        pdf_options.accelerator_options = AcceleratorOptions(num_threads=DOCLING_NUM_THREADS)
+        pdf_options.accelerator_options = AcceleratorOptions(
+            num_threads=DOCLING_NUM_THREADS,
+            device=device,
+        )
+        pdf_options.table_structure_options = TableStructureOptions(
+            mode=TableFormerMode.FAST,
+            do_cell_matching=True,
+        )
         if key:
             # Fast digital mode: Native text already present in PDF stream; skip heavy RapidOCR pixel pass.
             pdf_options.do_ocr = False

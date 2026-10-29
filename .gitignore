@@ -16,6 +16,9 @@ __pycache__/
 .pytest_cache/
 .coverage
 htmlcov/
+report.html
+test-results/
+playwright-report/
 
 # Local databases & Chroma vector store
 .chroma*/

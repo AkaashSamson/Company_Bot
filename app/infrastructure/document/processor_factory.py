@@ -66,6 +66,8 @@ def build_document_processor(structural: bool | None = None) -> DocumentProcessi
     """
     from app.infrastructure.document.pdf_processor import PdfDocumentProcessor
 
+    from app.core.settings import DOCLING_REMOTE_URL
+
     use_structural = DOCLING_ENABLED if structural is None else structural
     text_processor = PlainTextDocumentProcessor()
     pdf_processor = PdfDocumentProcessor()
@@ -77,8 +79,19 @@ def build_document_processor(structural: bool | None = None) -> DocumentProcessi
     try:
         from app.infrastructure.document.docling_processor import DoclingDocumentProcessor
 
+        local_docling = DoclingDocumentProcessor()
+        if DOCLING_REMOTE_URL:
+            from app.infrastructure.document.remote_processor import RemoteDoclingProcessor
+
+            logger.info("Remote GPU document processing enabled pointing to: %s", DOCLING_REMOTE_URL)
+            remote_processor = RemoteDoclingProcessor(
+                base_url=DOCLING_REMOTE_URL,
+                fallback=local_docling,
+            )
+            return CompositeDocumentProcessor(remote_processor, text_processor, pdf_processor)
+
         logger.debug("structural parsing enabled; composing over the text pipeline fallback")
-        return CompositeDocumentProcessor(DoclingDocumentProcessor(), text_processor, pdf_processor)
+        return CompositeDocumentProcessor(local_docling, text_processor, pdf_processor)
     except ImportError as exc:
         logger.warning(
             "Docling parser requested but dependency is missing (%s); falling back to plain text and pdf pipeline",

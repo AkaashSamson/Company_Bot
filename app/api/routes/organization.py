@@ -32,7 +32,6 @@ from app.domain.services.organization_errors import ConflictError, ForbiddenErro
 
 router = APIRouter(prefix="/api", tags=["organization"])
 
-
 def _error(error):
     if isinstance(error, ConflictError):
         return HTTPException(status_code=409, detail=str(error))
