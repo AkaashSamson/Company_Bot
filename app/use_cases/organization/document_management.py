@@ -22,6 +22,19 @@ def utc_now():
     return datetime.now(timezone.utc)
 
 
+def _next_version(v: str | None) -> str:
+    if not v:
+        return "1.1"
+    parts = str(v).split(".")
+    try:
+        if len(parts) >= 2:
+            parts[-1] = str(int(parts[-1]) + 1)
+            return ".".join(parts)
+        return f"{int(parts[0]) + 1}.0"
+    except ValueError:
+        return f"{v}.1"
+
+
 class DocumentManagementService:
     def __init__(
         self,
@@ -140,6 +153,7 @@ class DocumentManagementService:
         file_type: str | None = None,
         description: str | None = None,
         version: str = "1.0",
+        replace_existing: bool = False,
         defer_ingestion: bool = False,
         background_tasks: Any = None,
     ):
@@ -175,20 +189,86 @@ class DocumentManagementService:
                 raw_bytes = p.read_bytes()
                 file_hash = hashlib.sha256(raw_bytes).hexdigest()
 
+        # Pre-validate content or source_path synchronously
+        if source_path or content:
+            from app.infrastructure.ingestion.provisioner import validate_upload_content
+
+            _, detected_ext = validate_upload_content(
+                content=content,
+                source_path=source_path,
+                document_name=document_name or original_filename or document_id or "upload",
+            )
+            if detected_ext and not file_type:
+                file_type = detected_ext.lstrip(".")
+
         with self.unit_of_work_factory() as uow:
             actor = self._actor(uow, principal)
-            document_id = document_id or self.business_id_generator.next(uow, "document")
-            if uow.documents.get(document_id):
-                raise ConflictError("Document already exists")
 
-            if file_hash and project_id:
+            if file_hash:
                 for existing in uow.documents.list():
                     if (
                         existing.project_id == project_id
                         and getattr(existing, "file_hash", None) == file_hash
                         and existing.status != "archived"
                     ):
-                        raise ConflictError("Exact file already exists in this project")
+                        existing_name = existing.document_name or existing.original_filename or existing.document_id
+                        scope_desc = "in this project" if project_id else "in unassigned documents"
+                        raise ConflictError(
+                            f"Identical file content already exists {scope_desc} with name '{existing_name}'"
+                        )
+
+            target_name = (
+                document_name
+                or original_filename
+                or (Path(source_path).name if source_path else None)
+            )
+            if target_name:
+                for existing in uow.documents.list():
+                    if (
+                        existing.project_id == project_id
+                        and existing.status != "archived"
+                        and (existing.document_name == target_name or existing.original_filename == target_name)
+                    ):
+                        if not replace_existing:
+                            scope_desc = "in this project" if project_id else "in unassigned documents"
+                            raise ConflictError(
+                                f"Document '{target_name}' already exists {scope_desc}. Confirm replacement to overwrite it."
+                            )
+                        if not self.authorization.can_manage_document(AuthenticatedPrincipal(actor.uid), existing.document_id):
+                            raise ForbiddenError("Only managers or administrators may replace existing documents")
+                        if description is not None and len(description) > DESCRIPTION_MAX_LENGTH:
+                            raise ValueError(f"Description must not exceed {DESCRIPTION_MAX_LENGTH} characters")
+
+                        # Purge old storage file
+                        if existing.storage_location:
+                            try:
+                                p = Path(existing.storage_location)
+                                if p.exists():
+                                    p.unlink()
+                            except Exception as exc:
+                                logger.warning("Failed to unlink replaced document %s file: %s", existing.document_id, exc)
+
+                        # Purge old vectors before deleting
+                        if self.deletion_handler:
+                            try:
+                                self.deletion_handler(existing.document_id)
+                            except Exception as exc:
+                                logger.warning("vector removal failed during replacement of %r: %s", existing.document_id, exc)
+
+                        # Delete old document record from database
+                        if hasattr(uow.documents, "purge"):
+                            uow.documents.purge(existing.document_id)
+                        else:
+                            try:
+                                uow.documents.delete(existing.document_id, permanent=True)
+                            except TypeError:
+                                uow.documents.delete(existing.document_id)
+                        uow.commit()
+                        break
+
+            document_id = document_id or self.business_id_generator.next(uow, "document")
+            if uow.documents.get(document_id):
+                raise ConflictError("Document already exists")
 
             project = uow.projects.get(project_id) if project_id else None
             if project_id and project is None:
@@ -199,18 +279,6 @@ class DocumentManagementService:
                 raise ForbiddenError("Unassigned document registration requires manager or admin access")
             if description is not None and len(description) > DESCRIPTION_MAX_LENGTH:
                 raise ValueError(f"Description must not exceed {DESCRIPTION_MAX_LENGTH} characters")
-
-            # Pre-validate content or source_path synchronously
-            if source_path or content:
-                from app.infrastructure.ingestion.provisioner import validate_upload_content
-
-                _, detected_ext = validate_upload_content(
-                    content=content,
-                    source_path=source_path,
-                    document_name=document_name or document_id,
-                )
-                if detected_ext and not file_type:
-                    file_type = detected_ext.lstrip(".")
 
             now = utc_now()
             is_async = (defer_ingestion or background_tasks is not None) and (source_path or content) and self.ingestion_handler
@@ -268,7 +336,11 @@ class DocumentManagementService:
             try:
                 if self.ingestion_handler:
                     self.ingestion_handler(source_path, document, content)
-                document.status = "active"
+                latest_doc = uow.documents.get(document_id)
+                if latest_doc and latest_doc.status == "archived":
+                    document.status = "archived"
+                else:
+                    document.status = "active"
                 document.updated_at = utc_now()
                 uow.documents.save(document)
                 uow.commit()
@@ -290,6 +362,7 @@ class DocumentManagementService:
         project_id: str,
         defer_ingestion: bool = False,
         background_tasks: Any = None,
+        replace_existing: bool = False,
         **fields,
     ):
         return self.register_document(
@@ -297,6 +370,7 @@ class DocumentManagementService:
             project_id=project_id,
             defer_ingestion=defer_ingestion,
             background_tasks=background_tasks,
+            replace_existing=replace_existing,
             **fields,
         )
 

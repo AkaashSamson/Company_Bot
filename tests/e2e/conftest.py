@@ -238,9 +238,13 @@ class UIActions:
 
         # 1. Check if container matches an st.expander
         expander = self.page.locator('[data-testid="stExpander"]').filter(has_text=container).first
+        try:
+            expander.wait_for(state="attached", timeout=5000)
+        except Exception:
+            pass
+
         if expander.count() > 0:
-            details = expander.locator("details").first if expander.locator("details").count() > 0 else expander
-            is_open = details.get_attribute("open") is not None
+            is_open = expander.evaluate("el => { const d = el.tagName === 'DETAILS' ? el : el.querySelector('details'); return d ? d.open : true; }")
             if not is_open:
                 expander.locator("summary").first.click()
                 self.page.wait_for_timeout(400)
@@ -248,6 +252,11 @@ class UIActions:
 
         # 2. Check if container matches a section heading (h1, h2, h3, h4)
         heading = self.page.locator("h1, h2, h3, h4").filter(has_text=container).first
+        try:
+            heading.wait_for(state="attached", timeout=3000)
+        except Exception:
+            pass
+
         if heading.count() > 0:
             return heading
 
@@ -268,9 +277,13 @@ class UIActions:
     def open_expander(self, label: str):
         """Expand a Streamlit st.expander if closed."""
         expander = self.page.locator('[data-testid="stExpander"]').filter(has_text=label).first
+        try:
+            expander.wait_for(state="attached", timeout=10000)
+        except Exception:
+            pass
+
         if expander.count() > 0:
-            details = expander.locator("details").first if expander.locator("details").count() > 0 else expander
-            is_open = details.get_attribute("open") is not None
+            is_open = expander.evaluate("el => { const d = el.tagName === 'DETAILS' ? el : el.querySelector('details'); return d ? d.open : true; }")
             if not is_open:
                 expander.locator("summary").first.click()
                 self.page.wait_for_timeout(400)
@@ -294,35 +307,50 @@ class UIActions:
             selectbox = following.first if following.count() > 0 else scope.locator('xpath=following::div[@data-testid="stSelectbox"][1]')
         else:
             matching = scope.locator('[data-testid="stSelectbox"]').filter(has_text=label)
+            try:
+                matching.first.wait_for(state="attached", timeout=5000)
+            except Exception:
+                pass
             selectbox = matching.first
 
         # 1. If option is already selected in this selectbox, skip immediately
         try:
+            inp = selectbox.locator("input")
+            if inp.count() > 0 and option_text.lower() in (inp.first.input_value() or "").lower():
+                return
             if option_text.lower() in selectbox.inner_text().lower():
                 return
         except Exception:
             pass
 
         # 2. Click selectbox to open dropdown
-        select_trigger = selectbox.locator('[data-baseweb="select"]')
-        if select_trigger.count() > 0:
-            select_trigger.click()
+        inp = selectbox.locator("input")
+        if inp.count() > 0 and inp.first.is_visible():
+            inp.first.click()
         else:
-            selectbox.click()
+            select_trigger = selectbox.locator('button[data-rac], [data-baseweb="select"]').first
+            if select_trigger.count() > 0 and select_trigger.is_visible():
+                select_trigger.click()
+            else:
+                selectbox.click()
 
         # 3. Wait for and click option in popover
         option_locator = self.page.locator('[role="option"]').filter(has_text=option_text).first
         try:
-            option_locator.wait_for(state="visible", timeout=2000)
-            option_locator.click()
+            option_locator.wait_for(state="attached", timeout=5000)
+            option_locator.scroll_into_view_if_needed()
+            option_locator.click(timeout=5000)
         except Exception:
-            inp = selectbox.locator("input")
-            if inp.count() > 0:
-                inp.fill(option_text)
-                self.page.wait_for_timeout(200)
-            option_locator.click(timeout=3000)
+            if inp.count() > 0 and inp.first.is_visible():
+                try:
+                    inp.first.fill(option_text)
+                    self.page.wait_for_timeout(200)
+                except Exception:
+                    pass
+            option_locator.scroll_into_view_if_needed()
+            option_locator.click(timeout=5000)
 
-        self.page.wait_for_timeout(300)
+        self.page.wait_for_timeout(500)
 
 
 @pytest.fixture
@@ -447,4 +475,103 @@ def ensure_act2_state(ensure_act1_state, e2e_servers):
             "roy": {"username": "roy.hr", "password": "Password123!"},
             "marcus": {"username": "marcus.eng", "password": "Password123!"},
         },
+    }
+
+
+@pytest.fixture
+def ensure_act4_state(ensure_act2_state, e2e_servers):
+    """Ensures Act 4 state: Project Apollo with Elena Rostova as manager, and David Kim in HR."""
+    backend_url = e2e_servers["api_url"]
+    token = _get_admin_token(backend_url)
+    headers = {"Authorization": f"Bearer {token}"}
+    depts = ensure_act2_state["departments"]
+
+    # 1. Ensure David Kim (david.hr) exists
+    users_resp = requests.get(f"{backend_url}/api/users", headers=headers, timeout=10)
+    users = {u.get("username"): u for u in (users_resp.json() if users_resp.status_code == 200 else [])}
+
+    if "david.hr" not in users:
+        r = requests.post(
+            f"{backend_url}/api/users",
+            headers=headers,
+            json={
+                "username": "david.hr",
+                "name": "David Kim",
+                "email": "david@nexora.com",
+                "role": "Developer",
+                "department_id": depts["Human Resources"],
+                "initial_password": "Password123!",
+            },
+            timeout=10,
+        )
+        r.raise_for_status()
+        users["david.hr"] = r.json()
+
+    # 2. Ensure Elena Rostova (elena.dev) exists
+    if "elena.dev" not in users:
+        r = requests.post(
+            f"{backend_url}/api/users",
+            headers=headers,
+            json={
+                "username": "elena.dev",
+                "name": "Elena Rostova",
+                "email": "elena@nexora.com",
+                "role": "Developer",
+                "department_id": depts["Engineering"],
+                "initial_password": "Password123!",
+            },
+            timeout=10,
+        )
+        r.raise_for_status()
+        users["elena.dev"] = r.json()
+
+    elena_uid = users["elena.dev"]["uid"]
+
+    # 3. Ensure Project Apollo exists with Elena as manager
+    projects_resp = requests.get(f"{backend_url}/api/projects", headers=headers, timeout=10)
+    projects = {p.get("project_name"): p for p in (projects_resp.json() if projects_resp.status_code == 200 else [])}
+
+    if "Project Apollo" not in projects:
+        r = requests.post(
+            f"{backend_url}/api/projects",
+            headers=headers,
+            json={
+                "project_name": "Project Apollo",
+                "department_id": depts["Engineering"],
+                "manager_uid": elena_uid,
+                "description": "Autonomous telemetry exploration payload",
+            },
+            timeout=10,
+        )
+        r.raise_for_status()
+        apollo_project_id = r.json()["project_id"]
+    else:
+        apollo = projects["Project Apollo"]
+        apollo_project_id = apollo["project_id"]
+        if apollo.get("manager_uid") != elena_uid:
+            requests.put(
+                f"{backend_url}/api/projects/{apollo_project_id}",
+                headers=headers,
+                json={"manager_uid": elena_uid},
+                timeout=10,
+            ).raise_for_status()
+
+    # 4. Ensure Elena is assigned to Project Apollo
+    members_resp = requests.get(f"{backend_url}/api/projects/{apollo_project_id}/members", headers=headers, timeout=10)
+    members = [m.get("uid") for m in (members_resp.json() if members_resp.status_code == 200 else [])]
+    if elena_uid not in members:
+        requests.post(
+            f"{backend_url}/api/projects/{apollo_project_id}/members",
+            headers=headers,
+            json={"uid": elena_uid},
+            timeout=10,
+        ).raise_for_status()
+
+    return {
+        "admin": ensure_act2_state["admin"],
+        "departments": depts,
+        "leads": ensure_act2_state["leads"],
+        "elena": {"username": "elena.dev", "password": "Password123!", "uid": elena_uid},
+        "david": {"username": "david.hr", "password": "Password123!"},
+        "apollo_project_id": apollo_project_id,
     }

@@ -24,12 +24,6 @@ is_admin = (
     or "ADMIN" in permissions
 )
 
-can_manage = (
-    is_admin
-    or user_role == "manager"
-    or any(p in permissions for p in ("PROJECT_CREATE", "PROJECT_UPDATE", "PROJECT_DELETE", "PROJECT_MANAGE"))
-)
-
 service = OrganizationService()
 admin = AdminAPI()
 
@@ -53,6 +47,14 @@ except Exception as error:
     st.error("The project service is unavailable. Check that FastAPI is running and you are logged in.")
     st.caption(f"Technical detail: {format_error(error)}")
     projects = []
+
+is_project_manager = any(p.get("manager_uid") == auth_uid for p in projects)
+can_manage = (
+    is_admin
+    or user_role == "manager"
+    or is_project_manager
+    or any(p in permissions for p in ("PROJECT_CREATE", "PROJECT_UPDATE", "PROJECT_DELETE", "PROJECT_MANAGE"))
+)
 
 department_name_by_id = {d["department_id"]: d["department_name"] for d in departments}
 user_name_by_uid = {u["uid"]: u["name"] or u["uid"] for u in users}

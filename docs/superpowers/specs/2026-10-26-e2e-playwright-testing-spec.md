@@ -180,16 +180,26 @@ Stored in `tests/fixtures/synthetic_data/`:
    - Elena switches to Tab 2: "Chunk Inspector & Vector Search".
    - Selects `apollo_blueprint.md` $\rightarrow$ chunks rendered with tokens, chunk index, and metadata.
    - Runs test vector search: `"telemetry partition retention"` with threshold $0.5$ $\rightarrow$ relevant chunks returned with cosine similarity scores.
-5. **`POS-LIFE-05: Soft-Archive Apollo Document`**:
+5. **`NEG-LIFE-01: Exact Duplicate Upload Rejection (Matching Content Hash, Same Filename)`**:
+   - Elena attempts to re-upload identical `apollo_blueprint.md` (same filename and matching SHA-256 hash) to `Project Apollo`.
+   - Primary detection is SHA-256 file hash match. System presents modal dialog **"Duplicate File Detected"** stating that identical file contents already exist under name `apollo_blueprint.md`. Elena clicks "OK" to dismiss.
+6. **`NEG-LIFE-02: Renamed Duplicate Upload Rejection (Matching Content Hash, Different Filename)`**:
+   - Elena attempts to upload a renamed copy `apollo_copy.md` having identical contents and matching SHA-256 hash.
+   - Primary detection is SHA-256 file hash match. System presents modal dialog **"Duplicate File Detected"** stating that identical file contents already exist under name `apollo_blueprint.md`. Elena clicks "OK" to dismiss.
+7. **`POS-LIFE-05: Document Replacement Option (Same Filename, Modified Content)`**:
+   - Elena uploads a revised file with the same filename `apollo_blueprint.md` but updated content (differing SHA-256 hash).
+   - System detects filename collision with modified content; presents modal dialog **"Document Already Exists"** stating that replacing will delete the older document and upload this new one.
+   - Elena clicks "Replace" $\rightarrow$ older document is deleted (DB record purged, disk file unlinked, Chroma vectors deleted) and new document is registered fresh at version `1.0` and ingested.
+8. **`POS-LIFE-06: Soft-Archive Apollo Document`**:
    - Under Tab 1, Elena clicks "Archive" on `apollo_blueprint.md`.
    - Status badge switches to `Archived`.
    - File on disk verified moved to `archived/` subfolder.
    - Chroma chunks verified retained with metadata `status: "archived"`.
-6. **`POS-LIFE-06: Permanent Purge Apollo Document`**:
+9. **`POS-LIFE-07: Permanent Purge Apollo Document`**:
    - Elena clicks "Permanent Purge" with confirmation dialog.
    - Document row removed from UI table.
    - Verified: database record deleted, storage file unlinked, ChromaDB chunks deleted.
-7. **`POS-LIFE-07: Elena Logout`**:
+10. **`POS-LIFE-08: Elena Logout`**:
    - Elena logs out.
 
 ---
@@ -240,9 +250,15 @@ Stored in `tests/fixtures/synthetic_data/`:
 | `POS-ENG-02` | Act 4 | `pages/documents.py` | `marcus.eng` | Project-scoped upload & access grant |
 | `NEG-ENG-01` | Act 4 | `pages/projects.py` | `marcus.eng` | Manager leave-lock verification |
 | `POS-ENG-03` | Act 4 | `pages/projects.py` | `marcus.eng` | Manager transfer and successful exit |
-| `POS-LIFE-01` | Act 5 | `pages/documents.py` | `elena.dev` | In-page Chunk Inspector & Vector Search |
-| `POS-LIFE-02` | Act 5 | `pages/documents.py` | `elena.dev` | Soft-archive file movement and chunk status |
-| `POS-LIFE-03` | Act 5 | `pages/documents.py` | `elena.dev` | Permanent purge (DB + disk + Chroma) |
+| `POS-LIFE-01` | Act 5 | `pages/projects.py` | `elena.dev` | Apollo Manager dashboard & permissions |
+| `POS-LIFE-02` | Act 5 | `pages/projects.py` | `elena.dev` | Project Apollo member onboarding (David Kim) |
+| `POS-LIFE-03` | Act 5 | `pages/documents.py` | `elena.dev` | Apollo Blueprint upload & ingestion |
+| `POS-LIFE-04` | Act 5 | `pages/documents.py` | `elena.dev` | In-page Chunk Inspector & Vector Search sandbox |
+| `NEG-LIFE-01` | Act 5 | `pages/documents.py` | `elena.dev` | Content hash duplicate rejection citing existing name 'apollo_blueprint.md' |
+| `NEG-LIFE-02` | Act 5 | `pages/documents.py` | `elena.dev` | Renamed copy hash duplicate rejection citing existing name 'apollo_blueprint.md' |
+| `POS-LIFE-05` | Act 5 | `pages/documents.py` | `elena.dev` | Version replacement option (same filename, modified content) |
+| `POS-LIFE-06` | Act 5 | `pages/documents.py` | `elena.dev` | Soft-archive file movement and chunk status |
+| `POS-LIFE-07` | Act 5 | `pages/documents.py` | `elena.dev` | Permanent purge (DB + disk + Chroma) |
 | `POS-CHAT-01` | Act 6 | `app.py` | `david.hr` | General KB citation retrieval |
 | `NEG-CHAT-01` | Act 6 | `app.py` | `david.hr` | Scope restriction & zero cross-project leak |
 | `POS-CHAT-02` | Act 6 | `app.py` | `roy.hr` | Cross-department access grant retrieval |
