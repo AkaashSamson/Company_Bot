@@ -206,7 +206,7 @@ def render_seven_parameter_quality_studio(df_chunks: pd.DataFrame) -> None:
     with ctrl_col1:
         gate2_sample = st.select_slider(
             "Gate 2 Retrievability Sample Size",
-            options=[0, 5, 15, 30, 50],
+            options=[5, 10,15,20,30,40,50],
             value=5,
             help="Number of chunks to test through round-trip synthetic query generation and retrieval.",
             key="slider_7param_sample",
@@ -404,7 +404,7 @@ def render_seven_parameter_quality_studio(df_chunks: pd.DataFrame) -> None:
         "📊 7 Core Parameter Scorecard",
         "📐 Token Budget & Truncation",
         "🚩 Diagnostic Failure Flags",
-        "⚠️ Top 20 Worst Chunks & ChromaDB Restoration",
+        "⚠️ Worst Chunks ",
         "🔄 Gate 2 Retrieval Round-Trip",
     ])
 
