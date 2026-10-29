@@ -129,3 +129,20 @@ def test_inactive_actor_is_rejected():
     uow.users.get_by_uid("u1").status = "inactive"
     with pytest.raises(ForbiddenError):
         ProfileService(lambda: uow).get_profile(AuthenticatedPrincipal("u1"))
+
+
+def test_profile_resolves_without_grants_or_department_members():
+    from app.infrastructure.persistence.sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork
+    from app.infrastructure.persistence.sqlalchemy.session import create_engine_and_session_factory, initialize_database
+    engine, session_factory = create_engine_and_session_factory("sqlite:///:memory:")
+    initialize_database(engine)
+    with SqlAlchemyUnitOfWork(session_factory) as uow:
+        uow.departments.save(Department("d1", "Engineering", default_billable="billable"))
+        uow.users.save(User("u1", "Asha", "asha@example.com", "Developer", "d1", status="active"))
+        uow.commit()
+
+    service = ProfileService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    profile = service.get_profile(AuthenticatedPrincipal("u1"))
+    assert profile["user"]["uid"] == "u1"
+    assert profile["department"]["department_id"] == "d1"
+    assert profile["billable_status"] == "billable"

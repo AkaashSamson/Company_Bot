@@ -35,17 +35,26 @@ class ProfileService:
             permissions = sorted(self.authorization.permissions_for_user(actor.uid))
 
             department = uow.departments.get(actor.department_id) if actor.department_id else None
-            department_member = (
-                uow.department_members.get(actor.uid, actor.department_id) if actor.department_id else None
-            )
-            billable_status = (
-                department_member.billable_status
-                if department_member is not None and department_member.status == "active"
-                else None
-            )
+            billable_status = None
+            if hasattr(uow, "department_members") and actor.department_id:
+                dm = uow.department_members.get(actor.uid, actor.department_id)
+                if dm is not None:
+                    billable_status = dm.billable_status if dm.status == "active" else None
+                elif department is not None:
+                    billable_status = department.default_billable
+            elif department is not None:
+                billable_status = department.default_billable
 
-            grant_project_ids = set(uow.project_grants.project_ids_for_principal(actor.uid, role_ids))
-            grant_document_ids = set(uow.document_grants.document_ids_for_principal(actor.uid, role_ids))
+            grant_project_ids = (
+                set(uow.project_grants.project_ids_for_principal(actor.uid, role_ids))
+                if hasattr(uow, "project_grants")
+                else set()
+            )
+            grant_document_ids = (
+                set(uow.document_grants.document_ids_for_principal(actor.uid, role_ids))
+                if hasattr(uow, "document_grants")
+                else set()
+            )
 
             projects = [
                 self._project(uow, actor, project, grant_project_ids, principal)

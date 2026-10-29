@@ -129,10 +129,14 @@ class AuthorizationEngine:
         return [role.role_id for role in self._roles_for_user(uow, user.uid)]
 
     def _has_project_grant(self, uow, user: User, project_id: str) -> bool:
-        return project_id in uow.project_grants.project_ids_for_principal(user.uid, self._role_ids(uow, user))
+        if hasattr(uow, "project_grants"):
+            return project_id in uow.project_grants.project_ids_for_principal(user.uid, self._role_ids(uow, user))
+        return False
 
     def _has_document_grant(self, uow, user: User, document_id: str) -> bool:
-        return document_id in uow.document_grants.document_ids_for_principal(user.uid, self._role_ids(uow, user))
+        if hasattr(uow, "document_grants"):
+            return document_id in uow.document_grants.document_ids_for_principal(user.uid, self._role_ids(uow, user))
+        return False
 
     def _is_admin_user(self, uow, user: User) -> bool:
         if not user or user.status != "active":
@@ -182,7 +186,8 @@ class AuthorizationEngine:
         for project in uow.projects.list_active():
             if self._can_manage_project(uow, user, project):
                 project_ids.add(project.project_id)
-        project_ids.update(uow.project_grants.project_ids_for_principal(user.uid, self._role_ids(uow, user)))
+        if hasattr(uow, "project_grants"):
+            project_ids.update(uow.project_grants.project_ids_for_principal(user.uid, self._role_ids(uow, user)))
         return project_ids
 
     # --------------------------------------------------------------- permissions
@@ -418,7 +423,11 @@ class AuthorizationEngine:
                 )
 
             scoped_projects = self._project_access_scope(uow, user)
-            document_ids = uow.document_grants.document_ids_for_principal(user.uid, self._role_ids(uow, user))
+            document_ids = (
+                uow.document_grants.document_ids_for_principal(user.uid, self._role_ids(uow, user))
+                if hasattr(uow, "document_grants")
+                else []
+            )
             active_document_ids = [
                 document_id
                 for document_id in document_ids
