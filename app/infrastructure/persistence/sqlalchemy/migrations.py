@@ -43,6 +43,12 @@ def apply_legacy_schema_migration(engine) -> None:
             elif "password_representation" in user_columns:
                 connection.execute(text("UPDATE users SET password_hash = password_representation WHERE password_hash = '' AND password_representation != ''"))
 
+            if "password_representation" in user_columns:
+                try:
+                    connection.execute(text("ALTER TABLE users DROP COLUMN password_representation"))
+                except Exception:
+                    pass
+
             if "role_id" not in user_columns:
                 connection.execute(text("ALTER TABLE users ADD COLUMN role_id INTEGER NULL"))
             if "job_title" not in user_columns:

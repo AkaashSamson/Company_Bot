@@ -48,7 +48,9 @@ def test_rbac_end_to_end(tmp_path):
     assert role.department_id == "d1"
 
     with SqlAlchemyUnitOfWork(session_factory) as unit_of_work:
-        unit_of_work.department_members.save(DepartmentMember("dev", "d1", membership_role="Engineering Lead"))
+        dev = unit_of_work.users.get_by_uid("dev")
+        dev.role = "Engineering Lead"
+        unit_of_work.users.save(dev)
         unit_of_work.commit()
 
     assert authorization.has_permission(AuthenticatedPrincipal("dev"), "USER_CREATE") is True
