@@ -44,6 +44,8 @@ Implementation_notes.md
 # Local model downloads & scratch
 models/
 scratch/
+test_results/
+chunk_quality_report.json
 
 # IDE and OS metadata
 .vscode/

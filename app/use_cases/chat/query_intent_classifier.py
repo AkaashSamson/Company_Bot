@@ -63,7 +63,6 @@ class DataRequirement(Enum):
 class CachePolicy(Enum):
     """Caching policy dictated by the query's intent and privacy requirement."""
     EXACT_AND_SEMANTIC = "exact_and_semantic"
-    EXACT_ALLOWED = "exact_and_semantic"
     SEMANTIC_RESTRICTED = "semantic_restricted"
     NO_SHARED_CACHE = "no_shared_cache"
     NO_CACHE = "no_cache"

@@ -4,6 +4,8 @@ import warnings
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -33,8 +35,38 @@ DOCLING_CITATION_PDF_DIR = os.getenv(
 DOCLING_LIBREOFFICE_PATH = os.getenv("DOCLING_LIBREOFFICE_PATH", "")
 # Chunk budget in tokens. Kept at the embedding model's sequence limit
 # (sentence-transformers/all-MiniLM-L6-v2 truncates beyond 256) so chunks are
-# never silently truncated at embedding time.
 DOCLING_MAX_TOKENS = int(os.getenv("DOCLING_MAX_TOKENS", "256"))
+DOCLING_LAYOUT_AWARE = os.getenv("DOCLING_LAYOUT_AWARE", "true").lower() in ("true", "1", "yes")
+DOCLING_TABLE_STRUCTURE_ENABLED = os.getenv("DOCLING_TABLE_STRUCTURE_ENABLED", "true").lower() in ("true", "1", "yes")
+DOCLING_OCR_ENABLED = os.getenv("DOCLING_OCR_ENABLED", "true").lower() in ("true", "1", "yes")
+DOCLING_FILTER_HEADERS_FOOTERS = os.getenv("DOCLING_FILTER_HEADERS_FOOTERS", "true").lower() in ("true", "1", "yes")
+
+# Semantic chunk merging settings (Pairwise micro-fragment & boilerplate consolidation)
+ENABLE_SEMANTIC_CHUNK_MERGING = os.getenv("ENABLE_SEMANTIC_CHUNK_MERGING", "true").lower() in ("true", "1", "yes")
+SEMANTIC_MERGE_SIMILARITY_THRESHOLD = float(
+    os.getenv("SEMANTIC_MERGE_SIMILARITY_THRESHOLD", "0.85")
+)
+SEMANTIC_MERGE_MAX_CHARS = int(os.getenv("SEMANTIC_MERGE_MAX_CHARS", "1200"))
+SEMANTIC_MERGE_ABSORBER_MAX_CHARS = int(os.getenv("SEMANTIC_MERGE_ABSORBER_MAX_CHARS", "800"))
+SEMANTIC_MERGE_CANDIDATE_MAX_CHARS = int(os.getenv("SEMANTIC_MERGE_CANDIDATE_MAX_CHARS", "250"))
+
+# Deterministic Chunk Normalization settings (5-phase zero-loss splitting, noise stripping, length standardization)
+ENABLE_CHUNK_NORMALIZATION = os.getenv("ENABLE_CHUNK_NORMALIZATION", "true").lower() in ("true", "1", "yes")
+CHUNK_NORMALIZER_HARD_CEILING = int(os.getenv("CHUNK_NORMALIZER_HARD_CEILING", "245"))
+CHUNK_NORMALIZER_MIN_FRAGMENT_TOKENS = int(os.getenv("CHUNK_NORMALIZER_MIN_FRAGMENT_TOKENS", "55"))
+CHUNK_NORMALIZER_STRIP_REPEATED_NOISE = os.getenv("CHUNK_NORMALIZER_STRIP_REPEATED_NOISE", "true").lower() in ("true", "1", "yes")
+CHUNK_NORMALIZER_STANDARDIZE_LENGTHS = os.getenv("CHUNK_NORMALIZER_STANDARDIZE_LENGTHS", "true").lower() in ("true", "1", "yes")
+
+# Chunk Normalizer Controls
+CHUNK_NORMALIZER_ENABLED = os.getenv("CHUNK_NORMALIZER_ENABLED", os.getenv("ENABLE_CHUNK_NORMALIZATION", "true")).lower() in ("true", "1", "yes")
+CHUNK_HARD_TOKEN_CEILING = int(os.getenv("CHUNK_HARD_TOKEN_CEILING", os.getenv("CHUNK_NORMALIZER_HARD_CEILING", "245")))
+CHUNK_COALESCE_MAX_TOKENS = int(os.getenv("CHUNK_COALESCE_MAX_TOKENS", "220"))
+CHUNK_MIN_FRAGMENT_TOKENS = int(os.getenv("CHUNK_MIN_FRAGMENT_TOKENS", os.getenv("CHUNK_NORMALIZER_MIN_FRAGMENT_TOKENS", "55")))
+DYNAMIC_SECTION_TRACKING_ENABLED = os.getenv("DYNAMIC_SECTION_TRACKING_ENABLED", "true").lower() in ("true", "1", "yes")
+CHUNK_BALANCED_SPLIT_ENABLED = os.getenv("CHUNK_BALANCED_SPLIT_ENABLED", "true").lower() in ("true", "1", "yes")
+CHUNK_BALANCED_TARGET_TOKENS = int(os.getenv("CHUNK_BALANCED_TARGET_TOKENS", "150"))
+CHUNK_BALANCED_MAX_TOKENS = int(os.getenv("CHUNK_BALANCED_MAX_TOKENS", "200"))
+
 RAG_DISTANCE_THRESHOLD = float(os.getenv("RAG_DISTANCE_THRESHOLD", "0.70"))
 RAG_DISTANCE_RELAXATION = float(os.getenv("RAG_DISTANCE_RELAXATION", "0.05"))
 RAG_MIN_DISTANCE_GAP = float(os.getenv("RAG_MIN_DISTANCE_GAP", "0.10"))
@@ -87,9 +119,20 @@ SESSION_MAX_HISTORY_TURNS = int(os.getenv("SESSION_MAX_HISTORY_TURNS", "6"))
 OBSERVABILITY_PROVIDER = os.getenv("OBSERVABILITY_PROVIDER", "null").lower()
 
 # Langfuse settings
-LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY", "")
-LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY", "")
-LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", os.getenv("LANGFUSE_BASE_URL", "https://us.cloud.langfuse.com"))
+LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY", "").strip("\"' \t\r\n")
+LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY", "").strip("\"' \t\r\n")
+_raw_langfuse_host = os.getenv("LANGFUSE_HOST") or os.getenv("LANGFUSE_BASE_URL") or "https://jp.cloud.langfuse.com"
+LANGFUSE_HOST = _raw_langfuse_host.strip("\"' \t\r\n").rstrip("/")
+LANGFUSE_BASE_URL = LANGFUSE_HOST
+
+# Sync cleaned values back into os.environ for official SDK / OpenTelemetry auto-discovery
+if LANGFUSE_PUBLIC_KEY:
+    os.environ["LANGFUSE_PUBLIC_KEY"] = LANGFUSE_PUBLIC_KEY
+if LANGFUSE_SECRET_KEY:
+    os.environ["LANGFUSE_SECRET_KEY"] = LANGFUSE_SECRET_KEY
+if LANGFUSE_HOST:
+    os.environ["LANGFUSE_HOST"] = LANGFUSE_HOST
+    os.environ["LANGFUSE_BASE_URL"] = LANGFUSE_HOST
 
 # Arize Phoenix settings
 PHOENIX_COLLECTOR_ENDPOINT = os.getenv("PHOENIX_COLLECTOR_ENDPOINT", "http://localhost:6006/v1/traces")
@@ -240,3 +283,28 @@ DUAL_CACHE_SYNC_INTERVAL_SECONDS = float(
 )
 DUAL_CACHE_SYNC_ON_WRITE = os.getenv("DUAL_CACHE_SYNC_ON_WRITE", "true").lower() == "true"
 
+
+# ============================================
+# Central Application Settings
+# ============================================
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(extra="allow")
+
+    # Document Ingestion & Storage Settings
+    EMBEDDING_MODEL: str = Field(default=EMBEDDING_MODEL, description="Embedding model name")
+    CHROMA_COLLECTION: str = Field(default=COLLECTION_NAME, description="ChromaDB collection name")
+    CHROMA_PERSIST_DIR: str = Field(default=str(BASE_DIR / ".chroma"), description="ChromaDB persistence directory")
+
+    # Chunk Normalizer Controls
+    CHUNK_NORMALIZER_ENABLED: bool = Field(default=True, description="Enable 5-pass chunk normalization")
+    CHUNK_HARD_TOKEN_CEILING: int = Field(default=245, description="Max word-piece tokens per chunk (all-MiniLM-L6-v2 safety limit)")
+    CHUNK_COALESCE_MAX_TOKENS: int = Field(default=220, description="Max tokens allowed when coalescing micro-stubs")
+    CHUNK_MIN_FRAGMENT_TOKENS: int = Field(default=55, description="Token floor below which fragments merge backward/forward")
+    DYNAMIC_SECTION_TRACKING_ENABLED: bool = Field(default=True, description="Enable stateful heading hierarchy propagation")
+    CHUNK_BALANCED_SPLIT_ENABLED: bool = Field(default=True, description="Enable balanced 150+150 splitting instead of 250+50 to prevent micro-fragments")
+    CHUNK_BALANCED_TARGET_TOKENS: int = Field(default=150, description="Target token count for balanced splitting of sections")
+    CHUNK_BALANCED_MAX_TOKENS: int = Field(default=200, description="Maximum tokens per chunk when performing balanced splitting (if part > 200, divides into more parts)")
+
+
+settings = Settings()

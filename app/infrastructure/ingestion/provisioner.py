@@ -3,9 +3,33 @@ import logging
 import re
 from pathlib import Path
 
-from app.core.settings import BASE_DIR, COLLECTION_NAME, DOCUMENTS_DIR
+from app.core.settings import (
+    BASE_DIR,
+    COLLECTION_NAME,
+    DOCUMENTS_DIR,
+    ENABLE_CHUNK_NORMALIZATION,
+    ENABLE_SEMANTIC_CHUNK_MERGING,
+    CHUNK_NORMALIZER_HARD_CEILING,
+    CHUNK_NORMALIZER_MIN_FRAGMENT_TOKENS,
+    SEMANTIC_MERGE_ABSORBER_MAX_CHARS,
+    SEMANTIC_MERGE_CANDIDATE_MAX_CHARS,
+    SEMANTIC_MERGE_MAX_CHARS,
+    SEMANTIC_MERGE_SIMILARITY_THRESHOLD,
+)
 from app.domain.ports.document_processing import DocumentProcessingPort
+from app.infrastructure.document.bridge_linked_chunking import (
+    link_store_records_with_bridges,
+)
+from app.infrastructure.document.chunk_normalizer import ChunkNormalizer
+from app.infrastructure.document.chunking_strategies import (
+    CHUNK_STRATEGIES_META,
+    apply_chunking_strategy,
+)
 from app.infrastructure.document.processor_factory import build_document_processor
+from app.infrastructure.ingestion.semantic_merger import (
+    SemanticMergeConfig,
+    semantic_merge_chunk_records,
+)
 from app.infrastructure.vector.chroma_client import ChromaVectorStore
 from app.use_cases.ingestion.document_processing import build_chunk_records_from_processed
 
@@ -48,6 +72,12 @@ def provision_document(
     content=None,
     store=None,
     processor: DocumentProcessingPort | None = None,
+    enable_semantic_merging: bool | None = None,
+    enable_chunk_normalization: bool | None = None,
+    chunking_strategy: str | None = None,
+    target_tokens: int | None = None,
+    overlap_pct: int | None = None,
+    enable_bridge_linking: bool = True,
 ) -> int:
     """Extract, chunk, and embed a document into the vector store.
 
@@ -105,17 +135,107 @@ def provision_document(
         document.file_type = document.file_type or (processed.file_type or extension).lstrip(".")
         document.storage_location = document.storage_location or str(source_path)
 
-    records = build_chunk_records_from_processed(
-        processed,
-        document_id=document.document_id,
-        project_id=getattr(document, "project_id", None),
-        source=document.document_name,
-        file_type=getattr(document, "file_type", None),
-        version=getattr(document, "version", None),
-    )
+    resolved_file_type = (processed.file_type or extension).lstrip(".")
+
+    if chunking_strategy and chunking_strategy in CHUNK_STRATEGIES_META:
+        full_text = "\n\n".join(c.text for c in processed.chunks) if processed.chunks else ""
+        if not full_text.strip() and raw:
+            try:
+                full_text = raw.decode("utf-8", errors="ignore")
+            except Exception:
+                pass
+        strat_chunks = apply_chunking_strategy(
+            strategy_key=chunking_strategy,
+            text=full_text,
+            target_tokens=target_tokens,
+            overlap_pct=overlap_pct,
+            doc_prefix=document.document_id,
+            enable_bridge_links=enable_bridge_linking,
+        )
+        records = [
+            {
+                "id": sc.id,
+                "text": sc.text,
+                "metadata": {
+                    "document_id": document.document_id,
+                    "doc_id": document.document_id,
+                    "source_filename": document.document_name,
+                    "source": document.document_name,
+                    "project_id": getattr(document, "project_id", "unassigned"),
+                    "version": getattr(document, "version", "1.0"),
+                    "file_type": resolved_file_type,
+                    "chunk_index": sc.sequence_index,
+                    "sequence_index": sc.sequence_index,
+                    "previous_chunk_id": sc.previous_chunk_id,
+                    "next_chunk_id": sc.next_chunk_id,
+                    "strategy": sc.strategy,
+                    "token_count": sc.token_count,
+                    "content_type": "text",
+                    "parent_id": getattr(sc, "parent_id", None) or (sc.metadata.get("parent_id") if hasattr(sc, "metadata") else None),
+                    "parent_text": getattr(sc, "parent_text", None) or (sc.metadata.get("parent_text") if hasattr(sc, "metadata") else None),
+                    **(
+                        {
+                            "bridge_type": sc.bridge_to_next["relationship"],
+                            "bridge_confidence": sc.bridge_to_next["confidence"],
+                            "bridge_to_next_id": sc.bridge_to_next["bridge_id"],
+                            "bridge_rationale": sc.bridge_to_next["rationale"],
+                        }
+                        if sc.bridge_to_next
+                        else {}
+                    ),
+                },
+            }
+            for sc in strat_chunks
+        ]
+    else:
+        records = build_chunk_records_from_processed(
+            processed,
+            document_id=document.document_id,
+            project_id=getattr(document, "project_id", None),
+            source=document.document_name,
+            file_type=getattr(document, "file_type", None),
+            version=getattr(document, "version", None),
+        )
+
     if not records:
         logger.warning("no chunks produced for document %r", document.document_id)
         return 0
+
+    # Deterministic 5-pass Chunk Normalization (token budgets, table headers, cutoff tags)
+    should_normalize = ENABLE_CHUNK_NORMALIZATION if enable_chunk_normalization is None else enable_chunk_normalization
+    if should_normalize and records:
+        normalizer = ChunkNormalizer(
+            hard_token_ceiling=CHUNK_NORMALIZER_HARD_CEILING,
+            min_fragment_tokens=CHUNK_NORMALIZER_MIN_FRAGMENT_TOKENS,
+        )
+        records = normalizer.normalize_chunk_records(records)
+
+    # Semantic Chunk Merging pass: consolidate micro-fragments and noise before indexing
+    should_merge = ENABLE_SEMANTIC_CHUNK_MERGING if enable_semantic_merging is None else enable_semantic_merging
+    if should_merge and len(records) > 1:
+        cfg = SemanticMergeConfig(
+            max_chunk_chars=SEMANTIC_MERGE_MAX_CHARS,
+            absorber_max_chars=SEMANTIC_MERGE_ABSORBER_MAX_CHARS,
+            candidate_max_chars=SEMANTIC_MERGE_CANDIDATE_MAX_CHARS,
+            similarity_threshold=SEMANTIC_MERGE_SIMILARITY_THRESHOLD,
+            scope_field="document_id",
+            enabled=True,
+        )
+        records, merge_res = semantic_merge_chunk_records(records, config=cfg)
+        if merge_res.absorbed_chunks_count > 0:
+            logger.info(
+                "semantic chunk merging consolidated %d chunks (reduction: %.1f%%) for %r",
+                merge_res.absorbed_chunks_count,
+                merge_res.reduction_percentage,
+                document.document_id,
+            )
+            if should_normalize:
+                records = normalizer.normalize_chunk_records(records)
+
+
+    # Establish Doubly Linked List pointers and typed boundary bridges across all chunks
+    if enable_bridge_linking and records:
+        records = link_store_records_with_bridges(records, doc_id=document.document_id)
 
     store = store or ChromaVectorStore(collection_name=COLLECTION_NAME, persist_directory=str(BASE_DIR / ".chroma"))
     store.add_documents(records)
