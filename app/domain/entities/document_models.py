@@ -16,14 +16,26 @@ class DocumentSource:
 
 @dataclass
 class DocumentChunk:
-    id: str
-    document_id: str
-    chunk_index: int
-    text: str
+    id: Optional[str] = None
+    document_id: str = ""
+    chunk_index: int = 0
+    text: str = ""
     page_number: Optional[int] = None
     section_title: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.utcnow)
+    chunk_id: Optional[str] = None
+
+    def __post_init__(self):
+        if self.id is None and self.chunk_id is not None:
+            self.id = self.chunk_id
+        elif self.chunk_id is None and self.id is not None:
+            self.chunk_id = self.id
+        if "chunk_index" in self.metadata and self.chunk_index == 0:
+            try:
+                self.chunk_index = int(self.metadata["chunk_index"])
+            except (ValueError, TypeError):
+                pass
 
 
 @dataclass

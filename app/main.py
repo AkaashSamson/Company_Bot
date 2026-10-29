@@ -1,13 +1,12 @@
 import asyncio
 import logging
-import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
 from app.api.routes.chat import router as chat_router, init_orchestrator
 from app.api.routes.tokens import router as tokens_router
-from app.api.routes.documents import router as documents_router
+from app.api.routes.documents import router as documents_router, upload_document
 from app.api.routes.explorer import router as explorer_router
 from app.api.routes.organization import router as organization_router
 from app.api.routes.authentication import router as authentication_router
@@ -101,6 +100,7 @@ app.include_router(documents_router)
 app.include_router(authentication_router)
 app.include_router(roles_router)
 app.include_router(channels_router)
+app.post("/documents/upload", tags=["documents"])(upload_document)
 
 
 @app.get("/health")

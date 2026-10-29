@@ -30,5 +30,11 @@ def test_document_project_assignment_and_archive_preserve_project_data():
         assert archived.status_code == 204
         assert unit_of_work.projects.get("p1").status == "active"
         assert unit_of_work.documents.get("doc-1").status == "archived"
+
+        # After archiving, permanently delete the document along with chunks
+        deleted = client.delete("/api/documents/doc-1?permanent=true")
+        assert deleted.status_code == 204
+        assert unit_of_work.documents.get("doc-1") is None
+        assert unit_of_work.projects.get("p1").status == "active"
     finally:
         app.dependency_overrides.clear()

@@ -1,271 +1,346 @@
 {
-  "what_is_the_knowledge_assistant_do": {
-    "cache_key": "what_is_the_knowledge_assistant_do",
-    "original_query": "what is the Knowledge system do ?",
-    "response": "The HR Policy Knowledge System follows a modular-monolith architecture with a Streamlit client and FastAPI API layer. Application services coordinate authentication, authorization, retrieval, and business workflows, while the domain layer enforces core business rules. Data persistence uses SQLite for application and access-control data, and ChromaDB for document embeddings enabling semantic retrieval. Would you like to see the references for this?",
+  "why_the_fuck_be_you_gay": {
+    "cache_key": "why_the_fuck_be_you_gay",
+    "original_query": "why the Fuck are you gay?",
+    "response": "I'm here to assist with questions related to company policies and workplace guidelines based on the documents provided. The question you've asked is not related to any policy, procedure, or workplace matter covered in the reference materials (which focus on sexual harassment prevention, POSH policy definitions, scope, and applicability).\n\nIf you have concerns about workplace conduct, harassment, or need guidance on company policies, I'd be happy to help with those specific topics. For personal matters or issues not covered in the policy documents, I recommend reaching out to your reporting manager or the People & Culture/HR team directly for appropriate support.\n\nWould you like to see the references for this?",
     "confidence": 1.0,
     "source": "semantic_cache",
     "evidence_count": 0,
     "model": "",
     "citations": [
       {
-        "source": "test.docx",
+        "source": "HR-Policy.pdf",
         "section": "Policy",
-        "text": "HR Policy Knowledge System Architecture Overview Architecture Description The system follows a modular-monolith approach. The Streamlit client sends requests to a FastAPI API layer. Application services coordinate authentication, authorization, retrieval, and business workflows. The domain layer contains core business rules, while repositories isolate persistence details. SQLite stores application and access-control data, while ChromaDB stores document embeddings used for semantic retrieval."
+        "text": "[Policy: HR Policy | Section: SEXUAL HARASSMENT POLICY]\nSEXUAL HARASSMENT POLICY\nEvery organization must take extra steps to make their workplace a safe environment for women to work in. It isn't just a legal requirement but also a moral obligation. In India, laws\nhave also been updated to make the safety of women in workplaces a priority. . The act is well praised and has even lead to closing down of a few companies. Furthermore, the act protects not just the employees and interns of an organization but also any woman visiting the company or a woman customer. Every organization must include a sexual harassment policy to be able to address all complaints actively. We at Rikalp Capital Private Limited created a separate policy for this in detailed manner.",
+        "document_id": "HR-Policy",
+        "project_id": "unassigned",
+        "chunk_id": "HR-Policy-15"
+      },
+      {
+        "source": "POSH_Policy.docx",
+        "section": "Policy",
+        "text": "[Policy: POSH Policy | Section: 6. What Constitutes Sexual Harassment? > Illustrative Examples]\nDefinitions > 5.4 Internal Committee (IC)\nThe Internal Committee is the committee constituted by the organization in accordance with applicable law to receive and address complaints of sexual harassment. 6. What Constitutes Sexual Harassment? Sexual harassment may include one or more unwelcome acts or behavior, whether directly or indirectly, that are sexual in nature or create an intimidating, hostile, humiliating, or offensive work environment. 6.",
+        "document_id": "POSH_Policy",
+        "project_id": "unassigned",
+        "chunk_id": "POSH_Policy-13_sub_0"
+      },
+      {
+        "source": "POSH_Policy.docx",
+        "section": "Policy",
+        "text": "[Policy: POSH Policy | Section: 5. Definitions > 5.3 Workplace]\nDefinitions > 5.1 Aggrieved Person\nFor the purpose of this Policy, an aggrieved person means an individual who alleges that they have experienced sexual harassment in relation to a workplace or work-related environment, subject to applicable law.\nDefinitions > 5.2 Respondent\nThe respondent is the person against whom a complaint of sexual harassment has been made.\nDefinitions > 5.3 Workplace\nWorkplace includes physical offices and other locations, digital workspaces, transportation arranged by the organization, client sites, and other places connected with employment or official work.",
+        "document_id": "POSH_Policy",
+        "project_id": "unassigned",
+        "chunk_id": "POSH_Policy-10"
+      },
+      {
+        "source": "POSH_Policy.docx",
+        "section": "Policy",
+        "text": "[Policy: POSH Policy | Section: 4. Scope and Applicability]\nLegal and Regulatory Context\nThis Policy is intended to align, at a high level, with applicable Indian law relating to prevention of sexual harassment at the workplace, including the Sexual Harassment of Women at Workplace (Prevention, Prohibition and Redressal) Act, 2013 and relevant rules, amendments, and judicial guidance, as applicable. Where there is a conflict between this Policy and applicable law, the applicable law shall prevail. 4.",
+        "document_id": "POSH_Policy",
+        "project_id": "unassigned",
+        "chunk_id": "POSH_Policy-7_sub_0"
       }
     ],
-    "created_at": 1791279359.0661929,
+    "created_at": 1793077007.4790013,
     "metadata": {},
-    "cache_id": "cch_aa6637914413",
+    "cache_id": "cch_f392c86c10e2",
     "assigned_role": "Developer",
     "document_ids": [
-      "test.docx",
-      "TEST-001"
+      "HR-Policy",
+      "POSH_Policy"
     ],
     "project_ids": [
       "unassigned"
     ],
-    "is_public": false
+    "is_public": false,
+    "chunk_ids": [
+      "POSH_Policy-10",
+      "POSH_Policy-13_sub_0",
+      "POSH_Policy-7_sub_0",
+      "HR-Policy-15"
+    ]
   },
-  "what is the Knowledge system do ?": {
-    "cache_key": "what is the Knowledge system do ?",
-    "original_query": "what is the Knowledge system do ?",
-    "response": "The HR Policy Knowledge System follows a modular-monolith architecture with a Streamlit client and FastAPI API layer. Application services coordinate authentication, authorization, retrieval, and business workflows, while the domain layer enforces core business rules. Data persistence uses SQLite for application and access-control data, and ChromaDB for document embeddings enabling semantic retrieval. Would you like to see the references for this?",
+  "why the Fuck are you gay?": {
+    "cache_key": "why the Fuck are you gay?",
+    "original_query": "why the Fuck are you gay?",
+    "response": "I'm here to assist with questions related to company policies and workplace guidelines based on the documents provided. The question you've asked is not related to any policy, procedure, or workplace matter covered in the reference materials (which focus on sexual harassment prevention, POSH policy definitions, scope, and applicability).\n\nIf you have concerns about workplace conduct, harassment, or need guidance on company policies, I'd be happy to help with those specific topics. For personal matters or issues not covered in the policy documents, I recommend reaching out to your reporting manager or the People & Culture/HR team directly for appropriate support.\n\nWould you like to see the references for this?",
     "confidence": 1.0,
     "source": "semantic_cache",
     "evidence_count": 0,
     "model": "",
     "citations": [
       {
-        "source": "test.docx",
+        "source": "HR-Policy.pdf",
         "section": "Policy",
-        "text": "HR Policy Knowledge System Architecture Overview Architecture Description The system follows a modular-monolith approach. The Streamlit client sends requests to a FastAPI API layer. Application services coordinate authentication, authorization, retrieval, and business workflows. The domain layer contains core business rules, while repositories isolate persistence details. SQLite stores application and access-control data, while ChromaDB stores document embeddings used for semantic retrieval."
+        "text": "[Policy: HR Policy | Section: SEXUAL HARASSMENT POLICY]\nSEXUAL HARASSMENT POLICY\nEvery organization must take extra steps to make their workplace a safe environment for women to work in. It isn't just a legal requirement but also a moral obligation. In India, laws\nhave also been updated to make the safety of women in workplaces a priority. . The act is well praised and has even lead to closing down of a few companies. Furthermore, the act protects not just the employees and interns of an organization but also any woman visiting the company or a woman customer. Every organization must include a sexual harassment policy to be able to address all complaints actively. We at Rikalp Capital Private Limited created a separate policy for this in detailed manner.",
+        "document_id": "HR-Policy",
+        "project_id": "unassigned",
+        "chunk_id": "HR-Policy-15"
+      },
+      {
+        "source": "POSH_Policy.docx",
+        "section": "Policy",
+        "text": "[Policy: POSH Policy | Section: 6. What Constitutes Sexual Harassment? > Illustrative Examples]\nDefinitions > 5.4 Internal Committee (IC)\nThe Internal Committee is the committee constituted by the organization in accordance with applicable law to receive and address complaints of sexual harassment. 6. What Constitutes Sexual Harassment? Sexual harassment may include one or more unwelcome acts or behavior, whether directly or indirectly, that are sexual in nature or create an intimidating, hostile, humiliating, or offensive work environment. 6.",
+        "document_id": "POSH_Policy",
+        "project_id": "unassigned",
+        "chunk_id": "POSH_Policy-13_sub_0"
+      },
+      {
+        "source": "POSH_Policy.docx",
+        "section": "Policy",
+        "text": "[Policy: POSH Policy | Section: 5. Definitions > 5.3 Workplace]\nDefinitions > 5.1 Aggrieved Person\nFor the purpose of this Policy, an aggrieved person means an individual who alleges that they have experienced sexual harassment in relation to a workplace or work-related environment, subject to applicable law.\nDefinitions > 5.2 Respondent\nThe respondent is the person against whom a complaint of sexual harassment has been made.\nDefinitions > 5.3 Workplace\nWorkplace includes physical offices and other locations, digital workspaces, transportation arranged by the organization, client sites, and other places connected with employment or official work.",
+        "document_id": "POSH_Policy",
+        "project_id": "unassigned",
+        "chunk_id": "POSH_Policy-10"
+      },
+      {
+        "source": "POSH_Policy.docx",
+        "section": "Policy",
+        "text": "[Policy: POSH Policy | Section: 4. Scope and Applicability]\nLegal and Regulatory Context\nThis Policy is intended to align, at a high level, with applicable Indian law relating to prevention of sexual harassment at the workplace, including the Sexual Harassment of Women at Workplace (Prevention, Prohibition and Redressal) Act, 2013 and relevant rules, amendments, and judicial guidance, as applicable. Where there is a conflict between this Policy and applicable law, the applicable law shall prevail. 4.",
+        "document_id": "POSH_Policy",
+        "project_id": "unassigned",
+        "chunk_id": "POSH_Policy-7_sub_0"
       }
     ],
-    "created_at": 1791279360.2171793,
+    "created_at": 1793077008.5265157,
     "metadata": {},
-    "cache_id": "cch_aa6637914413",
+    "cache_id": "cch_f392c86c10e2",
     "assigned_role": "Developer",
     "document_ids": [
-      "test.docx",
-      "TEST-001"
+      "HR-Policy",
+      "POSH_Policy"
     ],
     "project_ids": [
       "unassigned"
     ],
-    "is_public": false
+    "is_public": false,
+    "chunk_ids": [
+      "POSH_Policy-10",
+      "POSH_Policy-13_sub_0",
+      "POSH_Policy-7_sub_0",
+      "HR-Policy-15"
+    ]
   },
-  "what should the objective be on the first day?": {
-    "cache_key": "what should the objective be on the first day?",
-    "original_query": "what should the objective be on the first day?",
-    "response": "First-Week Objectives: focus on understanding core architecture.",
-    "confidence": 1.0,
-    "source": "langcache",
-    "evidence_count": 0,
-    "model": "",
-    "citations": [],
-    "created_at": 1791285081.659313,
-    "metadata": {
-      "stored_prompt": "what should the objective be on the first day?"
-    },
-    "cache_id": "a489b35458cfad2b4e37fe31f3763bf4",
-    "assigned_role": null,
-    "document_ids": [
-      "DOC-005"
-    ],
-    "project_ids": [
-      "121"
-    ],
-    "is_public": false
-  },
-  "what is the key design principles?": {
-    "cache_key": "what is the key design principles?",
-    "original_query": "what is the key design principles?",
-    "response": "Document Ingestion and Data Model Example System Data Key Design Principles Separation of responsibilities keeps the system easier to test and change. Authentication answers who the user is; authorization answers what the user can access; retrieval finds evidence only from authorized sources; and answer generation produces a response grounded in that evidence. The core principle is: > **Research the problem space first, enumerate viable implementation options, compare them explicitly, then recommend a decision path with measurable acceptance criteria.** Do not simply answer \"use X.\" For every meaningful implementation option, investigate multiple ways to implement it, explain trade-offs, identify suitable use cases, and show how it can be validated. --- # 1. Operating Principles 1. **Understand before implementing.**",
+  "i_want_to_be_an_auditor_what_be_the_rule_and_rep_for_it": {
+    "cache_key": "i_want_to_be_an_auditor_what_be_the_rule_and_rep_for_it",
+    "original_query": "I want to be an Auditor . What are teh rloes and reps for it?",
+    "response": "Based on the 2021 Audit Report provided, the roles and responsibilities of an auditor (specifically the external auditor) include the following:\n\n**Key Responsibilities:**\n1. **Risk Assessment & Audit Procedures** \u2013 Identify and assess risks of material misstatement (due to fraud or error), design and perform responsive audit procedures, and obtain sufficient and appropriate audit evidence.  \n2. **Internal Control Understanding** \u2013 Obtain an understanding of internal control relevant to the audit to design appropriate audit procedures (but not to express an opinion on the effectiveness of internal control).  \n3. **Accounting Policies & Estimates** \u2013 Evaluate the appropriateness of accounting policies used and the reasonableness of accounting estimates and related disclosures made by management.  \n4. **Going Concern Assessment** \u2013 Conclude on the appropriateness of management\u2019s use of the going concern basis of accounting; determine whether a material uncertainty exists and, if so, draw attention to it in the auditor\u2019s report or modify the opinion.  \n5. **Financial Statement Presentation** \u2013 Evaluate the overall presentation, structure, content, and disclosures of the financial statements, and whether they represent the underlying transactions and events in a manner that achieves fair presentation.  \n6. **Overall Objective** \u2013 Obtain reasonable assurance that the financial statements as a whole are free from material misstatement (whether due to fraud or error) and issue an auditor\u2019s report that includes the auditor\u2019s opinion.  \n7. **Professional Conduct** \u2013 Exercise professional judgment and maintain professional skepticism throughout the audit.  \n8. **Standards Compliance** \u2013 Conduct the audit in accordance with International Standards on Auditing (ISAs).  \n9. **Independence & Ethics** \u2013 Remain independent of the organization in accordance with the IESBA Code of Ethics for Professional Accountants and fulfill all other ethical responsibilities.  \n10. **Evidence Sufficiency** \u2013 Ensure that the audit evidence obtained is sufficient and appropriate to provide a basis for the audit opinion.\n\nThese responsibilities are detailed in the **\u201cAuditor\u2019s Responsibilities for the Audit of the Financial Statements\u201d** and **\u201cBasis for Opinion\u201d** sections of the 2021 Audit Report.\n\nWould you like to see the references for this?",
     "confidence": 1.0,
     "source": "semantic_cache",
     "evidence_count": 0,
     "model": "",
     "citations": [
       {
-        "source": "test.docx",
+        "source": "2021-AUDIT-REPORT.pdf",
         "section": "Policy",
-        "text": "Document Ingestion and Data Model Example System Data Key Design Principles Separation of responsibilities keeps the system easier to test and change. Authentication answers who the user is; authorization answers what the user can access; retrieval finds evidence only from authorized sources; and answer generation produces a response grounded in that evidence.",
-        "document_id": "TEST-001",
-        "project_id": "unassigned"
+        "text": "[Policy: 2021 AUDIT REPORT | Section: Auditor's Responsibilities for the Audit of the Financial Statements]\nAuditor's Responsibilities for the Audit of the Financial Statements\nIdentify and assess the risks of material misstatement of the financial statements, whether due to fraud or error, design and perform audit procedures responsive to those risks, and obtain audit evidence that is sufficient and appropriate to provide a basis for our opinion. The risk of not detecting a material misstatement resulting from fraud is higher than for one resultingfrom error, as fraud may involve collusion, forgery, intentional omissions, misrepresentations, or the override ofinternal control. .\nObtain an understanding of internal control relevant to the audit in order to design audit procedures that are appropriate in the circumstances, but not for the purpose of expressing an opinion on the effectiveness of the Organization's internal control.\nEvaluate the appropriateness of accounting policies used and the reasonableness of accounting estimates and related disclosures made by management.",
+        "document_id": "2021-AUDIT-REPORT",
+        "project_id": "unassigned",
+        "chunk_id": "2021-AUDIT-REPORT-7"
       },
       {
-        "source": "SKILL(1) (1).md",
+        "source": "2021-AUDIT-REPORT.pdf",
         "section": "Policy",
-        "text": "The core principle is: > **Research the problem space first, enumerate viable implementation options, compare them explicitly, then recommend a decision path with measurable acceptance criteria.** Do not simply answer \"use X.\" For every meaningful implementation option, investigate multiple ways to implement it, explain trade-offs, identify suitable use cases, and show how it can be validated. --- # 1. Operating Principles 1. **Understand before implementing.**",
-        "document_id": "SKILL(1) (1)",
-        "project_id": "unassigned"
+        "text": "[Policy: 2021 AUDIT REPORT | Section: Auditor's Responsibilities for the Audit of the Financial Statements]\nAuditor's Responsibilities for the Audit of the Financial Statements\nConclude on the appropriateness of management's use of the going concern basis of accounting and, based on the audit evidence obtained, whether a material uncertainty exists rtotoits n ott ns ns Cst istciont s nt s ots continue as a going concern. If we conclude that a material uncertainty exists, we are required to draw attention in our auditor's report to the related disclosures in the financial statements or, if such disclosures are inadequate, to modify our opinion. Our conclusions are based on the audit evidence obtained up to the date of our auditor's report. However, future events or conditions may cause the Organization to cease to continue as a going concem.\nEvaluate the overall presentation, structure and content of the financial statements, including the disclosures, and whether the financial statements represent the underlying transactions and eventsin a manner that achieves fair presentation.",
+        "document_id": "2021-AUDIT-REPORT",
+        "project_id": "unassigned",
+        "chunk_id": "2021-AUDIT-REPORT-8_sub_0"
+      },
+      {
+        "source": "2021-AUDIT-REPORT.pdf",
+        "section": "Policy",
+        "text": "[Policy: 2021 AUDIT REPORT | Section: Auditor's Responsibilities for the Audit of the Financial Statements]\nAuditor's Responsibilities for the Audit of the Financial Statements\nOur objective isto obtain reasonable assurance about whether the financial statements as a whole are free from material misstatement, whether due to fraud or error, and to issue an auditor's report that includes our opinion.\nReasonable assurance is a high level of assurance, but is not a guarantee that an audit conducted in accordance with International Standards on Auditing (ISAs) will always detect a material misstatement when it exists. Misstatements can arise from fraud or error and are considered material if, individually or in the aggregate, they could reasonably be expected to influence the economic decisions of users taken on the basis of thesefinancial statements.\nAs part of an audit in accordance with International Standards on Auditing (ISAs), we exercise professional judgment and maintain professional skepticism throughout the audit. Wealso:",
+        "document_id": "2021-AUDIT-REPORT",
+        "project_id": "unassigned",
+        "chunk_id": "2021-AUDIT-REPORT-6"
+      },
+      {
+        "source": "2021-AUDIT-REPORT.pdf",
+        "section": "Policy",
+        "text": "[Policy: 2021 AUDIT REPORT | Section: Basis for Opinion]\nOther matter\nThe Organization financial statements for the year 2020 were audited by another auditor who expressed a oss s assts sst o s2nts\nBasis for Opinion\nWe conducted our audit in accordance with International Standards on Auditing (ISAs). Our responsibilities under those standards are further described in the Auditor's Responsibilities for the Audit of the Financial Statements section of our report. We are independent of the Organization in accordance with the International Ethics Standards Board for Accountants' Code of Ethics for Professional Accountants (IESBA Code), and we have fulfilled our other ethical responsibilities in accordance with these requirements and the IESBA Code.\nWe believe that the audit evidence we have obtained is sufficient and appropriate to provide a basis for our opinion.",
+        "document_id": "2021-AUDIT-REPORT",
+        "project_id": "unassigned",
+        "chunk_id": "2021-AUDIT-REPORT-4"
       }
     ],
-    "created_at": 1791302471.5440593,
+    "created_at": 1793077732.5338545,
     "metadata": {},
-    "cache_id": "cch_dafd5639652e",
-    "assigned_role": null,
+    "cache_id": "cch_e9d928e2b3c4",
+    "assigned_role": "Developer",
     "document_ids": [
-      "SKILL(1) (1)",
-      "SKILL(1) (1).md",
-      "TEST-001"
+      "2021-AUDIT-REPORT"
     ],
     "project_ids": [
       "unassigned"
     ],
-    "is_public": false
+    "is_public": false,
+    "chunk_ids": [
+      "2021-AUDIT-REPORT-4",
+      "2021-AUDIT-REPORT-8_sub_0",
+      "2021-AUDIT-REPORT-7",
+      "2021-AUDIT-REPORT-6"
+    ]
   },
-  "what_be_the_project_role_and_responsibility": {
-    "cache_key": "what_be_the_project_role_and_responsibility",
-    "original_query": "what are the Project Roles and Responsibilities",
-    "response": "Based on the provided document, the Project Roles and Responsibilities section outlines the Task Lifecycle: a task begins with a clear requirement, the owner investigates, plans implementation, performs the work, validates results, and records outcomes. Dependencies or blockers should be communicated early rather than near deadlines. The document does not specify distinct project roles beyond the task owner.\n\nWould you like to see the references for this?",
+  "I want to be an Auditor . What are teh rloes and reps for it?": {
+    "cache_key": "I want to be an Auditor . What are teh rloes and reps for it?",
+    "original_query": "I want to be an Auditor . What are teh rloes and reps for it?",
+    "response": "Based on the 2021 Audit Report provided, the roles and responsibilities of an auditor (specifically the external auditor) include the following:\n\n**Key Responsibilities:**\n1. **Risk Assessment & Audit Procedures** \u2013 Identify and assess risks of material misstatement (due to fraud or error), design and perform responsive audit procedures, and obtain sufficient and appropriate audit evidence.  \n2. **Internal Control Understanding** \u2013 Obtain an understanding of internal control relevant to the audit to design appropriate audit procedures (but not to express an opinion on the effectiveness of internal control).  \n3. **Accounting Policies & Estimates** \u2013 Evaluate the appropriateness of accounting policies used and the reasonableness of accounting estimates and related disclosures made by management.  \n4. **Going Concern Assessment** \u2013 Conclude on the appropriateness of management\u2019s use of the going concern basis of accounting; determine whether a material uncertainty exists and, if so, draw attention to it in the auditor\u2019s report or modify the opinion.  \n5. **Financial Statement Presentation** \u2013 Evaluate the overall presentation, structure, content, and disclosures of the financial statements, and whether they represent the underlying transactions and events in a manner that achieves fair presentation.  \n6. **Overall Objective** \u2013 Obtain reasonable assurance that the financial statements as a whole are free from material misstatement (whether due to fraud or error) and issue an auditor\u2019s report that includes the auditor\u2019s opinion.  \n7. **Professional Conduct** \u2013 Exercise professional judgment and maintain professional skepticism throughout the audit.  \n8. **Standards Compliance** \u2013 Conduct the audit in accordance with International Standards on Auditing (ISAs).  \n9. **Independence & Ethics** \u2013 Remain independent of the organization in accordance with the IESBA Code of Ethics for Professional Accountants and fulfill all other ethical responsibilities.  \n10. **Evidence Sufficiency** \u2013 Ensure that the audit evidence obtained is sufficient and appropriate to provide a basis for the audit opinion.\n\nThese responsibilities are detailed in the **\u201cAuditor\u2019s Responsibilities for the Audit of the Financial Statements\u201d** and **\u201cBasis for Opinion\u201d** sections of the 2021 Audit Report.\n\nWould you like to see the references for this?",
     "confidence": 1.0,
     "source": "semantic_cache",
     "evidence_count": 0,
     "model": "",
     "citations": [
       {
-        "source": "Three_Page_Test_Document.docx",
+        "source": "2021-AUDIT-REPORT.pdf",
         "section": "Policy",
-        "text": "Project Roles and Responsibilities 6. Task Lifecycle A task generally begins with a clear requirement. The owner then investigates the requirement, plans the implementation, performs the work, validates the result, and records the outcome. If a dependency or blocker appears, it should be communicated early rather than discovered near the deadline. 7.",
-        "document_id": "DOC-005",
-        "project_id": "121"
+        "text": "[Policy: 2021 AUDIT REPORT | Section: Auditor's Responsibilities for the Audit of the Financial Statements]\nAuditor's Responsibilities for the Audit of the Financial Statements\nIdentify and assess the risks of material misstatement of the financial statements, whether due to fraud or error, design and perform audit procedures responsive to those risks, and obtain audit evidence that is sufficient and appropriate to provide a basis for our opinion. The risk of not detecting a material misstatement resulting from fraud is higher than for one resultingfrom error, as fraud may involve collusion, forgery, intentional omissions, misrepresentations, or the override ofinternal control. .\nObtain an understanding of internal control relevant to the audit in order to design audit procedures that are appropriate in the circumstances, but not for the purpose of expressing an opinion on the effectiveness of the Organization's internal control.\nEvaluate the appropriateness of accounting policies used and the reasonableness of accounting estimates and related disclosures made by management.",
+        "document_id": "2021-AUDIT-REPORT",
+        "project_id": "unassigned",
+        "chunk_id": "2021-AUDIT-REPORT-7"
       },
       {
-        "source": "Project_Document_Test 1.docx",
+        "source": "2021-AUDIT-REPORT.pdf",
         "section": "Policy",
-        "text": "PROJECT OVERVIEW \u2014 KNOWLEDGE ASSISTANT Project Goal: Build an internal knowledge assistant that allows authorized employees to ask questions about company and project documents and receive evidence-backed answers. Problem Statement: Important organizational knowledge is distributed across employee handbooks, project documents, technical material, and other files. Employees need a controlled way to find relevant information without exposing documents they are not authorized to access.",
-        "document_id": "DOC-001",
-        "project_id": "121"
+        "text": "[Policy: 2021 AUDIT REPORT | Section: Auditor's Responsibilities for the Audit of the Financial Statements]\nAuditor's Responsibilities for the Audit of the Financial Statements\nConclude on the appropriateness of management's use of the going concern basis of accounting and, based on the audit evidence obtained, whether a material uncertainty exists rtotoits n ott ns ns Cst istciont s nt s ots continue as a going concern. If we conclude that a material uncertainty exists, we are required to draw attention in our auditor's report to the related disclosures in the financial statements or, if such disclosures are inadequate, to modify our opinion. Our conclusions are based on the audit evidence obtained up to the date of our auditor's report. However, future events or conditions may cause the Organization to cease to continue as a going concem.\nEvaluate the overall presentation, structure and content of the financial statements, including the disclosures, and whether the financial statements represent the underlying transactions and eventsin a manner that achieves fair presentation.",
+        "document_id": "2021-AUDIT-REPORT",
+        "project_id": "unassigned",
+        "chunk_id": "2021-AUDIT-REPORT-8_sub_0"
       },
       {
-        "source": "NEXORA TECHNOLOGIES PVT.docx",
+        "source": "2021-AUDIT-REPORT.pdf",
         "section": "Policy",
-        "text": "Changes in Job Role Nexora may modify an employee's responsibilities based on business requirements, organizational changes, project requirements, or career development considerations. Where a substantial change to an employee's role affects their employment terms, the company will communicate the applicable changes through the appropriate formal process. Employees are expected to cooperate with reasonable changes in responsibilities that fall within the scope of their employment."
+        "text": "[Policy: 2021 AUDIT REPORT | Section: Auditor's Responsibilities for the Audit of the Financial Statements]\nAuditor's Responsibilities for the Audit of the Financial Statements\nOur objective isto obtain reasonable assurance about whether the financial statements as a whole are free from material misstatement, whether due to fraud or error, and to issue an auditor's report that includes our opinion.\nReasonable assurance is a high level of assurance, but is not a guarantee that an audit conducted in accordance with International Standards on Auditing (ISAs) will always detect a material misstatement when it exists. Misstatements can arise from fraud or error and are considered material if, individually or in the aggregate, they could reasonably be expected to influence the economic decisions of users taken on the basis of thesefinancial statements.\nAs part of an audit in accordance with International Standards on Auditing (ISAs), we exercise professional judgment and maintain professional skepticism throughout the audit. Wealso:",
+        "document_id": "2021-AUDIT-REPORT",
+        "project_id": "unassigned",
+        "chunk_id": "2021-AUDIT-REPORT-6"
       },
       {
-        "source": "NEXORA TECHNOLOGIES PVT.docx",
+        "source": "2021-AUDIT-REPORT.pdf",
         "section": "Policy",
-        "text": "Development plans may include: Training Mentoring New responsibilities Internal projects Job-shadowing opportunities Certifications Participation in a development activity does not guarantee promotion. 16. Employee Grievances 16.1 Purpose Nexora provides employees with channels to raise workplace concerns, complaints, or grievances and seeks to address them fairly and appropriately. Employees are encouraged to raise concerns as early as reasonably possible."
+        "text": "[Policy: 2021 AUDIT REPORT | Section: Basis for Opinion]\nOther matter\nThe Organization financial statements for the year 2020 were audited by another auditor who expressed a oss s assts sst o s2nts\nBasis for Opinion\nWe conducted our audit in accordance with International Standards on Auditing (ISAs). Our responsibilities under those standards are further described in the Auditor's Responsibilities for the Audit of the Financial Statements section of our report. We are independent of the Organization in accordance with the International Ethics Standards Board for Accountants' Code of Ethics for Professional Accountants (IESBA Code), and we have fulfilled our other ethical responsibilities in accordance with these requirements and the IESBA Code.\nWe believe that the audit evidence we have obtained is sufficient and appropriate to provide a basis for our opinion.",
+        "document_id": "2021-AUDIT-REPORT",
+        "project_id": "unassigned",
+        "chunk_id": "2021-AUDIT-REPORT-4"
       }
     ],
-    "created_at": 1791783612.5046728,
+    "created_at": 1793077733.3815894,
     "metadata": {},
-    "cache_id": "cch_e69190761b93",
-    "assigned_role": "Admin",
+    "cache_id": "cch_e9d928e2b3c4",
+    "assigned_role": "Developer",
     "document_ids": [
-      "Project_Document_Test 1.docx",
-      "NEXORA TECHNOLOGIES PVT.docx",
-      "Three_Page_Test_Document.docx",
-      "DOC-005",
-      "DOC-001"
+      "2021-AUDIT-REPORT"
     ],
     "project_ids": [
-      "121"
+      "unassigned"
     ],
-    "is_public": false
+    "is_public": false,
+    "chunk_ids": [
+      "2021-AUDIT-REPORT-4",
+      "2021-AUDIT-REPORT-8_sub_0",
+      "2021-AUDIT-REPORT-7",
+      "2021-AUDIT-REPORT-6"
+    ]
   },
-  "what are the Project Roles and Responsibilities": {
-    "cache_key": "what are the Project Roles and Responsibilities",
-    "original_query": "what are the Project Roles and Responsibilities",
-    "response": "Based on the provided document, the Project Roles and Responsibilities section outlines the Task Lifecycle: a task begins with a clear requirement, the owner investigates, plans implementation, performs the work, validates results, and records outcomes. Dependencies or blockers should be communicated early rather than near deadlines. The document does not specify distinct project roles beyond the task owner.\n\nWould you like to see the references for this?",
+  "i_be_not_able_to_report_my_leave_to_my_manager_as_he_be_on_leave_as_well_what_ha_to_be_do": {
+    "cache_key": "i_be_not_able_to_report_my_leave_to_my_manager_as_he_be_on_leave_as_well_what_ha_to_be_do",
+    "original_query": "I was Not able to report my leave to my manager as he was on leave as well .what has to be Done",
+    "response": "Based on the provided policy documents, here's what you should do when your reporting manager is unavailable:\n\n**Immediate Steps:**\n1. **Contact People & Culture Department directly** \u2013 Section 4.16 (Extended Absence) states: \"Employees who expect to be unavailable for an extended period should inform their reporting manager **and People & Culture Department** as early as possible.\" Since your manager is on leave, you should notify People & Culture immediately.\n\n2. **Submit the leave request through the HR system** \u2013 Section 5.23 (Leave Records) indicates: \"Employees can view their leave balances and submitted requests through the designated HR system.\" Use this system to formally submit your leave request.\n\n3. **Document your communication** \u2013 Keep records of when you attempted to contact your manager and when you notified People & Culture.\n\n**Important Notes:**\n- Section 5.17 (Unplanned Absence) requires you to \"notify their reporting manager as soon as reasonably possible\" and \"submit the appropriate leave request after the immediate situation has been addressed.\" Since your manager is unavailable, notifying People & Culture fulfills the notification requirement.\n- Section 5.22 warns that \"Absence without required approval or communication may be treated as unauthorized absence,\" so proactive communication with People & Culture is essential to avoid this.\n\n**Recommended Action:**\nContact People & Culture/HR immediately via email or phone, explain that your reporting manager is on leave, and submit your leave request through the HRMS portal. This ensures your absence is properly documented and not treated as unauthorized.\n\nWould you like to see the references for this?",
     "confidence": 1.0,
     "source": "semantic_cache",
     "evidence_count": 0,
     "model": "",
     "citations": [
       {
-        "source": "Three_Page_Test_Document.docx",
+        "source": "NEXORA TECHNOLOGIES PVT.pdf",
         "section": "Policy",
-        "text": "Project Roles and Responsibilities 6. Task Lifecycle A task generally begins with a clear requirement. The owner then investigates the requirement, plans the implementation, performs the work, validates the result, and records the outcome. If a dependency or blocker appears, it should be communicated early rather than discovered near the deadline. 7.",
-        "document_id": "DOC-005",
-        "project_id": "121"
+        "text": "[Policy: NEXORA TECHNOLOGIES PVT | Section: 4.16 Extended Absence]\nUnapproved Absence\nAn absence may be considered unauthorized when an employee:\n\uf0b7 Does not report to work without informing the company.\n\uf0b7 Fails to obtain required leave approval.\n\uf0b7 Does not provide required documentation for an absence.\n\uf0b7 Remains absent after approved leave has ended without authorization.\nUnauthorized absence may result in loss of pay and/or disciplinary action depending on the circumstances and applicable policy.\nExtended Absence\nEmployees who expect to be unavailable for an extended period should inform their reporting manager and People & Culture Department as early as possible.\nThe employee may be required to provide supporting documentation depending on the reason for the absence.\nFor extended leave, employees should ensure that important responsibilities are appropriately handed over before the leave begins whenever reasonably possible.",
+        "document_id": "NEXORA TECHNOLOGIES PVT",
+        "project_id": "unassigned",
+        "chunk_id": "NEXORA TECHNOLOGIES PVT-38"
       },
       {
-        "source": "Project_Document_Test 1.docx",
+        "source": "NEXORA TECHNOLOGIES PVT.pdf",
         "section": "Policy",
-        "text": "PROJECT OVERVIEW \u2014 KNOWLEDGE ASSISTANT Project Goal: Build an internal knowledge assistant that allows authorized employees to ask questions about company and project documents and receive evidence-backed answers. Problem Statement: Important organizational knowledge is distributed across employee handbooks, project documents, technical material, and other files. Employees need a controlled way to find relevant information without exposing documents they are not authorized to access.",
-        "document_id": "DOC-001",
-        "project_id": "121"
-      },
-      {
-        "source": "NEXORA TECHNOLOGIES PVT.docx",
-        "section": "Policy",
-        "text": "Changes in Job Role Nexora may modify an employee's responsibilities based on business requirements, organizational changes, project requirements, or career development considerations. Where a substantial change to an employee's role affects their employment terms, the company will communicate the applicable changes through the appropriate formal process. Employees are expected to cooperate with reasonable changes in responsibilities that fall within the scope of their employment."
+        "text": "[Policy: NEXORA TECHNOLOGIES PVT | Section: 5.17 Unplanned Absence]\nLeave Approval\nSubmitting a leave request does not automatically mean that the leave has been approved.\nEmployees must wait for the required approval before taking planned leave.\nLeave requests may be declined or modified when business requirements make the requested period unavailable.\nEmployees should not make non-refundable travel or other commitments based solely on a submitted leave request.\nUnplanned Absence\nWhen an employee is unable to provide advance notice because of an unexpected situation, the employee should notify their reporting manager as soon as reasonably possible.\nThe employee should submit the appropriate leave request after the immediate situation has been addressed.\nFailure to communicate an absence may result in the absence being treated as unauthorized.",
+        "document_id": "NEXORA TECHNOLOGIES PVT",
+        "project_id": "unassigned",
+        "chunk_id": "NEXORA TECHNOLOGIES PVT-59"
       },
       {
         "source": "NEXORA TECHNOLOGIES PVT.docx",
         "section": "Policy",
-        "text": "Development plans may include: Training Mentoring New responsibilities Internal projects Job-shadowing opportunities Certifications Participation in a development activity does not guarantee promotion. 16. Employee Grievances 16.1 Purpose Nexora provides employees with channels to raise workplace concerns, complaints, or grievances and seeks to address them fairly and appropriately. Employees are encouraged to raise concerns as early as reasonably possible."
+        "text": "[Policy: NEXORA TECHNOLOGIES PVT | Section: General Policy]\nApproval of leave during the notice period is subject to business requirements and the employee's manager.\nLeave taken during the notice period may affect the employee's final working date where required by the employee's employment agreement or applicable policy. Employees should discuss extended leave during the notice period with People & Culture before making arrangements.\n**5.22 Leave Without Approval**\nEmployees must not assume that absence from work will be treated as approved leave. Absence without required approval or communication may be treated as unauthorized absence. Unauthorized absence may result in:\nLoss of pay\nAttendance records being adjusted\nCorrective action\nDisciplinary action in serious or repeated cases\n**5.23 Leave Records**\nEmployees can view their leave balances and submitted requests through the designated HR system. Employees are responsible for reviewing their leave records and reporting discrepancies to People & Culture.",
+        "document_id": "NEXORA TECHNOLOGIES PVT",
+        "project_id": "unassigned",
+        "chunk_id": "NEXORA TECHNOLOGIES PVT-24_sub_0"
       }
     ],
-    "created_at": 1791783613.224086,
+    "created_at": 1793078236.900726,
     "metadata": {},
-    "cache_id": "cch_e69190761b93",
-    "assigned_role": "Admin",
+    "cache_id": "cch_958900a88180",
+    "assigned_role": "Developer",
     "document_ids": [
-      "Project_Document_Test 1.docx",
-      "NEXORA TECHNOLOGIES PVT.docx",
-      "Three_Page_Test_Document.docx",
-      "DOC-005",
-      "DOC-001"
+      "NEXORA TECHNOLOGIES PVT"
     ],
     "project_ids": [
-      "121"
+      "unassigned"
     ],
-    "is_public": false
+    "is_public": false,
+    "chunk_ids": [
+      "NEXORA TECHNOLOGIES PVT-38",
+      "NEXORA TECHNOLOGIES PVT-59",
+      "NEXORA TECHNOLOGIES PVT-24_sub_0"
+    ]
   },
-  "list the Project Roles and Responsibilities": {
-    "cache_key": "list the Project Roles and Responsibilities",
-    "original_query": "list the Project Roles and Responsibilities",
-    "response": "Based on the provided document, the Project Roles and Responsibilities section outlines the Task Lifecycle: a task begins with a clear requirement, the owner investigates, plans implementation, performs the work, validates results, and records outcomes. Dependencies or blockers should be communicated early rather than near deadlines. The document does not specify distinct project roles beyond the task owner.\n\nWould you like to see the references for this?",
-    "confidence": 0.895236,
-    "source": "langcache",
+  "I was Not able to report my leave to my manager as he was on leave as well .what has to be Done": {
+    "cache_key": "I was Not able to report my leave to my manager as he was on leave as well .what has to be Done",
+    "original_query": "I was Not able to report my leave to my manager as he was on leave as well .what has to be Done",
+    "response": "Based on the provided policy documents, here's what you should do when your reporting manager is unavailable:\n\n**Immediate Steps:**\n1. **Contact People & Culture Department directly** \u2013 Section 4.16 (Extended Absence) states: \"Employees who expect to be unavailable for an extended period should inform their reporting manager **and People & Culture Department** as early as possible.\" Since your manager is on leave, you should notify People & Culture immediately.\n\n2. **Submit the leave request through the HR system** \u2013 Section 5.23 (Leave Records) indicates: \"Employees can view their leave balances and submitted requests through the designated HR system.\" Use this system to formally submit your leave request.\n\n3. **Document your communication** \u2013 Keep records of when you attempted to contact your manager and when you notified People & Culture.\n\n**Important Notes:**\n- Section 5.17 (Unplanned Absence) requires you to \"notify their reporting manager as soon as reasonably possible\" and \"submit the appropriate leave request after the immediate situation has been addressed.\" Since your manager is unavailable, notifying People & Culture fulfills the notification requirement.\n- Section 5.22 warns that \"Absence without required approval or communication may be treated as unauthorized absence,\" so proactive communication with People & Culture is essential to avoid this.\n\n**Recommended Action:**\nContact People & Culture/HR immediately via email or phone, explain that your reporting manager is on leave, and submit your leave request through the HRMS portal. This ensures your absence is properly documented and not treated as unauthorized.\n\nWould you like to see the references for this?",
+    "confidence": 1.0,
+    "source": "semantic_cache",
     "evidence_count": 0,
     "model": "",
     "citations": [
       {
-        "source": "Three_Page_Test_Document.docx",
+        "source": "NEXORA TECHNOLOGIES PVT.pdf",
         "section": "Policy",
-        "text": "Project Roles and Responsibilities 6. Task Lifecycle A task generally begins with a clear requirement. The owner then investigates the requirement, plans the implementation, performs the work, validates the result, and records the outcome. If a dependency or blocker appears, it should be communicated early rather than discovered near the deadline. 7.",
-        "document_id": "DOC-005",
-        "project_id": "121"
+        "text": "[Policy: NEXORA TECHNOLOGIES PVT | Section: 4.16 Extended Absence]\nUnapproved Absence\nAn absence may be considered unauthorized when an employee:\n\uf0b7 Does not report to work without informing the company.\n\uf0b7 Fails to obtain required leave approval.\n\uf0b7 Does not provide required documentation for an absence.\n\uf0b7 Remains absent after approved leave has ended without authorization.\nUnauthorized absence may result in loss of pay and/or disciplinary action depending on the circumstances and applicable policy.\nExtended Absence\nEmployees who expect to be unavailable for an extended period should inform their reporting manager and People & Culture Department as early as possible.\nThe employee may be required to provide supporting documentation depending on the reason for the absence.\nFor extended leave, employees should ensure that important responsibilities are appropriately handed over before the leave begins whenever reasonably possible.",
+        "document_id": "NEXORA TECHNOLOGIES PVT",
+        "project_id": "unassigned",
+        "chunk_id": "NEXORA TECHNOLOGIES PVT-38"
       },
       {
-        "source": "Project_Document_Test 1.docx",
+        "source": "NEXORA TECHNOLOGIES PVT.pdf",
         "section": "Policy",
-        "text": "PROJECT OVERVIEW \u2014 KNOWLEDGE ASSISTANT Project Goal: Build an internal knowledge assistant that allows authorized employees to ask questions about company and project documents and receive evidence-backed answers. Problem Statement: Important organizational knowledge is distributed across employee handbooks, project documents, technical material, and other files. Employees need a controlled way to find relevant information without exposing documents they are not authorized to access.",
-        "document_id": "DOC-001",
-        "project_id": "121"
-      },
-      {
-        "source": "NEXORA TECHNOLOGIES PVT.docx",
-        "section": "Policy",
-        "text": "Changes in Job Role Nexora may modify an employee's responsibilities based on business requirements, organizational changes, project requirements, or career development considerations. Where a substantial change to an employee's role affects their employment terms, the company will communicate the applicable changes through the appropriate formal process. Employees are expected to cooperate with reasonable changes in responsibilities that fall within the scope of their employment."
+        "text": "[Policy: NEXORA TECHNOLOGIES PVT | Section: 5.17 Unplanned Absence]\nLeave Approval\nSubmitting a leave request does not automatically mean that the leave has been approved.\nEmployees must wait for the required approval before taking planned leave.\nLeave requests may be declined or modified when business requirements make the requested period unavailable.\nEmployees should not make non-refundable travel or other commitments based solely on a submitted leave request.\nUnplanned Absence\nWhen an employee is unable to provide advance notice because of an unexpected situation, the employee should notify their reporting manager as soon as reasonably possible.\nThe employee should submit the appropriate leave request after the immediate situation has been addressed.\nFailure to communicate an absence may result in the absence being treated as unauthorized.",
+        "document_id": "NEXORA TECHNOLOGIES PVT",
+        "project_id": "unassigned",
+        "chunk_id": "NEXORA TECHNOLOGIES PVT-59"
       },
       {
         "source": "NEXORA TECHNOLOGIES PVT.docx",
         "section": "Policy",
-        "text": "Development plans may include: Training Mentoring New responsibilities Internal projects Job-shadowing opportunities Certifications Participation in a development activity does not guarantee promotion. 16. Employee Grievances 16.1 Purpose Nexora provides employees with channels to raise workplace concerns, complaints, or grievances and seeks to address them fairly and appropriately. Employees are encouraged to raise concerns as early as reasonably possible."
+        "text": "[Policy: NEXORA TECHNOLOGIES PVT | Section: General Policy]\nApproval of leave during the notice period is subject to business requirements and the employee's manager.\nLeave taken during the notice period may affect the employee's final working date where required by the employee's employment agreement or applicable policy. Employees should discuss extended leave during the notice period with People & Culture before making arrangements.\n**5.22 Leave Without Approval**\nEmployees must not assume that absence from work will be treated as approved leave. Absence without required approval or communication may be treated as unauthorized absence. Unauthorized absence may result in:\nLoss of pay\nAttendance records being adjusted\nCorrective action\nDisciplinary action in serious or repeated cases\n**5.23 Leave Records**\nEmployees can view their leave balances and submitted requests through the designated HR system. Employees are responsible for reviewing their leave records and reporting discrepancies to People & Culture.",
+        "document_id": "NEXORA TECHNOLOGIES PVT",
+        "project_id": "unassigned",
+        "chunk_id": "NEXORA TECHNOLOGIES PVT-24_sub_0"
       }
     ],
-    "created_at": 1791783658.7935135,
-    "metadata": {
-      "stored_prompt": "what are the Project Roles and Responsibilities"
-    },
-    "cache_id": "26f770b86cb1a7d4242a7a2841500648",
-    "assigned_role": "Admin",
+    "created_at": 1793078237.5867157,
+    "metadata": {},
+    "cache_id": "cch_958900a88180",
+    "assigned_role": "Developer",
     "document_ids": [
-      "Project_Document_Test 1.docx",
-      "NEXORA TECHNOLOGIES PVT.docx",
-      "Three_Page_Test_Document.docx",
-      "DOC-005",
-      "DOC-001"
+      "NEXORA TECHNOLOGIES PVT"
     ],
     "project_ids": [
-      "121"
+      "unassigned"
     ],
-    "is_public": false
+    "is_public": false,
+    "chunk_ids": [
+      "NEXORA TECHNOLOGIES PVT-38",
+      "NEXORA TECHNOLOGIES PVT-59",
+      "NEXORA TECHNOLOGIES PVT-24_sub_0"
+    ]
   }
 }

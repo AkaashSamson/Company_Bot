@@ -84,27 +84,56 @@ class RAGContextBuilder:
         if not context_chunks:
             return f"Question: {question}\n\nNo relevant documents were found."
 
+        # Concatenate adjacent cutoff chunks where ends/starts align
+        try:
+            from app.infrastructure.document.chunk_normalizer import (
+                concatenate_cutoff_sequence,
+                strip_cutoff_tags,
+            )
+            context_chunks = concatenate_cutoff_sequence(context_chunks)
+        except Exception:
+            strip_cutoff_tags = lambda t: t
+
         # Format context with optional metadata
         formatted_chunks = []
         total_chars = 0
 
         for i, chunk in enumerate(context_chunks, 1):
-            text = chunk.get("text", "").strip()
+            text = strip_cutoff_tags(chunk.get("text", "")).strip()
             if not text:
                 continue
 
             # Build chunk header with metadata if available
             chunk_lines = []
-            if self.include_metadata and "metadata" in chunk:
-                pass  # We no longer prepend section headers because they are now cleanly embedded inside chunk text.
+            if self.include_metadata:
+                meta = chunk.get("metadata") or {}
+                # Resolve document ID
+                doc_id = meta.get("document_id") or chunk.get("document_id")
+                if not doc_id and "id" in chunk and isinstance(chunk["id"], str):
+                    doc_id = chunk["id"].rsplit("-", 1)[0]
+
+                # Resolve document name / source filename
+                doc_name = (
+                    meta.get("document_name")
+                    or meta.get("source_filename")
+                    or meta.get("source")
+                    or doc_id
+                )
+                section = meta.get("section_heading") or meta.get("section")
+
+                header_parts = []
+                if doc_id:
+                    header_parts.append(f"Document ID: {doc_id}")
+                if doc_name and doc_name != doc_id:
+                    header_parts.append(f"Document: {doc_name}")
+                if section:
+                    header_parts.append(f"Section: {section}")
+
+                if header_parts:
+                    chunk_lines.append(f"[{' | '.join(header_parts)}]")
 
             # Add chunk content
             chunk_lines.append(text)
-
-            # Add distance indicator if available (for debugging)
-            if "distance" in chunk:
-                distance = chunk["distance"]
-                chunk_lines.append(f"(relevance: {1 - distance:.2%})")
 
             chunk_text = "\n".join(chunk_lines)
             chunk_size = len(chunk_text)

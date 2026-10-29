@@ -17,6 +17,7 @@ import re
 import sys
 import time
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 # Add project root to sys.path
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -28,10 +29,13 @@ _CURR_DIR = str(Path(__file__).resolve().parent)
 if _CURR_DIR in sys.path:
     sys.path.remove(_CURR_DIR)
 
+# pyrefly: ignore[missing-import]
 import streamlit as st
+# pyrefly: ignore[missing-source-for-stubs]
 import pandas as pd
+# pyrefly: ignore[missing-import, missing-source-for-stubs]
 import numpy as np
-
+# pyrefly: ignore[missing-source-for-stubs]
 from app.core.settings import BASE_DIR, COLLECTION_NAME, EMBEDDING_MODEL
 from app.infrastructure.vector.chroma_client import ChromaVectorStore
 from app.infrastructure.vector.reranker_factory import get_reranker
@@ -46,12 +50,33 @@ from app.infrastructure.document.chunking_strategies import (
     estimate_tokens,
     ChunkRecord,
 )
+from app.infrastructure.document.bridge_linked_chunking import link_store_records_with_bridges
 from app.infrastructure.document.plaintext_processor import extract_text_from_bytes
 from sandbox.ui.test_studio import render_test_studio_tab
 from sandbox.ui.home_dashboard import render_home_dashboard
 from sandbox.components.ragas_studio import render_ragas_metrics_studio
 from sandbox.components.ragas_eval import execute_ragas_evaluation
 from sandbox.engine.schema import TestCase, TestInput, GoldEvidence, ExpectedBehavior
+from sandbox.engine.ocr_vlm_scorer import audit_chunks_batch, audit_chunk_record
+from app.infrastructure.ingestion.semantic_merger import (
+    SemanticChunkMerger,
+    SemanticMergeConfig,
+    MergeResult,
+    semantic_merge_chunk_records,
+)
+import importlib
+import sandbox.engine.chunk_quality_framework
+importlib.reload(sandbox.engine.chunk_quality_framework)
+from sandbox.engine.chunk_quality_framework import (
+    audit_corpus_comprehensive,
+    audit_single_chunk,
+    MetricResult,
+    ChunkAuditReport,
+    CorpusAuditReport,
+)
+CHUNK_QUALITY_METRICS_CATALOG = getattr(sandbox.engine.chunk_quality_framework, "CHUNK_QUALITY_METRICS_CATALOG", [])
+get_metrics_catalog_dataframe = getattr(sandbox.engine.chunk_quality_framework, "get_metrics_catalog_dataframe", lambda: pd.DataFrame())
+from sandbox.components.chunk_quality_studio import render_seven_parameter_quality_studio
 
 
 
@@ -63,68 +88,293 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom Styling
+# Custom Styling — Bespoke Anti-Slop Studio Design System
 st.markdown("""
 <style>
-    .main-title {
-        font-size: 2.2rem;
-        font-weight: 700;
-        margin-bottom: 0.2rem;
-        background: linear-gradient(90deg, #3B82F6, #8B5CF6);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    /* Global Typography & Base Tokens */
+    html, body, [class*="css"] {
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     }
-    .sub-title {
-        color: #94A3B8;
-        font-size: 1.0rem;
-        margin-bottom: 1.2rem;
+
+    code, pre, .chunk-id-tag, .font-mono {
+        font-family: 'JetBrains Mono', monospace !important;
     }
-    .metric-card {
-        background: #1E293B;
-        border: 1px solid #334155;
+
+    /* Executive Studio Header */
+    .workbench-header {
+        background: #0D131F;
+        border: 1px solid #1E293B;
         border-radius: 8px;
-        padding: 0.8rem;
-        text-align: center;
+        padding: 1.2rem 1.6rem;
+        margin-bottom: 1.4rem;
     }
-    .chunk-card {
-        background: #0F172A;
+    .brand-row {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        margin-bottom: 0.35rem;
+    }
+    .brand-badge {
+        background: #0284C7;
+        color: #FFFFFF;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        padding: 3px 8px;
+        border-radius: 4px;
+    }
+    .brand-title {
+        font-size: 1.55rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: #F8FAFC;
+    }
+    .brand-version {
+        font-size: 0.78rem;
+        color: #64748B;
+        font-weight: 500;
+        margin-left: auto;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .brand-subline {
+        color: #94A3B8;
+        font-size: 0.92rem;
+        font-weight: 400;
+        line-height: 1.45;
+    }
+
+    /* Sidebar Studio Branding */
+    .sidebar-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.4rem 0 1rem 0;
+        margin-bottom: 0.6rem;
+        border-bottom: 1px solid #1E293B;
+    }
+    .sidebar-logo {
+        background: #0284C7;
+        color: #FFFFFF;
+        font-weight: 800;
+        font-size: 1.05rem;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+    }
+    .sidebar-title {
+        color: #F8FAFC;
+        font-weight: 700;
+        font-size: 1.0rem;
+        line-height: 1.2;
+    }
+    .sidebar-sub {
+        color: #64748B;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    /* Precision Telemetry Metrics (st.metric override) */
+    div[data-testid="stMetric"] {
+        background: #0D131F !important;
+        border: 1px solid #1E293B !important;
+        border-radius: 6px !important;
+        padding: 12px 16px !important;
+        box-shadow: none !important;
+    }
+    div[data-testid="stMetricLabel"] p {
+        font-size: 0.76rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+        color: #94A3B8 !important;
+        font-weight: 600 !important;
+        margin-bottom: 4px !important;
+    }
+    div[data-testid="stMetricValue"] div {
+        font-size: 1.45rem !important;
+        font-weight: 700 !important;
+        color: #F8FAFC !important;
+        font-variant-numeric: tabular-nums !important;
+    }
+
+    /* Tabs Elevation */
+    div[data-baseweb="tab-list"] {
+        gap: 4px !important;
+        background: #090D16 !important;
+        padding: 4px !important;
+        border-bottom: 1px solid #1E293B !important;
+        margin-bottom: 1.2rem !important;
+    }
+    button[data-baseweb="tab"] {
+        padding: 8px 16px !important;
+        border-radius: 4px !important;
+        font-size: 0.88rem !important;
+        font-weight: 500 !important;
+        color: #94A3B8 !important;
+        background: transparent !important;
+        border: none !important;
+        transition: color 0.15s ease !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #F8FAFC !important;
+        font-weight: 600 !important;
+        background: #1E293B !important;
+        border-bottom: 2px solid #38BDF8 !important;
+    }
+
+    /* Container & Card Framing */
+    .metric-card {
+        background: #0D131F;
         border: 1px solid #1E293B;
         border-radius: 6px;
         padding: 1rem;
+        text-align: center;
+    }
+    .chunk-card {
+        background: #0D131F;
+        border: 1px solid #1E293B;
+        border-radius: 6px;
+        padding: 1.1rem;
         margin-bottom: 0.8rem;
     }
+    .defect-card {
+        background: #090E17;
+        border: 1px solid #1E293B;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+    }
+    .defect-card.sev-critical, .defect-card.sev-high {
+        border-left: 3px solid #EF4444;
+    }
+    .defect-card.sev-medium, .defect-card.sev-low {
+        border-left: 3px solid #F59E0B;
+    }
+    .defect-quote {
+        background: #040711;
+        border: 1px solid #1E293B;
+        border-radius: 4px;
+        padding: 6px 10px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.8rem;
+        color: #94A3B8;
+        margin: 6px 0;
+    }
+
+    /* Dimension Health Cards */
+    .dimension-card {
+        background: #0B111D;
+        border: 1px solid #1E293B;
+        border-radius: 6px;
+        padding: 12px 14px;
+        margin-bottom: 8px;
+    }
+    .dimension-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 4px;
+    }
+    .dimension-title {
+        font-weight: 700;
+        font-size: 0.88rem;
+        color: #F8FAFC;
+    }
+    .dimension-sub {
+        color: #94A3B8;
+        font-size: 0.73rem;
+        line-height: 1.35;
+        min-height: 32px;
+        margin-bottom: 6px;
+    }
+    .dimension-stat-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+    }
+    .dimension-pct {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #F8FAFC;
+        font-variant-numeric: tabular-nums;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .dimension-affected {
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    /* Disposition Badges */
+    .badge-disp-open { background: #1E293B; color: #CBD5E1; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
+    .badge-disp-under-review { background: #78350F; color: #FDE68A; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
+    .badge-disp-approved { background: #064E3B; color: #6EE7B7; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
+    .badge-disp-needs-re-ocr { background: #4C1D95; color: #DDD6FE; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
+    .badge-disp-needs-re-chunk { background: #831843; color: #FBCFE8; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
+    .badge-disp-dismissed { background: #1E293B; color: #64748B; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
+
+    /* Refined Status Badges */
     .badge-optimal {
         background: #064E3B;
         color: #34D399;
-        padding: 3px 8px;
+        padding: 2px 7px;
         border-radius: 4px;
         font-weight: 600;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
+        letter-spacing: 0.02em;
     }
     .badge-stub {
         background: #78350F;
         color: #FBBF24;
-        padding: 3px 8px;
+        padding: 2px 7px;
         border-radius: 4px;
         font-weight: 600;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
+        letter-spacing: 0.02em;
     }
     .badge-overflow {
         background: #7F1D1D;
         color: #F87171;
-        padding: 3px 8px;
+        padding: 2px 7px;
         border-radius: 4px;
         font-weight: 600;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
+        letter-spacing: 0.02em;
     }
     .chunk-id-tag {
-        font-family: monospace;
-        background: #1E293B;
+        font-family: 'JetBrains Mono', monospace;
+        background: #0F172A;
         color: #38BDF8;
         padding: 2px 6px;
         border-radius: 4px;
         border: 1px solid #0284C7;
         font-weight: 600;
+        font-size: 0.82rem;
+    }
+
+    /* Tables & Expanders */
+    div[data-testid="stExpander"] {
+        border: 1px solid #1E293B !important;
+        border-radius: 6px !important;
+        background: #0D131F !important;
+    }
+    div[data-testid="stExpander"] summary {
+        color: #F1F5F9 !important;
+        font-weight: 600 !important;
+        padding: 10px 14px !important;
+    }
+
+    /* Inputs & Select Boxes */
+    div[data-baseweb="input"], div[data-baseweb="select"] {
+        background: #0A0E17 !important;
+        border-color: #1E293B !important;
+        border-radius: 5px !important;
+    }
+    div[data-baseweb="input"]:focus-within, div[data-baseweb="select"]:focus-within {
+        border-color: #0284C7 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -137,6 +387,36 @@ PROJECT_SCOPES = {
     "DOC-003.docx": "121",
     "DOC-006.docx": "121",
 }
+
+
+def get_chunk_disposition(chunk_id: str) -> dict:
+    if "chunk_dispositions" not in st.session_state:
+        st.session_state["chunk_dispositions"] = {}
+    return st.session_state["chunk_dispositions"].get(chunk_id, {"status": "Open", "notes": ""})
+
+
+def set_chunk_disposition(chunk_id: str, status: str, notes: str = ""):
+    if "chunk_dispositions" not in st.session_state:
+        st.session_state["chunk_dispositions"] = {}
+    st.session_state["chunk_dispositions"][chunk_id] = {
+        "status": status,
+        "notes": notes,
+        "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
+def get_disposition_badge_html(status: str) -> str:
+    s_clean = status.lower().replace(" ", "-")
+    cls_map = {
+        "open": "badge-disp-open",
+        "under-review": "badge-disp-under-review",
+        "approved": "badge-disp-approved",
+        "needs-re-ocr": "badge-disp-needs-re-ocr",
+        "needs-re-chunk": "badge-disp-needs-re-chunk",
+        "dismissed": "badge-disp-dismissed",
+    }
+    css_class = cls_map.get(s_clean, "badge-disp-open")
+    return f'<span class="{css_class}">{status.upper()}</span>'
 
 
 @st.cache_resource
@@ -152,11 +432,22 @@ def get_cached_reranker():
     return get_reranker()
 
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=15)
 def load_all_chunks():
     store = get_chroma_store()
     try:
         data = store.collection.get(include=["documents", "metadatas"])
+    except Exception as e:
+        # Auto-recover from stale cached handle or recreated collections
+        try:
+            get_chroma_store.clear()
+            store = get_chroma_store()
+            data = store.refresh_collection().get(include=["documents", "metadatas"])
+        except Exception as e2:
+            st.error(f"Failed to fetch chunks from ChromaDB: {e2}")
+            return pd.DataFrame()
+
+    try:
         records = []
         ids = data.get("ids", [])
         documents = data.get("documents", [])
@@ -176,11 +467,18 @@ def load_all_chunks():
                 "project_id": str(meta.get("project_id", "unassigned")),
                 "hierarchy_path": str(meta.get("hierarchy_path", "")),
                 "heading_text": str(meta.get("heading_text", "")),
+                "produced_by": str(meta.get("produced_by", "")),
+                "route": str(meta.get("route", "")),
+                "content_type": str(meta.get("content_type", "text")),
+                "layout_type": str(meta.get("layout_type", "")),
+                "bbox": str(meta.get("bbox", "")),
+                "is_table": bool(meta.get("is_table", False)),
             })
         return pd.DataFrame(records)
     except Exception as e:
-        st.error(f"Failed to fetch chunks from ChromaDB: {e}")
+        st.error(f"Failed to parse chunks from ChromaDB: {e}")
         return pd.DataFrame()
+
 
 
 def get_golden_files_info():
@@ -202,19 +500,19 @@ def get_golden_files_info():
     return items
 
 
-def wipe_and_reingest_golden_docs(progress_bar, status_text):
+def wipe_and_reingest_golden_docs(progress_bar, status_text, enable_semantic_merging: bool = True):
     """Safely wipe collection and cleanly index all documents from test_data/."""
     data_dir = _REPO_ROOT / "test_data"
+    get_chroma_store.clear()
     store = get_chroma_store()
     try:
         store.client.delete_collection(name=store.collection_name)
     except Exception:
         pass
 
-    store.collection = store.client.get_or_create_collection(
-        name=store.collection_name,
-        metadata={"hnsw:space": "cosine"},
-    )
+    store.refresh_collection()
+    get_chroma_store.clear()
+    st.cache_data.clear()
 
     supported_ext = {".docx", ".pdf", ".txt", ".md"}
     doc_files = [
@@ -243,6 +541,7 @@ def wipe_and_reingest_golden_docs(progress_bar, status_text):
             document=doc_entity,
             store=store,
             processor=processor,
+            enable_semantic_merging=enable_semantic_merging,
         )
         el = time.time() - t_file
         total_chunks += chunks_cnt
@@ -257,7 +556,9 @@ def wipe_and_reingest_golden_docs(progress_bar, status_text):
 
     elapsed = time.time() - t0
     status_text.empty()
+    get_chroma_store.clear()
     st.cache_data.clear()
+    st.cache_resource.clear()
     return total_chunks, elapsed, summary
 
 
@@ -269,31 +570,96 @@ def process_document_to_chunks(
     classification: str = "Internal",
     project_id: str = "unassigned",
     version: str = "1.0",
-) -> list[dict]:
-    """Parse document and construct canonical chunk records with metadata."""
+    enable_semantic_merging: bool = False,
+    merge_config: Optional[SemanticMergeConfig] = None,
+    chunking_strategy: Optional[str] = None,
+    target_tokens: Optional[int] = None,
+    overlap_pct: Optional[int] = None,
+) -> tuple[list[dict], Optional[MergeResult]]:
+    """Parse document, optionally apply custom chunking strategy and semantic merging, and construct canonical chunk records."""
     processor = build_document_processor()
-    processed = processor.process(raw_bytes, file_name)
-    records = build_chunk_records_from_processed(
-        processed,
-        document_id=doc_id,
-        project_id=project_id,
-        source=file_name,
-        file_type=Path(file_name).suffix.lower().lstrip("."),
-        version=version,
-    )
-    for r in records:
-        r["metadata"]["doc_id"] = doc_id
-        r["metadata"]["department"] = department
-        r["metadata"]["classification"] = classification
-        r["metadata"]["project_id"] = project_id
-        r["metadata"]["source"] = file_name
-        r["metadata"]["version"] = version
-        hp = r["metadata"].get("hierarchy_path")
-        if isinstance(hp, (list, tuple)):
-            r["metadata"]["hierarchy_path"] = " > ".join(str(x) for x in hp)
-        elif hp is None:
-            r["metadata"]["hierarchy_path"] = ""
-    return records
+    resolved_file_type = Path(file_name).suffix.lower().lstrip(".")
+
+    if chunking_strategy and chunking_strategy != "canonical_processor" and chunking_strategy in CHUNK_STRATEGIES_META:
+        try:
+            full_text = extract_text_from_bytes(raw_bytes, file_name)
+        except Exception:
+            processed = processor.process(raw_bytes, file_name)
+            full_text = "\n\n".join(c.text for c in processed.chunks)
+
+        strat_meta = CHUNK_STRATEGIES_META[chunking_strategy]
+        tokens = target_tokens or strat_meta["optimal_tokens"]
+        overlap = overlap_pct if overlap_pct is not None else strat_meta["default_overlap_pct"]
+
+        strat_chunks = apply_chunking_strategy(
+            strategy_key=chunking_strategy,
+            text=full_text,
+            target_tokens=tokens,
+            overlap_pct=overlap,
+            doc_prefix=doc_id,
+        )
+
+        records = [
+            {
+                "id": f"{doc_id}-{idx}",
+                "text": sc.text,
+                "metadata": {
+                    "document_id": doc_id,
+                    "doc_id": doc_id,
+                    "source_filename": file_name,
+                    "source": file_name,
+                    "page_number": 1,
+                    "chunk_index": idx,
+                    "chunk_id": f"{doc_id}-{idx}",
+                    "token_count": sc.token_count,
+                    "department": department,
+                    "classification": classification,
+                    "project_id": project_id,
+                    "version": version,
+                    "file_type": resolved_file_type,
+                    "strategy": getattr(sc, "strategy", getattr(sc, "strategy_name", "unknown")),
+                    "heading_text": sc.heading_hierarchy or "",
+                    "hierarchy_path": sc.heading_hierarchy or "",
+                    "content_type": "text",
+                    "parent_id": getattr(sc, "parent_id", None) or (sc.metadata.get("parent_id") if hasattr(sc, "metadata") else None),
+                    "parent_text": getattr(sc, "parent_text", None) or (sc.metadata.get("parent_text") if hasattr(sc, "metadata") else None),
+                },
+            }
+            for idx, sc in enumerate(strat_chunks)
+        ]
+    else:
+        processed = processor.process(raw_bytes, file_name)
+        records = build_chunk_records_from_processed(
+            processed,
+            document_id=doc_id,
+            project_id=project_id,
+            source=file_name,
+            file_type=resolved_file_type,
+            version=version,
+        )
+        for r in records:
+            r["metadata"]["doc_id"] = doc_id
+            r["metadata"]["department"] = department
+            r["metadata"]["classification"] = classification
+            r["metadata"]["project_id"] = project_id
+            r["metadata"]["source"] = file_name
+            r["metadata"]["version"] = version
+            hp = r["metadata"].get("hierarchy_path")
+            if isinstance(hp, (list, tuple)):
+                r["metadata"]["hierarchy_path"] = " > ".join(str(x) for x in hp)
+            elif hp is None:
+                r["metadata"]["hierarchy_path"] = ""
+
+    merge_res = None
+    if enable_semantic_merging and len(records) > 1:
+        cfg = merge_config or SemanticMergeConfig(scope_field="document_id")
+        records, merge_res = semantic_merge_chunk_records(records, config=cfg)
+
+    # Establish Doubly Linked List pointers and typed boundary bridges across all chunks
+    if records:
+        records = link_store_records_with_bridges(records, doc_id=doc_id)
+
+    return records, merge_res
 
 
 def render_golden_data_and_ingestion(df_chunks: pd.DataFrame):
@@ -330,6 +696,12 @@ def render_golden_data_and_ingestion(df_chunks: pd.DataFrame):
             value=False,
             help="Prevents accidental vector store loss during benchmarking.",
         )
+        enable_semantic_merging_golden = st.toggle(
+            "🔀 Apply Semantic Chunk Merging on Ingestion",
+            value=True,
+            help="Consolidate micro-fragments and stub chunks (<250 chars) into similar parent chunks before indexing to ChromaDB.",
+            key="toggle_semantic_merging_golden",
+        )
     with c_btn:
         wipe_confirmed = st.button(
             "🧹 Wipe Store & Re-ingest All Golden Documents",
@@ -342,7 +714,11 @@ def render_golden_data_and_ingestion(df_chunks: pd.DataFrame):
         with st.status("Executing clean ChromaDB wipe and re-indexing...", expanded=True) as status_box:
             prog_bar = st.progress(0)
             status_txt = st.empty()
-            total_chunks, elapsed, summary = wipe_and_reingest_golden_docs(prog_bar, status_txt)
+            total_chunks, elapsed, summary = wipe_and_reingest_golden_docs(
+                prog_bar,
+                status_txt,
+                enable_semantic_merging=enable_semantic_merging_golden,
+            )
             status_box.update(label=f"Ingestion complete: {total_chunks} chunks indexed in {elapsed:.2f}s!", state="complete")
 
         st.success(f"🎉 Successfully re-indexed **{len(summary)} documents** into ChromaDB ({total_chunks} chunks stored) in {elapsed:.2f}s!")
@@ -377,6 +753,212 @@ def render_golden_data_and_ingestion(df_chunks: pd.DataFrame):
                 st.markdown(manifest_path.read_text(encoding="utf-8"))
             else:
                 st.info("MANIFEST.md not found.")
+
+    if not df_chunks.empty:
+        with st.expander("👁️ Preview Existing Chunks in ChromaDB", expanded=True):
+            st.caption("Browse, inspect, and verify chunks already indexed in ChromaDB without needing to re-upload or re-process.")
+
+            c_doc_pick, c_filter_pick = st.columns([2, 1.5])
+            with c_doc_pick:
+                idx_docs = sorted(df_chunks["source"].dropna().unique().tolist())
+                chosen_idx_doc = st.selectbox(
+                    "Select Indexed Document to Preview",
+                    idx_docs,
+                    format_func=lambda s: f"{s} ({len(df_chunks[df_chunks['source'] == s])} chunks)",
+                    key="step1_doc_select",
+                )
+            with c_filter_pick:
+                filter_text = st.text_input(
+                    "Search within Document Chunks",
+                    placeholder="Search Chunk ID or text...",
+                    key="step1_existing_filter",
+                )
+
+            matched_rows = df_chunks[df_chunks["source"] == chosen_idx_doc].copy().reset_index(drop=True)
+
+            if filter_text.strip():
+                f_kw = filter_text.strip().lower()
+                display_rows = matched_rows[
+                    matched_rows["chunk_id"].str.lower().str.contains(f_kw) |
+                    matched_rows["text"].str.lower().str.contains(f_kw) |
+                    matched_rows["hierarchy_path"].astype(str).str.lower().str.contains(f_kw)
+                ].copy().reset_index(drop=True)
+            else:
+                display_rows = matched_rows
+
+            if display_rows.empty:
+                st.warning(f"No chunks in '{chosen_idx_doc}' matched the search query '{filter_text}'.")
+            else:
+                # Summary metrics row for this document
+                tok_counts = [len(t.split()) for t in display_rows["text"]]
+                avg_tok = sum(tok_counts) / len(tok_counts) if tok_counts else 0
+                max_tok = max(tok_counts) if tok_counts else 0
+                compliant_cnt = sum(1 for t in tok_counts if t <= 256)
+                compliance_pct = (compliant_cnt / len(tok_counts)) * 100 if tok_counts else 0
+                first_cid = display_rows.iloc[0]["chunk_id"]
+                last_cid = display_rows.iloc[-1]["chunk_id"]
+                cid_span = f"`{first_cid}` .. `{last_cid}`" if len(display_rows) > 1 else f"`{first_cid}`"
+
+                cm1, cm2, cm3, cm4, cm5 = st.columns(5)
+                cm1.metric("Indexed Chunks", f"{len(display_rows)}", f"of {len(matched_rows)}" if len(display_rows) != len(matched_rows) else None)
+                cm2.metric("Avg Token Length", f"{avg_tok:.1f} tok")
+                cm3.metric("Max Token Length", f"{max_tok} tok", delta="Over 256!" if max_tok > 256 else "Within Budget", delta_color="inverse" if max_tok > 256 else "normal")
+                cm4.metric("Token Compliance", f"{compliance_pct:.1f}%", f"{compliant_cnt}/{len(tok_counts)}")
+                cm5.metric("Chunk ID Span", f"{len(display_rows)} chunks", help=f"Span: {cid_span}")
+
+                # Chunk selector & step buttons
+                st.markdown("---")
+                nav_col1, nav_col2, nav_col3 = st.columns([1.5, 3.5, 1.5])
+
+                # Manage chunk navigation index in session state
+                doc_state_key = f"step1_chunk_idx_{chosen_idx_doc}"
+                if doc_state_key not in st.session_state:
+                    st.session_state[doc_state_key] = 0
+
+                # Ensure within bounds
+                if st.session_state[doc_state_key] >= len(display_rows):
+                    st.session_state[doc_state_key] = 0
+
+                with nav_col1:
+                    st.write("")
+                    st.write("")
+                    if st.button("⬅️ Previous Chunk", key="btn_prev_existing_chunk", disabled=(st.session_state[doc_state_key] <= 0), use_container_width=True):
+                        st.session_state[doc_state_key] = max(0, st.session_state[doc_state_key] - 1)
+                        st.rerun()
+
+                with nav_col2:
+                    chunk_options = [
+                        (idx, f"#{idx+1} · {row['chunk_id']} ({len(row['text'].split())} tok) — {row.get('heading_text') or row.get('hierarchy_path') or row['text'][:50]}...")
+                        for idx, row in display_rows.iterrows()
+                    ]
+                    selected_opt_idx = st.selectbox(
+                        f"Select Chunk to Preview ({st.session_state[doc_state_key] + 1} of {len(display_rows)})",
+                        options=[idx for idx, _ in chunk_options],
+                        index=st.session_state[doc_state_key],
+                        format_func=lambda idx: dict(chunk_options)[idx],
+                        key="step1_chunk_selector_box",
+                    )
+                    st.session_state[doc_state_key] = selected_opt_idx
+
+                with nav_col3:
+                    st.write("")
+                    st.write("")
+                    if st.button("Next Chunk ➡️", key="btn_next_existing_chunk", disabled=(st.session_state[doc_state_key] >= len(display_rows) - 1), use_container_width=True):
+                        st.session_state[doc_state_key] = min(len(display_rows) - 1, st.session_state[doc_state_key] + 1)
+                        st.rerun()
+
+                # Current chunk details
+                curr_row = display_rows.iloc[st.session_state[doc_state_key]]
+                c_tokens = len(curr_row["text"].split())
+                c_chars = len(curr_row["text"])
+                c_hierarchy = curr_row.get("hierarchy_path", "")
+                c_heading = curr_row.get("heading_text", "")
+                c_scope = curr_row.get("project_id", "unassigned")
+                c_dept = curr_row.get("department", "Human Resources")
+                c_class = curr_row.get("classification", "Internal")
+
+                # Visual badges bar
+                st.markdown(f"""
+                <div style="background-color: #0E1726; border: 1px solid #1E293B; border-radius: 8px; padding: 12px 16px; margin: 10px 0;">
+                    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
+                        <div>
+                            <span style="background: #0284C7; color: white; padding: 3px 8px; border-radius: 4px; font-weight: 700; font-size: 0.82rem; font-family: monospace;">🧩 {curr_row['chunk_id']}</span>
+                            &nbsp;<span style="background: #1E293B; color: #94A3B8; padding: 3px 8px; border-radius: 4px; font-size: 0.78rem;">Chunk {st.session_state[doc_state_key] + 1} of {len(display_rows)}</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: #94A3B8;">
+                            📏 <b style="color: {'#38BDF8' if c_tokens <= 256 else '#EF4444'};">{c_tokens} tokens</b> &nbsp;|&nbsp; 
+                            🔤 {c_chars} chars &nbsp;|&nbsp; 
+                            📁 Project: <code>{c_scope}</code> &nbsp;|&nbsp; 
+                            🏢 Dept: <code>{c_dept}</code> &nbsp;|&nbsp; 
+                            🔒 Classification: <code>{c_class}</code>
+                        </div>
+                    </div>
+                    {f'<div style="font-size: 0.83rem; color: #38BDF8; margin-top: 4px;">🧭 <b>Heading Breadcrumbs:</b> <code>{c_hierarchy or c_heading}</code></div>' if (c_hierarchy or c_heading) else ''}
+                </div>
+                """, unsafe_allow_html=True)
+
+                st.text_area(
+                    label=f"Chunk Content ({curr_row['chunk_id']})",
+                    value=curr_row["text"],
+                    height=180,
+                    disabled=True,
+                    key=f"preview_chunk_text_{curr_row['chunk_id']}",
+                )
+
+                with st.expander("🔍 View Raw Chunk Metadata JSON", expanded=False):
+                    chunk_meta = {
+                        "chunk_id": curr_row["chunk_id"],
+                        "doc_id": curr_row.get("doc_id", ""),
+                        "source": curr_row.get("source", ""),
+                        "tokens": c_tokens,
+                        "chars": c_chars,
+                        "hierarchy_path": c_hierarchy,
+                        "heading_text": c_heading,
+                        "project_id": c_scope,
+                        "department": c_dept,
+                        "classification": c_class,
+                        "produced_by": curr_row.get("produced_by", ""),
+                        "route": curr_row.get("route", ""),
+                        "content_type": curr_row.get("content_type", "text"),
+                    }
+                    st.json(chunk_meta)
+
+                # Chunk Inventory Table for this document
+                with st.expander(f"📋 View All {len(display_rows)} Chunks in `{chosen_idx_doc}` (Table)", expanded=False):
+                    tbl_data = []
+                    for i, r in display_rows.iterrows():
+                        tbl_data.append({
+                            "Index": i + 1,
+                            "Chunk ID": r["chunk_id"],
+                            "Tokens": len(r["text"].split()),
+                            "Heading / Hierarchy": r.get("hierarchy_path") or r.get("heading_text") or "-",
+                            "Snippet": r["text"][:100] + ("..." if len(r["text"]) > 100 else ""),
+                        })
+                    st.dataframe(pd.DataFrame(tbl_data), use_container_width=True, height=220)
+
+                # Dual Actions Row
+                col_act1, col_act2 = st.columns([1.5, 1.5])
+                with col_act1:
+                    if st.button("🔬 Load into Full 6-Dimension Quality Audit Workspace", key="btn_load_step1_audit", type="primary", use_container_width=True):
+                        recs = [
+                            {
+                                "id": r["chunk_id"],
+                                "text": r["text"],
+                                "metadata": {
+                                    "doc_id": r.get("doc_id", ""),
+                                    "source": r.get("source", ""),
+                                    "hierarchy_path": r.get("hierarchy_path", ""),
+                                    "heading_text": r.get("heading_text", ""),
+                                    "project_id": r.get("project_id", "unassigned"),
+                                    "department": r.get("department", "Human Resources"),
+                                    "classification": r.get("classification", "Internal"),
+                                }
+                            }
+                            for _, r in matched_rows.iterrows()
+                        ]
+                        st.session_state["active_chunk_results"] = {
+                            "records": recs,
+                            "doc_id": matched_rows.iloc[0].get("doc_id", Path(chosen_idx_doc).stem),
+                            "source": chosen_idx_doc,
+                            "persisted": True,
+                            "time_sec": 0.0,
+                        }
+                        st.success(f"Loaded {len(recs)} chunks of '{chosen_idx_doc}' into the Quality Audit workspace below!")
+                        st.rerun()
+
+                with col_act2:
+                    if st.button("🧪 Pre-fill Benchmark Test with this Document", key="btn_prefill_bench_from_preview", use_container_width=True):
+                        all_ids = matched_rows["chunk_id"].tolist()
+                        st.session_state["benchmark_prefill"] = {
+                            "expected_document": chosen_idx_doc,
+                            "doc_id": matched_rows.iloc[0].get("doc_id", Path(chosen_idx_doc).stem),
+                            "chunk_ids": all_ids[:2] if len(all_ids) >= 2 else all_ids,
+                            "all_chunk_ids": all_ids,
+                            "project_id": matched_rows.iloc[0].get("project_id", "unassigned"),
+                        }
+                        st.success(f"Pre-filled benchmark draft for '{chosen_idx_doc}'! Switch to Tab 5 (🧪 RAG Benchmark Suite) to finalize.")
+    else:
+        st.info("ℹ️ ChromaDB is currently empty. Re-ingest golden documents above or add a custom document below to preview chunks.")
 
     st.markdown("---")
 
@@ -451,6 +1033,121 @@ def render_golden_data_and_ingestion(df_chunks: pd.DataFrame):
             )
             version = st.text_input("Version", value="1.0")
 
+        # Semantic Chunk Merging Toggle & Options
+        st.markdown("---")
+        st.markdown("##### 🔀 Semantic Chunk Merging (Pairwise Consolidation)")
+        col_sm_t, col_sm_info = st.columns([1.6, 2.4])
+        with col_sm_t:
+            enable_custom_semantic_merging = st.toggle(
+                "Apply Semantic Chunk Merging",
+                value=True,
+                help="Consolidates micro-fragments and stub chunks (<250 chars) into similar parent chunks before indexing.",
+                key="toggle_custom_semantic_merging",
+            )
+        with col_sm_info:
+            if enable_custom_semantic_merging:
+                st.caption("🟢 **Enabled**: Micro-fragments (<250 chars) will be consolidated into similar parent chunks (<=1200 chars).")
+            else:
+                st.caption("⚪ **Disabled**: Standard chunking only (no fragment consolidation).")
+
+        custom_merge_cfg = None
+        if enable_custom_semantic_merging:
+            with st.expander("⚙️ Advanced Semantic Merging Parameters (Optional)", expanded=False):
+                col_sp1, col_sp2 = st.columns(2)
+                with col_sp1:
+                    custom_sim_thresh = st.slider("Cosine Similarity Threshold", 0.70, 0.99, 0.88, 0.01, key="custom_merge_sim")
+                    custom_x_cap = st.number_input("Max Merged Length (X chars)", 400, 3000, 1200, 100, key="custom_merge_x")
+                with col_sp2:
+                    custom_y_absorber = st.number_input("Absorber Limit (Y chars)", 200, 2000, 800, 50, key="custom_merge_y")
+                    custom_z_candidate = st.number_input("Candidate Max (Z chars)", 50, 800, 250, 25, key="custom_merge_z")
+                custom_merge_cfg = SemanticMergeConfig(
+                    max_chunk_chars=int(custom_x_cap),
+                    absorber_max_chars=int(custom_y_absorber),
+                    candidate_max_chars=int(custom_z_candidate),
+                    similarity_threshold=float(custom_sim_thresh),
+                    scope_field="document_id",
+                    enabled=True,
+                )
+
+    # Chunking Strategy & Optimal Token Budget Controls
+    st.markdown("---")
+    st.markdown("##### 🧩 Chunking Strategy & Optimal Token Budget")
+    st.caption("Select the algorithm used to segment text and configure token sizing budgets. Embedder models silently truncate beyond 256 tokens.")
+
+    strat_options = ["canonical_processor"] + list(CHUNK_STRATEGIES_META.keys())
+    strat_labels = {
+        "canonical_processor": "🏛️ Canonical Processor (Docling / Structured Parser Port)",
+        **{k: CHUNK_STRATEGIES_META[k]["name"] for k in CHUNK_STRATEGIES_META}
+    }
+
+    def _on_ingest_strat_change():
+        sk = st.session_state.get("ingest_strat_select")
+        if sk in CHUNK_STRATEGIES_META:
+            st.session_state["ingest_token_budget"] = min(250, CHUNK_STRATEGIES_META[sk]["optimal_tokens"])
+            st.session_state["ingest_overlap_pct"] = CHUNK_STRATEGIES_META[sk]["default_overlap_pct"]
+
+    col_cs1, col_cs2, col_cs3 = st.columns([1.6, 1.2, 0.8])
+    with col_cs1:
+        chosen_ingest_strat = st.selectbox(
+            "Select Chunking Strategy",
+            options=strat_options,
+            format_func=lambda k: strat_labels.get(k, k),
+            key="ingest_strat_select",
+            on_change=_on_ingest_strat_change,
+            help="Choose the algorithm used to segment the document during ingestion.",
+        )
+
+    if "ingest_token_budget" not in st.session_state:
+        st.session_state["ingest_token_budget"] = 220
+    if "ingest_overlap_pct" not in st.session_state:
+        st.session_state["ingest_overlap_pct"] = 10
+
+    with col_cs2:
+        ingest_token_budget = st.slider(
+            "Optimal Token Budget per Chunk",
+            min_value=50,
+            max_value=500,
+            value=st.session_state["ingest_token_budget"],
+            step=10,
+            key="ingest_token_budget_slider",
+            help="Target approximate tokens. Sentences are never cut mid-thought: soft boundary snapping ensures complete syntactic structures.",
+        )
+    with col_cs3:
+        ingest_overlap_pct = st.slider(
+            "Context Overlap (%)",
+            min_value=0,
+            max_value=30,
+            value=st.session_state["ingest_overlap_pct"],
+            step=5,
+            key="ingest_overlap_pct_slider",
+            help="Context lookback carryover into adjacent chunks.",
+        )
+
+    # Informational Callout Banner for Ingestion Strategy
+    if chosen_ingest_strat in CHUNK_STRATEGIES_META:
+        strat_info = CHUNK_STRATEGIES_META[chosen_ingest_strat]
+        st.markdown(f"""
+        <div style="background-color: #0E1726; border-left: 4px solid #0284C7; padding: 10px 14px; border-radius: 6px; margin-bottom: 15px;">
+            <div style="font-weight: 600; color: #38BDF8;">💡 {strat_info['name']}</div>
+            <div style="font-size: 0.88rem; color: #CBD5E1; margin-top: 3px;">
+                <b>Recommended Range:</b> {strat_info['recommended_range']} &nbsp;|&nbsp; 
+                <b>Best For:</b> {strat_info['best_for']}
+            </div>
+            <div style="font-size: 0.8rem; color: #94A3B8; margin-top: 4px;">
+                🛡️ <b>Embedder Context Limit Notice:</b> Model <code>all-MiniLM-L6-v2</code> has a maximum sequence window of 256 tokens. Target budget ({ingest_token_budget} tokens) ensures high retrieval fidelity without silent truncation.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="background-color: #0E1726; border-left: 4px solid #10B981; padding: 10px 14px; border-radius: 6px; margin-bottom: 15px;">
+            <div style="font-weight: 600; color: #34D399;">🏛️ Canonical Processor Active (Docling Layout-Aware)</div>
+            <div style="font-size: 0.88rem; color: #CBD5E1; margin-top: 3px;">
+                Runs layout-aware parsing through Docling: TableFormer structural table recovery, multi-column reading order, OCR, hierarchical heading breadcrumbs, and header/footer artifact suppression.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
     # Action Buttons
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
 
@@ -472,7 +1169,7 @@ def render_golden_data_and_ingestion(df_chunks: pd.DataFrame):
         with st.spinner("Processing document chunks..."):
             t_start = time.time()
             try:
-                records = process_document_to_chunks(
+                records, merge_res = process_document_to_chunks(
                     raw_bytes=raw_bytes,
                     file_name=source_name,
                     doc_id=doc_id,
@@ -480,6 +1177,11 @@ def render_golden_data_and_ingestion(df_chunks: pd.DataFrame):
                     classification=classification,
                     project_id=project_id,
                     version=version,
+                    enable_semantic_merging=enable_custom_semantic_merging,
+                    merge_config=custom_merge_cfg,
+                    chunking_strategy=chosen_ingest_strat,
+                    target_tokens=ingest_token_budget,
+                    overlap_pct=ingest_overlap_pct,
                 )
                 elapsed = time.time() - t_start
 
@@ -503,8 +1205,13 @@ def render_golden_data_and_ingestion(df_chunks: pd.DataFrame):
                         "source": source_name,
                         "persisted": True,
                         "time_sec": elapsed,
+                        "semantic_merging_applied": enable_custom_semantic_merging,
+                        "merge_report": merge_res,
                     }
-                    st.success(f"🎉 Ingested **{source_name}** ({doc_id}) into ChromaDB! Created **{len(records)}** chunks in {elapsed:.2f}s.")
+                    ingest_msg = f"🎉 Ingested **{source_name}** ({doc_id}) into ChromaDB! Created **{len(records)}** chunks in {elapsed:.2f}s."
+                    if merge_res and merge_res.absorbed_chunks_count > 0:
+                        ingest_msg += f" (🔀 Merged {merge_res.absorbed_chunks_count} micro-fragments, -{merge_res.reduction_percentage:.1f}%)"
+                    st.success(ingest_msg)
                     st.rerun()
                 else:
                     st.session_state["active_chunk_results"] = {
@@ -513,8 +1220,13 @@ def render_golden_data_and_ingestion(df_chunks: pd.DataFrame):
                         "source": source_name,
                         "persisted": False,
                         "time_sec": elapsed,
+                        "semantic_merging_applied": enable_custom_semantic_merging,
+                        "merge_report": merge_res,
                     }
-                    st.info(f"Generated preview of **{len(records)}** chunks for **{source_name}** in {elapsed:.2f}s (Dry Run).")
+                    prev_msg = f"Generated preview of **{len(records)}** chunks for **{source_name}** in {elapsed:.2f}s (Dry Run)."
+                    if merge_res and merge_res.absorbed_chunks_count > 0:
+                        prev_msg += f" 🔀 Semantic merging consolidated {merge_res.absorbed_chunks_count} micro-fragments (-{merge_res.reduction_percentage:.1f}%)."
+                    st.info(prev_msg)
 
             except Exception as e:
                 st.error(f"Ingestion failed: {e}")
@@ -550,6 +1262,13 @@ def render_golden_data_and_ingestion(df_chunks: pd.DataFrame):
             cm4.metric("Token Compliance", f"{budget_pct:.1f}%", f"{under_budget}/{len(records)}")
             cm5.metric("Breadcrumbs Detected", f"{has_hierarchy}/{len(records)}")
 
+            merge_report = active_res.get("merge_report")
+            applied = active_res.get("semantic_merging_applied", False)
+            if applied and merge_report and merge_report.absorbed_chunks_count > 0:
+                st.caption(f"🔀 **Semantic Chunk Merging Active:** {merge_report.absorbed_chunks_count} micro-fragments were absorbed into parent chunks ({merge_report.reduction_percentage:.1f}% reduction).")
+            elif applied:
+                st.caption("🔀 **Semantic Chunk Merging Active:** 0 micro-fragments required merging (all chunks were sufficiently distinct or above candidate limit).")
+
             # Generated Chunk IDs Manifest for Newly Added Document
             all_ids = [r["id"] for r in records]
             id_range_str = f"{all_ids[0]} .. {all_ids[-1]}" if len(all_ids) > 1 else all_ids[0]
@@ -569,9 +1288,91 @@ def render_golden_data_and_ingestion(df_chunks: pd.DataFrame):
                         "doc_id": active_res["doc_id"],
                         "chunk_ids": all_ids[:2] if len(all_ids) >= 2 else all_ids,
                         "all_chunk_ids": all_ids,
-                        "project_id": chosen_record["metadata"].get("project_id", "unassigned") if 'chosen_record' in locals() else "unassigned",
+                        "project_id": records[0].get("metadata", {}).get("project_id", "unassigned") if records else "unassigned",
                     }
                     st.success(f"Configured benchmark test draft for '{doc_label}'! Switch to Tab 5 (🧪 RAG Benchmark Suite) to add your validation test question.")
+
+            # Comprehensive 6-Dimension Chunk Quality & Anti-Pollution Audit
+            audit_report = audit_corpus_comprehensive(records)
+            clean_cnt = sum(1 for cr in audit_report.chunk_reports if cr.overall_status == 'pass')
+            report_by_id = {cr.chunk_id: cr for cr in audit_report.chunk_reports}
+
+            with st.expander(
+                f"🔬 Chunk Quality Audit (6 Dimensions): Grade {audit_report.composite_grade} ({audit_report.composite_score:.1f}%) "
+                f"[🔴 Blockers: {audit_report.hard_failures_count} | 🟡 Warnings: {audit_report.warnings_count} | 🟢 Clean: {clean_cnt}/{len(records)}]",
+                expanded=audit_report.hard_failures_count > 0 or audit_report.warnings_count > 0,
+            ):
+                st.markdown("#### 📊 Six Dimensions of Chunk Quality")
+                qm1, qm2, qm3, qm4 = st.columns(4)
+                qm1.metric("Composite Quality", f"{audit_report.composite_score:.1f}%", f"Grade {audit_report.composite_grade}")
+                qm2.metric("Hard Blockers (P0)", f"{audit_report.hard_failures_count}", delta="Blocking" if audit_report.hard_failures_count > 0 else "0 Violations", delta_color="inverse" if audit_report.hard_failures_count > 0 else "normal")
+                qm3.metric("Heuristic Warnings", f"{audit_report.warnings_count}", delta="Review Advised" if audit_report.warnings_count > 0 else "Clean", delta_color="inverse" if audit_report.warnings_count > 0 else "normal")
+                qm4.metric("Clean Chunks", f"{clean_cnt}/{len(records)}", f"{(clean_cnt/len(records))*100:.1f}% pristine")
+
+                # Dimension Compliance Grid (2 rows x 3 columns)
+                st.markdown("**Dimension Health:**")
+                dim_names = [
+                    ("text_integrity", "1. Text Integrity"),
+                    ("structural_quality", "2. Structure"),
+                    ("semantic_quality", "3. Semantics"),
+                    ("source_fidelity", "4. Fidelity"),
+                    ("chunk_relationships", "5. Relationships"),
+                    ("security_auditability", "6. Security & RBAC"),
+                ]
+                for row_start in range(0, len(dim_names), 3):
+                    row_cols = st.columns(3)
+                    for col_idx, (dim_key, dim_title) in enumerate(dim_names[row_start : row_start + 3]):
+                        d_score = audit_report.dimension_scores.get(dim_key, 100.0)
+                        d_status = audit_report.dimension_status.get(dim_key, "pass")
+                        status_emoji = "🟢" if d_status == "pass" else ("🟡" if d_status == "warning" else "🔴")
+                        with row_cols[col_idx]:
+                            st.caption(f"{status_emoji} **{dim_title}**")
+                            st.markdown(f"**{d_score:.0f}%**")
+
+                if audit_report.hard_failures_count > 0:
+                    st.error("🚨 **HARD VALIDATION FAILURES DETECTED:** One or more chunks contain blocking defects (missing metadata, null bytes, severed conditional rules, or exposed credentials). Review before persisting to vector store.")
+
+                # Actionable Findings Table addressing the 3 Critical Questions
+                st.markdown("#### 📋 Actionable Findings (3-Question Diagnostic)")
+                filter_choice = st.radio(
+                    "Filter Findings View",
+                    ["Issues Only (Failures & Warnings)", "🔴 Hard Blockers Only", "🟡 Heuristic Warnings Only", "All Evaluated Metrics"],
+                    horizontal=True,
+                    key="filter_active_chunk_quality_v2",
+                )
+
+                all_metric_rows = []
+                for cr in audit_report.chunk_reports:
+                    for m in cr.metrics:
+                        if filter_choice == "Issues Only (Failures & Warnings)" and m.status not in ("fail", "warning"):
+                            continue
+                        elif filter_choice == "🔴 Hard Blockers Only" and (m.status != "fail" or m.check_type != "hard_validation"):
+                            continue
+                        elif filter_choice == "🟡 Heuristic Warnings Only" and (m.status != "warning" and m.check_type == "hard_validation"):
+                            continue
+
+                        chunk_text_lookup = {cr.chunk_id: cr.text for cr in audit_report.chunk_reports}
+                        chunk_raw = chunk_text_lookup.get(m.chunk_id, "")
+                        chunk_quote = m.quoted_text or (chunk_raw[:130].replace("\n", " ").strip() + ("..." if len(chunk_raw) > 130 else ""))
+
+                        all_metric_rows.append({
+                            "Chunk ID": m.chunk_id,
+                            "Dimension": m.dimension.replace("_", " ").title(),
+                            "Metric": m.metric_name,
+                            "Type": m.check_type.replace("_", " ").title(),
+                            "Severity": m.severity.upper(),
+                            "Status": m.status.upper(),
+                            "What is Wrong (Evidence)": m.evidence or "N/A (Check Passed)",
+                            "Quoted Chunk (Where it Comes From)": f'"{chunk_quote}"',
+                            "Why It Matters (RAG Impact)": m.explanation or "Preserves grounding and retrieval fidelity.",
+                            "Recommended Action": m.recommended_action or "No action needed.",
+                        })
+
+                if all_metric_rows:
+                    df_metrics = pd.DataFrame(all_metric_rows)
+                    st.dataframe(df_metrics, use_container_width=True, height=240)
+                else:
+                    st.success("🎉 No issues found matching this filter! All chunks meet quality benchmarks.")
 
             st.markdown("#### Interactive Chunk Explorer")
             chunk_options = [
@@ -583,6 +1384,14 @@ def render_golden_data_and_ingestion(df_chunks: pd.DataFrame):
             chosen_record = records[selected_idx]
             chosen_tokens = len(chosen_record["text"].split())
             meta = chosen_record["metadata"]
+
+            chosen_ann = audit_chunk_record(chosen_record)
+            if chosen_ann.chunk_type == "OCR":
+                type_badge = f'<span class="badge-optimal" style="background:#0284C7;color:#E0F2FE;">📷 OCR ({chosen_ann.quality_score:.1f}%)</span>'
+            elif chosen_ann.chunk_type in ("VLM", "HYBRID_OCR_VLM"):
+                type_badge = f'<span class="badge-optimal" style="background:#7C3AED;color:#EDE9FE;">👁️ VLM ({chosen_ann.quality_score:.1f}%)</span>'
+            else:
+                type_badge = '<span class="badge-optimal" style="background:#334155;color:#F1F5F9;">📄 TEXT</span>'
 
             if chosen_tokens > 256:
                 badge_html = f'<span class="badge-overflow">🔴 OVERFLOW ({chosen_tokens} tokens > 256)</span>'
@@ -602,14 +1411,46 @@ def render_golden_data_and_ingestion(df_chunks: pd.DataFrame):
                 if selected_idx < len(records) - 1:
                     st.caption(f"➡️ Next: `{records[selected_idx+1]['id']}`")
 
-            st.markdown(f"**Chunk Status:** {badge_html} &nbsp;|&nbsp; **Length:** `{len(chosen_record['text'])} characters` &nbsp;|&nbsp; **Document:** `{meta.get('source', '')}`", unsafe_allow_html=True)
+            layout_tag = ""
+            if meta.get("layout_type"):
+                layout_tag = f" &nbsp;|&nbsp; 📐 **Layout:** <code>{meta.get('layout_type')}</code>"
+            if meta.get("bbox"):
+                layout_tag += f" &nbsp;|&nbsp; 📍 **BBox:** <code>{meta.get('bbox')}</code>"
+            st.markdown(f"**Chunk Status:** {badge_html} &nbsp;|&nbsp; {type_badge}{layout_tag} &nbsp;|&nbsp; **Length:** `{len(chosen_record['text'])} chars` &nbsp;|&nbsp; **Document:** `{meta.get('source', '')}`", unsafe_allow_html=True)
+
+            # 3-Question Quality Diagnostic for Selected Chunk
+            selected_report = report_by_id.get(chosen_record["id"]) or audit_single_chunk(chosen_record)
+            failed_metrics = [m for m in selected_report.metrics if m.status in ("fail", "warning")]
+
+            if failed_metrics:
+                st.markdown("##### 🔬 Chunk Defect Analysis (3-Question Diagnostic)")
+                for m in failed_metrics:
+                    sev_class = f"sev-{m.severity.lower()}"
+                    sev_color = "#DC2626" if m.severity in ("critical", "high") else "#D97706"
+                    sev_badge = f'<span style="background:{sev_color};color:#FFFFFF;padding:2px 7px;border-radius:4px;font-weight:700;font-size:0.72rem;letter-spacing:0.04em;">{m.severity.upper()}</span>'
+                    item_quote = m.quoted_text or (chosen_record["text"][:140].replace("\n", " ").strip() + ("..." if len(chosen_record["text"]) > 140 else ""))
+                    st.markdown(f"""
+                    <div class="defect-card {sev_class}">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                            {sev_badge}
+                            <span style="font-weight:700; color:#F8FAFC; font-size:0.92rem;">{m.metric_name}</span>
+                            <span style="color:#64748B; font-size:0.76rem; font-weight:500;">({m.check_type.replace('_', ' ').title()}) · Dimension: {m.dimension.replace('_', ' ').title()}</span>
+                        </div>
+                        <div style="color:#E2E8F0; font-size:0.86rem; margin-bottom:5px;"><b>1. What is wrong:</b> <code style="color:#FCA5A5; background:#1E1523; padding:2px 6px; border-radius:3px;">{m.evidence}</code></div>
+                        <div class="defect-quote">💬 <b>Quoted Chunk Source:</b> "{item_quote}"</div>
+                        <div style="color:#CBD5E1; font-size:0.85rem; margin-bottom:4px;"><b>2. Why it matters for RAG:</b> {m.explanation}</div>
+                        <div style="color:#38BDF8; font-size:0.85rem; font-weight:500;"><b>3. Recommended action:</b> {m.recommended_action}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.success("🟢 **Pristine Chunk:** Passes all 6 dimensions with zero integrity, boundary, semantic, or security defects.")
 
             if meta.get("hierarchy_path"):
                 st.info(f"🧭 **Heading Hierarchy:** `{meta['hierarchy_path']}`")
             elif meta.get("section_heading"):
                 st.info(f"🧭 **Section Heading:** `{meta['section_heading']}`")
 
-            st.text_area(label="Chunk Content", value=chosen_record["text"], height=160, disabled=True, label_visibility="collapsed")
+            st.text_area(label="Chunk Content", value=chosen_record["text"], height=160, disabled=True, label_visibility="collapsed", key=f"doc_browser_chunk_content_{chosen_record.get('chunk_id', 'main')}")
 
             with st.expander("🔍 View Raw Chunk Metadata JSON", expanded=False):
                 st.json(meta)
@@ -768,7 +1609,18 @@ def render_chunk_explorer(df: pd.DataFrame):
     # Detailed chunk view
     st.markdown("### Chunk Inspector")
     if not filtered.empty:
-        selected_chunk_id = st.selectbox("Select Chunk ID to Inspect", filtered["chunk_id"].tolist())
+        def _fmt_filtered_chunk(cid: str) -> str:
+            m = filtered[filtered["chunk_id"] == cid]
+            if not m.empty:
+                r = m.iloc[0]
+                t_cnt = r["token_count"]
+                hdr = r.get("heading_text") or r.get("hierarchy_path") or ""
+                if not hdr and "text" in r:
+                    hdr = r["text"][:38].replace("\n", " ").strip() + "..."
+                return f"[{cid}] ({t_cnt} tok) - {hdr}"
+            return cid
+
+        selected_chunk_id = st.selectbox("Select Chunk to Inspect", filtered["chunk_id"].tolist(), format_func=_fmt_filtered_chunk)
         chunk_row = filtered[filtered["chunk_id"] == selected_chunk_id].iloc[0]
 
         col_cid, col_cnav = st.columns([2, 1])
@@ -791,31 +1643,139 @@ def render_chunk_explorer(df: pd.DataFrame):
                     if has_next:
                         st.caption(f"➡️ Next: `{next_id}`")
 
+        # Disposition & Telemetry row
+        cur_disp = get_chunk_disposition(selected_chunk_id)
+        disp_badge_html = get_disposition_badge_html(cur_disp.get("status", "Open"))
+
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Token Count", f"{chunk_row['token_count']} tok")
         c2.metric("Document ID", str(chunk_row['doc_id']))
         c3.metric("Project Scope", str(chunk_row['project_id']))
-        c4.metric("Department", str(chunk_row['department']))
+        c4.metric("Review Disposition", cur_disp.get("status", "Open"))
 
         tokens = chunk_row["token_count"]
         if tokens > 256:
-            st.markdown('<span class="badge-overflow">🔴 OVERFLOW (> 256 tokens)</span>', unsafe_allow_html=True)
-        elif tokens < 30:
-            st.markdown('<span class="badge-stub">🟡 SHORT STUB (< 30 tokens)</span>', unsafe_allow_html=True)
+            density_badge = '<span class="badge-overflow">🔴 OVERFLOW (> 256 tokens - HARD LIMIT)</span>'
+        elif tokens > 220:
+            density_badge = '<span class="badge-stub" style="background:#78350F;color:#FDE68A;">🟡 TARGET BUDGET EXCEEDED (> 220 tok)</span>'
+        elif tokens < 20:
+            density_badge = '<span class="badge-stub">🟡 SHORT STUB (< 20 tokens)</span>'
         else:
-            st.markdown('<span class="badge-optimal">🟢 OPTIMAL DENSITY (30-256 tokens)</span>', unsafe_allow_html=True)
+            density_badge = '<span class="badge-optimal">🟢 OPTIMAL DENSITY (20-220 tokens)</span>'
+
+        st.markdown(
+            f"**Density Profile:** {density_badge} &nbsp;|&nbsp; "
+            f"**Governance Status:** {disp_badge_html} &nbsp;|&nbsp; "
+            f"**Document:** `{chunk_row.get('source', '')}`",
+            unsafe_allow_html=True,
+        )
+
+        # 3-Question Quality Diagnostic for Selected Chunk
+        chosen_rec = {
+            "id": chunk_row["chunk_id"],
+            "text": chunk_row["text"],
+            "metadata": {
+                "doc_id": chunk_row.get("doc_id", ""),
+                "source": chunk_row.get("source", ""),
+                "hierarchy_path": chunk_row.get("hierarchy_path", ""),
+                "heading_text": chunk_row.get("heading_text", ""),
+                "project_id": chunk_row.get("project_id", "unassigned"),
+                "department": chunk_row.get("department", "Human Resources"),
+                "classification": chunk_row.get("classification", "Internal"),
+                "produced_by": chunk_row.get("produced_by", ""),
+                "content_type": chunk_row.get("content_type", "text"),
+                "route": chunk_row.get("route", ""),
+            }
+        }
+        chunk_audit = audit_single_chunk(chosen_rec, target_window=256)
+        failed_checks = [m for m in chunk_audit.metrics if m.status in ("fail", "warning")]
+
+        # Action bar: Reviewer Decision + Step 4 Funnel Link
+        col_disp_act, col_funnel_act = st.columns([2.2, 1.8])
+        with col_disp_act:
+            with st.expander(f"📝 Reviewer Decision ({cur_disp.get('status', 'Open')})", expanded=False):
+                d_c1, d_c2 = st.columns([1.2, 2.0])
+                with d_c1:
+                    disp_opts = ["Open", "Under Review", "Approved", "Needs Re-OCR", "Needs Re-Chunk", "Dismissed"]
+                    sel_new_disp = st.selectbox(
+                        "Set Disposition",
+                        disp_opts,
+                        index=disp_opts.index(cur_disp.get("status", "Open")) if cur_disp.get("status", "Open") in disp_opts else 0,
+                        key=f"exp_disp_sel_{selected_chunk_id}",
+                    )
+                with d_c2:
+                    sel_new_note = st.text_input("Reviewer Notes", value=cur_disp.get("notes", ""), placeholder="e.g. Approved exception for table chunk.", key=f"exp_note_in_{selected_chunk_id}")
+                if st.button("Save Decision", key=f"btn_save_exp_disp_{selected_chunk_id}"):
+                    set_chunk_disposition(selected_chunk_id, sel_new_disp, sel_new_note)
+                    st.success("Decision saved!")
+                    st.rerun()
+        with col_funnel_act:
+            st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
+            if st.button("🎯 Simulate in Retrieval Funnel (Step 4)", key=f"btn_exp_to_funnel_{selected_chunk_id}", type="primary"):
+                st.session_state["custom_funnel_target"] = selected_chunk_id
+                probe_q = chunk_row["text"].split("\n")[0][:80].strip()
+                if not probe_q or len(probe_q) < 10:
+                    probe_q = f"What is detailed in chunk {selected_chunk_id}?"
+                st.session_state["custom_funnel_q"] = probe_q
+                st.session_state["funnel_workspace_pending"] = "🎯 2-Stage Retrieval & Needle Tester"
+                st.success(f"Loaded `{selected_chunk_id}` into Step 4 Funnel! Switch to Tab 4 to test.")
+
+        # Quality Findings Panel
+        if failed_checks:
+            st.markdown("##### 🔬 Quality Findings Panel")
+            for m in failed_checks:
+                sev_class = f"sev-{m.severity.lower()}"
+                sev_color = "#DC2626" if m.severity in ("critical", "high") else "#D97706"
+                sev_badge = f'<span style="background:{sev_color};color:#FFFFFF;padding:2px 7px;border-radius:4px;font-weight:700;font-size:0.72rem;letter-spacing:0.04em;">{m.severity.upper()}</span>'
+                quote_val = m.quoted_text or (chunk_row["text"][:140].replace("\n", " ").strip() + ("..." if len(chunk_row["text"]) > 140 else ""))
+                st.markdown(f"""
+                <div class="defect-card {sev_class}">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                        {sev_badge}
+                        <span style="font-weight:700; color:#F8FAFC; font-size:0.92rem;">{m.metric_name}</span>
+                        <span style="color:#64748B; font-size:0.76rem; font-weight:500;">({m.check_type.replace('_', ' ').title()}) · Dimension: {m.dimension.replace('_', ' ').title()}</span>
+                    </div>
+                    <div style="color:#E2E8F0; font-size:0.86rem; margin-bottom:5px;"><b>1. What is wrong:</b> <code style="color:#FCA5A5; background:#1E1523; padding:2px 6px; border-radius:3px;">{m.evidence}</code></div>
+                    <div class="defect-quote">💬 <b>Quoted Chunk Source:</b> "{quote_val}"</div>
+                    <div style="color:#CBD5E1; font-size:0.85rem; margin-bottom:4px;"><b>2. Why it matters for RAG:</b> {m.explanation}</div>
+                    <div style="color:#38BDF8; font-size:0.85rem; font-weight:500;"><b>3. Recommended action:</b> {m.recommended_action}</div>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.success("🟢 **Pristine Chunk:** Passes all 6 dimensions with zero integrity, boundary, semantic, or security defects.")
 
         if chunk_row["hierarchy_path"]:
             st.info(f"🧭 **Heading Hierarchy:** `{chunk_row['hierarchy_path']}`")
 
+        # Chunk Content with Highlighted Suspicious Text (if any)
         st.markdown("**Chunk Content:**")
+        chunk_text_display = chunk_row["text"]
+        highlighted_html = chunk_text_display
+        for m in failed_checks:
+            if m.quoted_text and m.quoted_text in highlighted_html and len(m.quoted_text) > 4:
+                highlighted_html = highlighted_html.replace(
+                    m.quoted_text,
+                    f'<mark style="background:#7F1D1D; color:#FECACA; padding:1px 4px; border-radius:3px; font-weight:600;">{m.quoted_text}</mark>'
+                )
+
+        if highlighted_html != chunk_text_display:
+            with st.expander("👁️ View with Highlighted Defect Text", expanded=True):
+                st.markdown(f'<div style="background:#090E17; border:1px solid #1E293B; border-radius:4px; padding:12px; font-family:\'JetBrains Mono\', monospace; font-size:0.88rem; line-height:1.5; color:#E2E8F0; white-space:pre-wrap;">{highlighted_html}</div>', unsafe_allow_html=True)
+
         st.text_area(
-            label="Full Text",
+            label="Raw Text",
             value=chunk_row["text"],
-            height=160,
+            height=140,
             disabled=True,
             label_visibility="collapsed",
         )
+
+        # Source Document Context Comparison
+        source_doc_path = _REPO_ROOT / "test_data" / chunk_row["source"]
+        if source_doc_path.exists():
+            with st.expander(f"📄 Source Document Context Comparison (`{chunk_row['source']}`)", expanded=False):
+                st.caption(f"Source file size: **{source_doc_path.stat().st_size / 1024:.1f} KB** on disk.")
+                st.info("Compare the stored chunk text against the original document context to verify extraction fidelity.")
 
         with st.expander("🔍 View Raw Chunk Metadata JSON", expanded=False):
             st.json({
@@ -828,116 +1788,771 @@ def render_chunk_explorer(df: pd.DataFrame):
 
 
 def render_quality_diagnostics(df: pd.DataFrame):
-    st.subheader("📊 Step 2 · Chunk Quality Diagnostics (CQI)")
-    st.info(
-        "💡 **Usage Guide — Step 2:** "
-        "Audit token length distributions, stub chunks (<35 tokens), and overflow chunks (>256 tokens) across ChromaDB. "
-        "High stub chunk counts lead to false semantic hits; overflow chunks lose critical policy conditions. "
-        "Target: CQI score >= 85% optimal chunks before proceeding to vector retrieval.",
-        icon="ℹ️",
-    )
-    st.caption("Quantitative audit of token budgets, structural preservation, and granularity.")
-
-    active_res = st.session_state.get("active_chunk_results")
-    if active_res:
-        a_records = active_res["records"]
-        a_toks = [len(r["text"].split()) for r in a_records]
-        a_under = sum(1 for t in a_toks if t <= 256)
-        a_pct = (a_under / len(a_records)) * 100
-        a_stubs = sum(1 for t in a_toks if t < 20)
-        with st.expander(f"🆕 Active Document Quality Audit: `{active_res['source']}` ({len(a_records)} chunks)", expanded=False):
-            ac1, ac2, ac3, ac4 = st.columns(4)
-            ac1.metric("Doc Chunks", len(a_records))
-            ac2.metric("Chunk ID Prefix", f"{active_res['doc_id']}-*")
-            ac3.metric("Avg Tokens", f"{sum(a_toks)/len(a_toks):.1f} tok")
-            ac4.metric("Budget Compliance", f"{a_pct:.1f}%", f"{a_under}/{len(a_records)}")
-            if a_stubs > 0:
-                st.warning(f"Detected {a_stubs} stub chunks (< 20 tokens) in this document.")
-
     if df.empty:
-        st.info("No chunks loaded in vector database.")
+        st.warning("ChromaDB is currently empty. Please index documents in Step 1 first.")
         return
 
-    total = len(df)
-    under_budget = (df["token_count"] <= 256).sum()
-    budget_pct = (under_budget / total) * 100
+    tab_7param, tab_6dim = st.tabs([
+        "🎯 7-Parameter Retrieval-Fitness Evaluator (3-Gate Pipeline)",
+        "🔬 6-Dimension Defect Registry & Reviewer Dispositions (65 Metrics)",
+    ])
 
-    optimal_density = ((df["token_count"] >= 30) & (df["token_count"] <= 256)).sum()
-    density_pct = (optimal_density / total) * 100
+    with tab_7param:
+        render_seven_parameter_quality_studio(df)
 
-    has_hierarchy = (df["hierarchy_path"].str.len() > 0).sum()
-    hierarchy_pct = (has_hierarchy / total) * 100
+    with tab_6dim:
+        _render_6dimension_quality_workbench(df)
 
-    complete_meta = ((df["doc_id"] != "unknown") & (df["source"] != "unknown")).sum()
-    meta_pct = (complete_meta / total) * 100
 
-    # Composite CQI
-    cqi_score = (
-        0.25 * budget_pct
-        + 0.25 * density_pct
-        + 0.20 * hierarchy_pct
-        + 0.15 * meta_pct
-        + 0.15 * 95.0
+def _render_6dimension_quality_workbench(df: pd.DataFrame):
+    st.markdown("""
+    <div style="margin-bottom: 1.2rem;">
+        <h3 style="margin-bottom: 4px; font-weight: 700; letter-spacing: -0.01em; color: #F8FAFC;">Step 2 · Chunk Quality Inspection Workbench</h3>
+        <div style="color: #94A3B8; font-size: 0.9rem;">Comprehensive, explainable quality auditing across 6 core dimensions with actionable defect evidence, reviewer dispositions, and direct retrieval funnel simulation.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if df.empty:
+        st.warning("ChromaDB is currently empty. Please index documents in Step 1 first.")
+        return
+
+    # Document Scope Filter
+    doc_list = sorted(df["source"].dropna().unique().tolist())
+    doc_filter_options = ["All Documents (Entire Collection)"] + doc_list
+
+    c_scope1, c_scope2 = st.columns([2.5, 1.5])
+    with c_scope1:
+        selected_audit_doc = st.selectbox(
+            "📄 Select Document Scope to Audit",
+            options=doc_filter_options,
+            format_func=lambda s: f"🌐 {s}" if s.startswith("All") else f"📄 {s} ({len(df[df['source'] == s])} chunks)",
+            key="quality_audit_doc_dropdown",
+            help="Filter the 6-dimension scorecard, defect registry, and deep-dive inspection to a specific document or inspect the entire collection.",
+        )
+    with c_scope2:
+        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+        if selected_audit_doc == "All Documents (Entire Collection)":
+            audit_subset_df = df.copy().reset_index(drop=True)
+            st.caption(f"Auditing all **{len(audit_subset_df):,} chunks** across {len(doc_list)} documents.")
+        else:
+            audit_subset_df = df[df["source"] == selected_audit_doc].copy().reset_index(drop=True)
+            st.caption(f"Auditing **{len(audit_subset_df):,} chunks** in `{selected_audit_doc}`.")
+
+    # Execute Full 6-Dimension Audit
+    audit_raw_records = [
+        {"id": row["chunk_id"], "text": row["text"], "metadata": {
+            "produced_by": row.get("produced_by", ""),
+            "route": row.get("route", ""),
+            "content_type": row.get("content_type", "text"),
+            "doc_id": row.get("doc_id", ""),
+            "source": row.get("source", ""),
+            "hierarchy_path": row.get("hierarchy_path", ""),
+            "heading_text": row.get("heading_text", ""),
+            "project_id": row.get("project_id", "unassigned"),
+        }}
+        for _, row in audit_subset_df.iterrows()
+    ]
+    audit_chroma = audit_corpus_comprehensive(audit_raw_records, target_window=256)
+    
+    chunks_audited = len(audit_subset_df)
+    review_needed_cnt = sum(1 for cr in audit_chroma.chunk_reports if cr.overall_status in ("fail", "warning"))
+    critical_defects_cnt = audit_chroma.hard_failures_count
+    source_fidelity = audit_chroma.dimension_scores.get("source_fidelity", 100.0)
+
+    # --------------------------------------------------------------------------
+    # Section 1: Executive Summary Cards
+    # --------------------------------------------------------------------------
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Chunks Audited", f"{chunks_audited:,}", f"{len(doc_list)} Source Files" if selected_audit_doc.startswith("All") else "1 Document")
+    m2.metric(
+        "Chunks Requiring Review",
+        f"{review_needed_cnt:,}",
+        delta=f"{(review_needed_cnt / chunks_audited * 100):.1f}% of corpus" if chunks_audited else "0%",
+        delta_color="inverse" if review_needed_cnt > 0 else "normal",
+    )
+    m3.metric(
+        "Critical Defects (Blockers)",
+        f"{critical_defects_cnt}",
+        delta="Blocking Ingestion" if critical_defects_cnt > 0 else "0 Hard Failures",
+        delta_color="inverse" if critical_defects_cnt > 0 else "normal",
+    )
+    clean_chunks_cnt = max(0, chunks_audited - review_needed_cnt)
+    clean_pct = (clean_chunks_cnt / chunks_audited * 100) if chunks_audited else 100.0
+    m4.metric(
+        "Composite Quality",
+        f"{audit_chroma.composite_score:.1f}%",
+        delta=f"Grade {audit_chroma.composite_grade} · {clean_pct:.1f}% Clean" if chunks_audited else "0%",
+        delta_color="normal" if audit_chroma.composite_score >= 75 else "inverse",
     )
 
-    grade = "A+" if cqi_score >= 90 else ("B" if cqi_score >= 80 else ("C" if cqi_score >= 70 else "F"))
+    st.markdown("---")
 
-    # Top metrics
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Composite CQI Score", f"{cqi_score:.1f} / 100", f"Grade {grade}")
-    m2.metric("Token Budget (<= 256)", f"{budget_pct:.1f}%", f"{under_budget}/{total}")
-    m3.metric("Optimal Density (>= 30)", f"{density_pct:.1f}%", f"{optimal_density}/{total}")
-    m4.metric("Metadata Integrity", f"{meta_pct:.1f}%", f"{complete_meta}/{total}")
+    # --------------------------------------------------------------------------
+    # Section 2: Audit Dimensions Grid
+    # --------------------------------------------------------------------------
+    st.markdown("#### 1. Audit Dimensions")
+    st.caption("Quantitative pass rates, defect counts, and explainability across the 6 Core Quality Dimensions.")
 
-    # Document-level breakdown table with Chunk ID Prefix
-    st.markdown("### Document-Level Chunking Quality Breakdown")
-    doc_groups = df.groupby("source")
-    doc_summary = []
-    for src, group in doc_groups:
-        toks = group["token_count"]
-        stubs_cnt = (toks < 20).sum()
-        comp_pct = (toks <= 256).mean() * 100
-        first_cid = group["chunk_id"].iloc[0] if not group.empty else "N/A"
-        last_cid = group["chunk_id"].iloc[-1] if not group.empty else "N/A"
-        cid_range = f"{first_cid} .. {last_cid}" if first_cid != last_cid else first_cid
-        doc_summary.append({
-            "Document": src,
-            "Chunk ID Range": cid_range,
-            "Chunk ID Prefix": f"{Path(src).stem}-*",
-            "Chunks": len(group),
-            "Mean Tokens": round(toks.mean(), 1),
-            "Max Tokens": int(toks.max()),
-            "Stubs (<20)": int(stubs_cnt),
-            "Budget Compliance": f"{comp_pct:.1f}%",
-        })
-    df_doc_summary = pd.DataFrame(doc_summary)
-    st.dataframe(df_doc_summary, use_container_width=True)
+    dimension_meta = [
+        ("text_integrity", "1. Text Integrity", "OCR noise, symbol anomalies, malformed characters", "TextIntegrityValidator"),
+        ("structural_quality", "2. Structure", "Length budgets, boundaries, headings, tables", "StructuralQualityAuditor"),
+        ("semantic_quality", "3. Semantics", "Coherence, context, missing conditions", "SemanticCoherenceAuditor"),
+        ("source_fidelity", "4. Source Fidelity", "Lost text, altered values, extraction errors", "SourceFidelityAuditor"),
+        ("chunk_relationships", "5. Relationships", "Duplicates, overlap, neighboring chunks", "RelationshipCorpusAuditor"),
+        ("security_auditability", "6. Security & RBAC", "Required fields, source versions, access labels", "SecurityMetadataValidator"),
+    ]
 
-    # Token length histogram
-    st.markdown("### Token Length Distribution")
-    st.bar_chart(df["token_count"].value_counts().sort_index())
+    # Render Audit Dimensions in 2 rows of 3 columns
+    for row_start in range(0, len(dimension_meta), 3):
+        row_cols = st.columns(3)
+        for col_idx, (dim_key, dim_title, dim_sub, _) in enumerate(dimension_meta[row_start : row_start + 3]):
+            d_score = audit_chroma.dimension_scores.get(dim_key, 100.0)
+            d_status = audit_chroma.dimension_status.get(dim_key, "pass")
+            status_emoji = "🟢" if d_status == "pass" else ("🟡" if d_status == "warning" else "🔴")
+            
+            # Count chunks affected by this specific dimension
+            dim_affected = sum(
+                1 for cr in audit_chroma.chunk_reports
+                if any(m.dimension == dim_key and m.status in ("fail", "warning") for m in cr.metrics)
+            )
+            affected_color = "#34D399" if dim_affected == 0 else ("#FBBF24" if d_status == "warning" else "#F87171")
 
-    # Stubs (< 20 tokens) with dedicated Chunk ID inspector
-    stubs = df[df["token_count"] < 20]
-    if not stubs.empty:
-        st.warning(f"Detected {len(stubs)} Stub / Fragment Chunks (< 20 tokens):")
-        stubs_display = stubs.rename(columns={
-            "chunk_id": "Chunk ID",
-            "source": "Document Source",
-            "token_count": "Tokens",
-            "text": "Chunk Snippet",
-        })
-        st.dataframe(stubs_display[["Chunk ID", "Document Source", "Tokens", "Chunk Snippet"]], use_container_width=True)
+            with row_cols[col_idx]:
+                st.markdown(f"""
+                <div class="dimension-card">
+                    <div class="dimension-header">
+                        <span class="dimension-title">{dim_title}</span>
+                        <span>{status_emoji}</span>
+                    </div>
+                    <div class="dimension-sub">{dim_sub}</div>
+                    <div class="dimension-stat-row">
+                        <span class="dimension-pct">{d_score:.0f}%</span>
+                        <span class="dimension-affected" style="color: {affected_color};">
+                            {dim_affected} affected
+                        </span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
-        st.markdown("#### 🔎 Inspect Stub Fragment by Chunk ID")
-        selected_stub_id = st.selectbox("Select Stub Chunk ID", stubs["chunk_id"].tolist())
-        stub_row = stubs[stubs["chunk_id"] == selected_stub_id].iloc[0]
-        st.markdown(f"**Stub Chunk ID:** `{stub_row['chunk_id']}` &nbsp;|&nbsp; **Source:** `{stub_row['source']}` &nbsp;|&nbsp; **Tokens:** `{stub_row['token_count']}`")
-        st.code(stub_row["text"], language="text")
+    # --------------------------------------------------------------------------
+    # Section 3: Findings Queue & Defect Registry
+    # --------------------------------------------------------------------------
+    st.markdown("---")
+    st.markdown("#### 2. Findings Queue & Defect Registry")
+    st.caption("Unified, filterable queue of chunk-level findings with reviewer disposition tracking and direct funnel simulation.")
+
+    # Flatten all findings across reports
+    raw_findings = []
+    for cr in audit_chroma.chunk_reports:
+        for m in cr.metrics:
+            if m.status in ("fail", "warning"):
+                disp = get_chunk_disposition(m.chunk_id)
+                chunk_quote = m.quoted_text or (cr.text[:130].replace("\n", " ").strip() + ("..." if len(cr.text) > 130 else ""))
+                raw_findings.append({
+                    "chunk_id": m.chunk_id,
+                    "source": cr.metadata.get("source", "unknown"),
+                    "dimension": m.dimension,
+                    "dimension_label": m.dimension.replace("_", " ").title(),
+                    "metric_name": m.metric_name,
+                    "check_type": m.check_type,
+                    "severity": m.severity.upper(),
+                    "severity_raw": m.severity,
+                    "disposition": disp.get("status", "Open"),
+                    "reviewer_notes": disp.get("notes", ""),
+                    "evidence": m.evidence or "N/A",
+                    "quoted_text": chunk_quote,
+                    "possible_cause": m.possible_cause or "Extraction noise or boundary splitting mismatch.",
+                    "verification_step": m.verification_step or "Compare against original source document text.",
+                    "explanation": m.explanation or "Potential context degradation in RAG.",
+                    "recommended_action": m.recommended_action or "Review chunk text.",
+                    "revalidation_action": m.revalidation_action or "Re-audit after ingestion update.",
+                })
+
+    if raw_findings:
+        col_flt1, col_flt2, col_flt3, col_flt4 = st.columns(4)
+        with col_flt1:
+            sev_filter = st.selectbox(
+                "Filter by Severity",
+                ["All Severities", "CRITICAL", "HIGH", "MEDIUM", "LOW"],
+                key="findings_sev_filter",
+            )
+        with col_flt2:
+            dim_opts = ["All Dimensions"] + sorted(list({f["dimension_label"] for f in raw_findings}))
+            dim_filter = st.selectbox("Filter by Dimension", dim_opts, key="findings_dim_filter")
+        with col_flt3:
+            disp_opts = ["All Dispositions", "Open", "Under Review", "Approved", "Needs Re-OCR", "Needs Re-Chunk", "Dismissed"]
+            disp_filter = st.selectbox("Filter by Disposition", disp_opts, key="findings_disp_filter")
+        with col_flt4:
+            f_search = st.text_input("Search in Findings", placeholder="e.g. OCR, symbol, boundary, DOC-001...", key="findings_search_kw")
+
+        filtered_findings = raw_findings
+        if sev_filter != "All Severities":
+            filtered_findings = [f for f in filtered_findings if f["severity"] == sev_filter]
+        if dim_filter != "All Dimensions":
+            filtered_findings = [f for f in filtered_findings if f["dimension_label"] == dim_filter]
+        if disp_filter != "All Dispositions":
+            filtered_findings = [f for f in filtered_findings if f["disposition"] == disp_filter]
+        if f_search.strip():
+            kw = f_search.strip().lower()
+            filtered_findings = [
+                f for f in filtered_findings
+                if kw in f["chunk_id"].lower()
+                or kw in f["metric_name"].lower()
+                or kw in f["evidence"].lower()
+                or kw in f["source"].lower()
+            ]
+
+        st.caption(f"Displaying **{len(filtered_findings)} of {len(raw_findings)} findings**:")
+
+        # Summary Display Table
+        df_findings_table = pd.DataFrame([
+            {
+                "Chunk ID": f["chunk_id"],
+                "Source Document": f["source"],
+                "Dimension": f["dimension_label"],
+                "Issue / Metric": f["metric_name"],
+                "Severity": f["severity"],
+                "Disposition": f["disposition"],
+                "Quoted Chunk Source": f'"{f["quoted_text"]}"',
+                "What is Wrong (Evidence)": f["evidence"],
+            }
+            for f in filtered_findings
+        ])
+        st.dataframe(df_findings_table, use_container_width=True, height=260)
+
+        # Quick Disposition Updater & Inspector Pre-selection
+        with st.expander("⚡ Quick Disposition Manager (Assign Disposition to Flagged Chunk)", expanded=False):
+            f_chunk_ids = sorted(list({f["chunk_id"] for f in filtered_findings}))
+            if f_chunk_ids:
+                q_col1, q_col2, q_col3 = st.columns([1.5, 1.2, 2.0])
+                with q_col1:
+                    target_disp_cid = st.selectbox("Select Chunk ID to Update", f_chunk_ids, key="quick_disp_cid_select")
+                with q_col2:
+                    current_disp = get_chunk_disposition(target_disp_cid).get("status", "Open")
+                    new_disp_val = st.selectbox(
+                        "Assign Disposition",
+                        ["Open", "Under Review", "Approved", "Needs Re-OCR", "Needs Re-Chunk", "Dismissed"],
+                        index=["Open", "Under Review", "Approved", "Needs Re-OCR", "Needs Re-Chunk", "Dismissed"].index(current_disp) if current_disp in ["Open", "Under Review", "Approved", "Needs Re-OCR", "Needs Re-Chunk", "Dismissed"] else 0,
+                        key="quick_disp_val_select",
+                    )
+                with q_col3:
+                    new_disp_note = st.text_input("Reviewer Notes", value=get_chunk_disposition(target_disp_cid).get("notes", ""), placeholder="e.g. Confirmed scan noise; scheduled for re-OCR", key="quick_disp_note_input")
+                
+                if st.button("💾 Save Disposition & Notes", key="btn_save_quick_disp"):
+                    set_chunk_disposition(target_disp_cid, new_disp_val, new_disp_note)
+                    st.success(f"Updated disposition for `{target_disp_cid}` &rarr; **{new_disp_val}**")
+                    st.rerun()
     else:
-        st.success("No stub fragments detected (< 20 tokens)!")
+        st.success(f"🎉 Pristine Corpus: All {chunks_audited} chunks meet all 6-dimension quality standards with zero defects!")
 
-    # Download Audit
+    # --------------------------------------------------------------------------
+    # Section 3: Evidence-Focused Deep-Dive Workspace
+    # --------------------------------------------------------------------------
+    st.markdown("---")
+    st.markdown("#### 3. Evidence-Focused Diagnostic Workspace")
+    st.caption("Deep-dive into exact triggering characters, root causes, reviewer verification steps, and retrieval impact simulation.")
+
+    chunk_id_list = audit_subset_df["chunk_id"].tolist()
+    if chunk_id_list:
+        # Build status lookup map from audit_chroma reports
+        chunk_report_map = {cr.chunk_id: cr for cr in audit_chroma.chunk_reports}
+
+        # Quality groupings
+        fail_cids = [cid for cid in chunk_id_list if chunk_report_map.get(cid) and chunk_report_map[cid].overall_status == "fail"]
+        warn_cids = [cid for cid in chunk_id_list if chunk_report_map.get(cid) and chunk_report_map[cid].overall_status == "warning"]
+        pass_cids = [cid for cid in chunk_id_list if chunk_report_map.get(cid) and chunk_report_map[cid].overall_status == "pass"]
+        issues_cids = [cid for cid in chunk_id_list if chunk_report_map.get(cid) and chunk_report_map[cid].overall_status in ("fail", "warning")]
+
+        # Dimension-level defect groupings
+        dim_defect_groups = {}
+        for dim_key, dim_title, _, _ in dimension_meta:
+            matched = [
+                cr.chunk_id for cr in audit_chroma.chunk_reports
+                if cr.chunk_id in chunk_id_list and any(m.dimension == dim_key and m.status in ("fail", "warning") for m in cr.metrics)
+            ]
+            if matched:
+                dim_defect_groups[f"🔬 {dim_title} ({len(matched)})"] = matched
+
+        # Build quality group options dictionary
+        quality_group_options = {
+            f"🌐 All Chunks ({len(chunk_id_list)})": chunk_id_list,
+            f"🔴 Hard Blockers ({len(fail_cids)})": fail_cids,
+            f"🟡 Warnings / Review Advised ({len(warn_cids)})": warn_cids,
+            f"⚠️ All Defective Chunks ({len(issues_cids)})": issues_cids,
+            f"🟢 Pristine / Clean ({len(pass_cids)})": pass_cids,
+        }
+        quality_group_options.update(dim_defect_groups)
+
+        def _format_chunk_opt(cid: str) -> str:
+            match_rows = audit_subset_df[audit_subset_df["chunk_id"] == cid]
+            if not match_rows.empty:
+                r_data = match_rows.iloc[0]
+                idx = audit_subset_df.index[audit_subset_df["chunk_id"] == cid].tolist()[0]
+                tok = r_data["token_count"]
+                hdr = r_data.get("heading_text") or r_data.get("hierarchy_path") or ""
+                if not hdr and "text" in r_data:
+                    hdr = r_data["text"][:38].replace("\n", " ").strip() + "..."
+                doc_prefix = f"[{r_data['source'][:14]}..] " if selected_audit_doc.startswith("All") else ""
+                disp_tag = f"[{get_chunk_disposition(cid).get('status', 'Open')}] "
+                
+                # Quality badge indicator
+                cr = chunk_report_map.get(cid)
+                q_status = cr.overall_status if cr else "pass"
+                q_emoji = "🔴" if q_status == "fail" else ("🟡" if q_status == "warning" else "🟢")
+
+                return f"{q_emoji} {disp_tag}{doc_prefix}[{cid}] #{idx} ({tok} tok) - {hdr}"
+            return cid
+
+        col_q_grp, col_c_sel, col_funnel_btn = st.columns([1.3, 1.8, 1.0])
+        with col_q_grp:
+            selected_quality_group_label = st.selectbox(
+                "🏷️ Group by Quality",
+                options=list(quality_group_options.keys()),
+                index=0,
+                key="audit_quality_group_dropdown",
+                help="Filter chunks by quality status (blockers, warnings, pristine) or specific dimension defects.",
+            )
+
+        active_group_cids = quality_group_options[selected_quality_group_label]
+
+        with col_c_sel:
+            if not active_group_cids:
+                st.info(f"0 chunks in group: {selected_quality_group_label}")
+                selected_cid = None
+            else:
+                selected_cid = st.selectbox(
+                    "🧩 Select Chunk to Deep-Dive",
+                    options=active_group_cids,
+                    format_func=_format_chunk_opt,
+                    key="audit_single_chunk_selector",
+                )
+
+        with col_funnel_btn:
+            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+            if st.button(
+                "🎯 Send to Funnel",
+                key="btn_send_to_funnel",
+                type="primary",
+                disabled=selected_cid is None,
+                help="Load this chunk as a probe needle into Step 4: 2-Stage Retrieval & Funnel tester",
+                use_container_width=True,
+            ):
+                st.session_state["custom_funnel_target"] = selected_cid
+                # Extract first clean clause as test probe query
+                chosen_probe_row = audit_subset_df[audit_subset_df["chunk_id"] == selected_cid].iloc[0]
+                first_line = chosen_probe_row["text"].split("\n")[0][:80].strip()
+                if not first_line or len(first_line) < 10:
+                    first_line = "What information is detailed in " + selected_cid
+                st.session_state["custom_funnel_q"] = first_line
+                st.session_state["funnel_workspace_pending"] = "🎯 2-Stage Retrieval & Needle Tester"
+                st.success(f"Loaded `{selected_cid}` into Step 4 Funnel! Switch to 'Step 4: 2-Stage Retrieval & Funnel' tab to execute.")
+
+        if selected_cid:
+            chosen_row = audit_subset_df[audit_subset_df["chunk_id"] == selected_cid].iloc[0]
+            chosen_idx = audit_subset_df.index[audit_subset_df["chunk_id"] == selected_cid].tolist()[0]
+
+            chosen_record = {
+                "id": chosen_row["chunk_id"],
+                "text": chosen_row["text"],
+                "metadata": {
+                    "doc_id": chosen_row.get("doc_id", ""),
+                    "source": chosen_row.get("source", ""),
+                    "hierarchy_path": chosen_row.get("hierarchy_path", ""),
+                    "heading_text": chosen_row.get("heading_text", ""),
+                    "project_id": chosen_row.get("project_id", "unassigned"),
+                    "department": chosen_row.get("department", "Human Resources"),
+                    "classification": chosen_row.get("classification", "Internal"),
+                    "produced_by": chosen_row.get("produced_by", ""),
+                    "content_type": chosen_row.get("content_type", "text"),
+                    "route": chosen_row.get("route", ""),
+                }
+            }
+
+            audit_res = audit_single_chunk(chosen_record, target_window=256)
+            ocr_vlm_ann = audit_chunk_record(chosen_record)
+            current_disposition = get_chunk_disposition(selected_cid)
+
+            # Badges
+            tok_count = chosen_row["token_count"]
+            if tok_count > 256:
+                density_badge = f'<span class="badge-overflow">🔴 OVERFLOW ({tok_count} > 256 tok - HARD LIMIT)</span>'
+            elif tok_count > 220:
+                density_badge = f'<span class="badge-stub" style="background:#78350F;color:#FDE68A;">🟡 TARGET BUDGET EXCEEDED ({tok_count} > 220 tok)</span>'
+            elif tok_count < 20:
+                density_badge = f'<span class="badge-stub">🟡 STUB FRAGMENT ({tok_count} < 20 tok)</span>'
+            else:
+                density_badge = f'<span class="badge-optimal">🟢 OPTIMAL DENSITY ({tok_count} tok)</span>'
+
+            if ocr_vlm_ann.chunk_type == "OCR":
+                type_badge = f'<span class="badge-optimal" style="background:#0284C7;color:#E0F2FE;">📷 OCR ({ocr_vlm_ann.quality_score:.1f}%)</span>'
+            elif ocr_vlm_ann.chunk_type in ("VLM", "HYBRID_OCR_VLM"):
+                type_badge = f'<span class="badge-optimal" style="background:#7C3AED;color:#EDE9FE;">👁️ VLM ({ocr_vlm_ann.quality_score:.1f}%)</span>'
+            else:
+                type_badge = '<span class="badge-optimal" style="background:#334155;color:#F1F5F9;">📄 TEXT</span>'
+
+            if audit_res.overall_status == "fail":
+                status_badge = '<span class="badge-overflow" style="background:#DC2626;color:#FEF2F2;">🔴 HARD BLOCKER</span>'
+            elif audit_res.overall_status == "warning":
+                status_badge = '<span class="badge-stub" style="background:#D97706;color:#FFFBEB;">🟡 REVIEW REQUIRED</span>'
+            else:
+                status_badge = '<span class="badge-optimal" style="background:#059669;color:#ECFDF5;">🟢 PRISTINE (PASS)</span>'
+
+            disp_badge = get_disposition_badge_html(current_disposition.get("status", "Open"))
+
+            st.markdown(
+                f"**Quality Status:** {status_badge} &nbsp;|&nbsp; {density_badge} &nbsp;|&nbsp; {type_badge} &nbsp;|&nbsp; "
+                f"**Disposition:** {disp_badge} &nbsp;|&nbsp; **Document:** `{chosen_row.get('source', '')}`",
+                unsafe_allow_html=True,
+            )
+
+            # Reviewer Decision Panel
+            with st.container():
+                st.markdown("""
+                <div style="background:#0B111D; border:1px solid #1E293B; border-radius:6px; padding:12px 16px; margin: 10px 0 16px 0;">
+                    <div style="font-weight:700; color:#F8FAFC; margin-bottom:8px; font-size:0.9rem;">📝 Reviewer Disposition & Governance</div>
+                """, unsafe_allow_html=True)
+                r_c1, r_c2, r_c3 = st.columns([1.3, 2.2, 0.8])
+                with r_c1:
+                    cur_st = current_disposition.get("status", "Open")
+                    all_st_opts = ["Open", "Under Review", "Approved", "Needs Re-OCR", "Needs Re-Chunk", "Dismissed"]
+                    new_st = st.selectbox(
+                        "Set Reviewer Disposition",
+                        all_st_opts,
+                        index=all_st_opts.index(cur_st) if cur_st in all_st_opts else 0,
+                        key="inspect_pane_disp_select",
+                    )
+                with r_c2:
+                    new_notes = st.text_input(
+                        "Reviewer Notes",
+                        value=current_disposition.get("notes", ""),
+                        placeholder="e.g. Scanned OCR symbol noise verified against PDF page 3; marked for re-OCR.",
+                        key="inspect_pane_notes_input",
+                    )
+                with r_c3:
+                    st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
+                    if st.button("Save Decision", key="btn_save_pane_disp", use_container_width=True):
+                        set_chunk_disposition(selected_cid, new_st, new_notes)
+                        st.success("Decision recorded!")
+                        st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            # Explainable Defect Analysis with 6-Item Breakdown
+            failed_metrics = [m for m in audit_res.metrics if m.status in ("fail", "warning")]
+            if failed_metrics:
+                st.markdown("##### 🔬 Explainable Defect Evidence (Root Cause & Verification)")
+                for m in failed_metrics:
+                    sev_class = f"sev-{m.severity.lower()}"
+                    sev_color = "#DC2626" if m.severity in ("critical", "high") else "#D97706"
+                    sev_badge = f'<span style="background:{sev_color};color:#FFFFFF;padding:2px 7px;border-radius:4px;font-weight:700;font-size:0.72rem;letter-spacing:0.04em;">{m.severity.upper()}</span>'
+                    item_quote = m.quoted_text or (chosen_row["text"][:140].replace("\n", " ").strip() + ("..." if len(chosen_row["text"]) > 140 else ""))
+                    
+                    st.markdown(f"""
+                    <div class="defect-card {sev_class}">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                            {sev_badge}
+                            <span style="font-weight:700; color:#F8FAFC; font-size:0.94rem;">Finding: {m.metric_name}</span>
+                            <span style="color:#64748B; font-size:0.76rem; font-weight:500;">({m.check_type.replace('_', ' ').title()}) · Dimension: {m.dimension.replace('_', ' ').title()}</span>
+                        </div>
+                        <div style="color:#E2E8F0; font-size:0.86rem; margin-bottom:5px;">
+                            <b>1. Evidence (Trigger Condition):</b> <code style="color:#FCA5A5; background:#1E1523; padding:2px 6px; border-radius:3px;">{m.evidence}</code>
+                        </div>
+                        <div class="defect-quote">
+                            💬 <b>Source Quote:</b> "{item_quote}"
+                        </div>
+                        <div style="color:#CBD5E1; font-size:0.85rem; margin-bottom:5px;">
+                            <b>2. Possible Cause:</b> {m.possible_cause or "OCR extraction noise, PDF font encoding failure, or unconstrained paragraph splitting."}
+                        </div>
+                        <div style="color:#CBD5E1; font-size:0.85rem; margin-bottom:5px;">
+                            <b>3. Verification Step:</b> {m.verification_step or "Compare stored chunk text against original page layout in source file."}
+                        </div>
+                        <div style="color:#CBD5E1; font-size:0.85rem; margin-bottom:5px;">
+                            <b>4. Why it Matters for RAG:</b> {m.explanation}
+                        </div>
+                        <div style="color:#38BDF8; font-size:0.85rem; margin-bottom:5px;">
+                            <b>5. Recommended Action:</b> {m.recommended_action}
+                        </div>
+                        <div style="color:#34D399; font-size:0.85rem;">
+                            <b>6. Revalidation:</b> {m.revalidation_action or "Re-ingest the corrected file and verify that this defect drops from the findings queue."}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.success("🟢 **Pristine Chunk:** Passes all 6 dimensions with zero integrity, boundary, semantic, or security defects.")
+
+            if chosen_row.get("hierarchy_path"):
+                st.info(f"🧭 **Heading Hierarchy:** `{chosen_row['hierarchy_path']}`")
+            elif chosen_row.get("heading_text"):
+                st.info(f"🧭 **Heading Text:** `{chosen_row['heading_text']}`")
+
+            st.text_area(label="Chunk Content", value=chosen_row["text"], height=160, disabled=True, label_visibility="collapsed", key=f"qual_diag_chunk_content_{chosen_row.get('chunk_id', 'qual')}")
+
+            with st.expander("🔍 View Raw Chunk Metadata JSON", expanded=False):
+                st.json({
+                    "chunk_id": chosen_row["chunk_id"],
+                    "source": chosen_row["source"],
+                    "token_count": int(chosen_row["token_count"]),
+                    "doc_id": chosen_row.get("doc_id", ""),
+                    "project_id": chosen_row.get("project_id", ""),
+                    "department": chosen_row.get("department", ""),
+                    "classification": chosen_row.get("classification", ""),
+                    "hierarchy_path": chosen_row.get("hierarchy_path", ""),
+                    "heading_text": chosen_row.get("heading_text", ""),
+                })
+
+    # --------------------------------------------------------------------------
+    # Section 4: Token Budget & Distribution Analytics
+    # --------------------------------------------------------------------------
+    st.markdown("---")
+    with st.expander("📊 4. Token Budget & Distribution Analytics", expanded=False):
+        st.markdown("##### Token Budgets vs Model Hard Limits")
+        st.caption("Configured chunk target budget: **200–220 tokens** (optimal passage granularity) &nbsp;|&nbsp; Embedder hard context limit: **256 tokens** (`all-MiniLM-L6-v2` silent clipping threshold).")
+        
+        cqi_total = len(audit_subset_df)
+        cqi_under_hard = (audit_subset_df["token_count"] <= 256).sum()
+        cqi_within_target = (audit_subset_df["token_count"] <= 220).sum()
+        cqi_stubs = (audit_subset_df["token_count"] < 20).sum()
+
+        tb1, tb2, tb3 = st.columns(3)
+        tb1.metric("Within Model Hard Limit (<=256)", f"{cqi_under_hard}/{cqi_total}", f"{(cqi_under_hard/cqi_total*100):.1f}% safe")
+        tb2.metric("Within Target Budget (<=220)", f"{cqi_within_target}/{cqi_total}", f"{(cqi_within_target/cqi_total*100):.1f}% target optimal")
+        tb3.metric("Stub Micro-Fragments (<20)", f"{cqi_stubs}", delta="Review Required" if cqi_stubs > 0 else "0 Stubs", delta_color="inverse" if cqi_stubs > 0 else "normal")
+
+        st.markdown("##### Token Length Distribution")
+        st.bar_chart(audit_subset_df["token_count"].value_counts().sort_index())
+
+        st.markdown("##### Document-Level Chunking Quality Breakdown")
+        doc_groups = df.groupby("source")
+        doc_summary = []
+        for src, group in doc_groups:
+            toks = group["token_count"]
+            stubs_cnt = (toks < 20).sum()
+            comp_pct = (toks <= 256).mean() * 100
+            first_cid = group["chunk_id"].iloc[0] if not group.empty else "N/A"
+            last_cid = group["chunk_id"].iloc[-1] if not group.empty else "N/A"
+            cid_range = f"{first_cid} .. {last_cid}" if first_cid != last_cid else first_cid
+            doc_summary.append({
+                "Document": src,
+                "Chunk ID Range": cid_range,
+                "Chunk ID Prefix": f"{Path(str(src)).stem}-*",
+                "Chunks": len(group),
+                "Mean Tokens": round(toks.mean(), 1),
+                "Max Tokens": int(toks.max()),
+                "Stubs (<20)": int(stubs_cnt),
+                "Budget Compliance": f"{comp_pct:.1f}%",
+            })
+        st.dataframe(pd.DataFrame(doc_summary), use_container_width=True)
+
+    # --------------------------------------------------------------------------
+    # Section 5: Semantic Chunk Merging Simulator (Rahul Jangir Paradigm)
+    # --------------------------------------------------------------------------
+    st.markdown("---")
+    with st.expander("🔀 5. Semantic Chunk Merging Simulator (Pairwise Noise & Fragment Consolidation)", expanded=False):
+        st.markdown("##### Pairwise Semantic Chunk Merging Simulator")
+        st.caption(
+            "Consolidate micro-fragments (<= Z chars) into substantial absorbers (<= Y chars) up to a hard budget (<= X chars) "
+            "based on semantic cosine similarity (>= Threshold), with strict tenant/document boundary isolation."
+        )
+
+        col_p1, col_p2, col_p3, col_p4 = st.columns(4)
+        with col_p1:
+            sim_threshold = st.slider(
+                "Similarity Threshold (Cosine)",
+                min_value=0.70,
+                max_value=0.99,
+                value=0.88,
+                step=0.01,
+                help="Minimum cosine similarity required between candidate and absorber to trigger a merge. Higher values prevent semantic drift.",
+                key="merger_sim_threshold",
+            )
+        with col_p2:
+            x_max_cap = st.number_input(
+                "X: Max Chunk Cap (chars)",
+                min_value=400,
+                max_value=5000,
+                value=1200,
+                step=100,
+                help="Hard character limit on the resulting merged chunk. Kept at ~240 tokens to prevent embedder context overflow.",
+                key="merger_x_cap",
+            )
+        with col_p3:
+            y_absorber_max = st.number_input(
+                "Y: Absorber Limit (chars)",
+                min_value=200,
+                max_value=3000,
+                value=800,
+                step=50,
+                help="Maximum size of chunks eligible to absorb smaller fragments.",
+                key="merger_y_absorber",
+            )
+        with col_p4:
+            z_candidate_max = st.number_input(
+                "Z: Merge Candidate (chars)",
+                min_value=50,
+                max_value=1000,
+                value=250,
+                step=25,
+                help="Maximum size of small chunks/stubs eligible to be absorbed into parent chunks.",
+                key="merger_z_candidate",
+            )
+
+        col_run1, col_run2 = st.columns([1.5, 3.5])
+        with col_run1:
+            run_merger_btn = st.button("▶ Run Merge Simulation", key="btn_run_semantic_merger", use_container_width=True)
+        with col_run2:
+            st.caption(f"Will simulate on **{len(audit_subset_df)} chunks** currently in scope (`{selected_audit_doc}`).")
+
+        if run_merger_btn:
+            sim_input_records = [
+                {
+                    "id": row["chunk_id"],
+                    "text": row["text"],
+                    "metadata": {
+                        "document_id": row.get("doc_id") or row.get("source", "unknown"),
+                        "source": row.get("source", "unknown"),
+                        "page_number": row.get("page_number", 1),
+                        "token_count": int(row.get("token_count", 0)),
+                    },
+                }
+                for _, row in audit_subset_df.iterrows()
+            ]
+
+            sim_cfg = SemanticMergeConfig(
+                max_chunk_chars=int(x_max_cap),
+                absorber_max_chars=int(y_absorber_max),
+                candidate_max_chars=int(z_candidate_max),
+                similarity_threshold=float(sim_threshold),
+                scope_field="document_id",
+                enabled=True,
+            )
+
+            with st.spinner("Computing embeddings and evaluating pairwise similarities..."):
+                surviving_recs, merge_res = semantic_merge_chunk_records(sim_input_records, config=sim_cfg)
+                orig_avg_chars = sum(len(r["text"]) for r in sim_input_records) / len(sim_input_records) if sim_input_records else 0
+                st.session_state["sim_merge_results"] = {
+                    "surviving": surviving_recs,
+                    "report": merge_res,
+                    "input_count": len(sim_input_records),
+                    "orig_avg_chars": orig_avg_chars,
+                }
+
+        merge_data = st.session_state.get("sim_merge_results")
+        if merge_data:
+            m_rep = merge_data["report"]
+            surviving = merge_data["surviving"]
+            in_count = merge_data["input_count"]
+            out_count = len(surviving)
+            orig_avg_chars = merge_data.get("orig_avg_chars", 0)
+
+            st.markdown("##### 📈 Simulation Outcomes & Impact")
+            m_c1, m_c2, m_c3, m_c4 = st.columns(4)
+            m_c1.metric(
+                "Chunks Retained",
+                f"{out_count} / {in_count}",
+                f"-{m_rep.reduction_percentage:.1f}% reduction",
+                delta_color="normal" if out_count < in_count else "off",
+            )
+            m_c2.metric(
+                "Fragments Consolidated",
+                f"{m_rep.absorbed_chunks_count}",
+                delta=f"{m_rep.absorbed_chunks_count} stubs merged",
+                delta_color="normal" if m_rep.absorbed_chunks_count > 0 else "off",
+            )
+            
+            new_avg_chars = sum(len(r["text"]) for r in surviving) / out_count if out_count else 0
+            m_c3.metric(
+                "Avg Chunk Length",
+                f"{new_avg_chars:.0f} chars",
+                f"+{new_avg_chars - orig_avg_chars:.0f} chars",
+            )
+            m_c4.metric("Pairwise Merges Triggered", f"{len(m_rep.actions)}")
+
+            if m_rep.actions:
+                st.markdown("##### 🔍 Consolidated Merge Audit Trail")
+                actions_rows = [
+                    {
+                        "Target Chunk ID": a.target_id,
+                        "Absorbed Chunk ID": a.absorbed_id,
+                        "Cosine Similarity": f"{a.similarity:.2%}",
+                        "Length Evolution (chars)": f"{a.target_original_len} + {a.absorbed_len} &rarr; {a.merged_len}",
+                        "Target Preview": a.target_preview,
+                        "Absorbed Fragment Preview": a.absorbed_preview,
+                    }
+                    for a in m_rep.actions
+                ]
+                st.dataframe(pd.DataFrame(actions_rows), use_container_width=True)
+
+                with st.expander("🔬 Inspect Consolidated Chunk Previews", expanded=False):
+                    for a in m_rep.actions:
+                        target_rec = next((r for r in surviving if r["id"] == a.target_id), None)
+                        if target_rec:
+                            st.markdown(f"**Merged Chunk `{a.target_id}`** (absorbed `{a.absorbed_id}` | sim: {a.similarity:.2%}):")
+                            st.text_area(f"text_{a.target_id}_{a.absorbed_id}", value=target_rec["text"], height=100, disabled=True, label_visibility="collapsed")
+                            st.caption(f"Metadata Lineage: `merged_chunk_ids`: {target_rec['metadata'].get('merged_chunk_ids')} | `pages`: {target_rec['metadata'].get('page_number')}")
+            else:
+                st.info("ℹ️ No chunks met both the candidate size (< Z) and cosine similarity (>= Threshold) criteria. Try lowering the similarity threshold or increasing candidate size Z.")
+
+    # --------------------------------------------------------------------------
+    # Section 6: Master 65-Metric Specification & Coverage Catalog
+    # --------------------------------------------------------------------------
+    st.markdown("---")
+    with st.expander("📖 6. Complete 65-Metric Quality Framework Specification & Coverage Catalog", expanded=False):
+        st.markdown("##### Enterprise 6-Dimension Quality Framework (65 Metrics)")
+        st.caption(
+            "Every metric addresses the Three Critical Questions: "
+            "(1) What is wrong with this chunk? (2) Why does it matter for RAG? (3) What action should be taken? "
+            "Distinguishes Hard Validations (deterministic blockers) from Heuristics (statistical rules) and Model Judgments."
+        )
+
+        catalog_df = get_metrics_catalog_dataframe()
+
+        col_cat1, col_cat2, col_cat3, col_cat4 = st.columns(4)
+        with col_cat1:
+            cat_dim_filter = st.selectbox(
+                "Filter Dimension",
+                ["All Dimensions"] + sorted(catalog_df["Dimension"].unique().tolist()),
+                key="cat_dim_filter_select",
+            )
+        with col_cat2:
+            cat_prio_filter = st.selectbox(
+                "Filter Priority",
+                ["All Priorities", "P0", "P1", "P2"],
+                key="cat_prio_filter_select",
+            )
+        with col_cat3:
+            cat_type_filter = st.selectbox(
+                "Filter Check Type",
+                ["All Types", "Hard Validation", "Heuristic", "Model Based"],
+                key="cat_type_filter_select",
+            )
+        with col_cat4:
+            cat_search = st.text_input("Search Metric", placeholder="e.g. symbol, boundary, table, OCR...", key="cat_search_kw")
+
+        filtered_cat_df = catalog_df
+        if cat_dim_filter != "All Dimensions":
+            filtered_cat_df = filtered_cat_df[filtered_cat_df["Dimension"] == cat_dim_filter]
+        if cat_prio_filter != "All Priorities":
+            filtered_cat_df = filtered_cat_df[filtered_cat_df["Priority"] == cat_prio_filter]
+        if cat_type_filter != "All Types":
+            filtered_cat_df = filtered_cat_df[filtered_cat_df["Check Type"] == cat_type_filter]
+        if cat_search.strip():
+            kw_c = cat_search.strip().lower()
+            filtered_cat_df = filtered_cat_df[
+                filtered_cat_df["Metric Name"].str.lower().str.contains(kw_c)
+                | filtered_cat_df["Display Label"].str.lower().str.contains(kw_c)
+                | filtered_cat_df["What it Measures"].str.lower().str.contains(kw_c)
+                | filtered_cat_df["Why We Need It"].str.lower().str.contains(kw_c)
+            ]
+
+        c_stat1, c_stat2, c_stat3, c_stat4 = st.columns(4)
+        c_stat1.metric("Catalog Size", f"{len(catalog_df)} Metrics", "6 Quality Dimensions")
+        c_stat2.metric("P0 Critical Blockers", f"{(catalog_df['Priority'] == 'P0').sum()}", "Hard Ingestion Gates")
+        c_stat3.metric("P1 Quality Audits", f"{(catalog_df['Priority'] == 'P1').sum()}", "Heuristic & Structural")
+        c_stat4.metric("Showing in View", f"{len(filtered_cat_df)} of {len(catalog_df)}", f"{cat_dim_filter[:18]}")
+
+        st.dataframe(filtered_cat_df, use_container_width=True, height=340)
+
+    # Download Audit CSV
+    st.markdown("---")
     csv_data = df.to_csv(index=False).encode("utf-8")
     st.download_button(
         "📥 Download Full Chunk Quality Audit (CSV)",
@@ -947,8 +2562,8 @@ def render_quality_diagnostics(df: pd.DataFrame):
     )
 
 
-def render_geval_nli_report_card(eval_res: dict, llm_response: str = ""):
-    """Reusable report card component for G-Eval + NLI evaluation results."""
+def render_ragas_evaluation_card(eval_res: dict, llm_response: str = ""):
+    """Reusable report card component for Ragas evaluation results."""
     if not eval_res:
         return
 
@@ -957,6 +2572,7 @@ def render_geval_nli_report_card(eval_res: dict, llm_response: str = ""):
     fact = eval_res.get("factual_correctness", 0.0)
     rel = eval_res.get("answer_relevancy", 0.0)
     prec = eval_res.get("context_precision", 0.8)
+    rec = eval_res.get("context_recall", 0.85)
     diagnosis = eval_res.get("diagnosis", "")
     evaluator_used = eval_res.get("evaluator_used", "OpenRouter")
     latency = eval_res.get("latency_ms", 0.0)
@@ -972,14 +2588,19 @@ def render_geval_nli_report_card(eval_res: dict, llm_response: str = ""):
 
     st.caption(f"**Evaluator Engine:** `{evaluator_used}` &nbsp;|&nbsp; **Latency:** `{latency:.1f}ms`")
 
-    m1, m2, m3, m4 = st.columns(4)
+    m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("Faithfulness", f"{faith:.2f}", delta="Grounded" if faith >= 0.70 else "Low Grounding", delta_color="normal" if faith >= 0.70 else "inverse")
     m2.metric("Factual Correctness", f"{fact:.2f}", delta="Aligned" if fact >= 0.65 else "Misaligned", delta_color="normal" if fact >= 0.65 else "inverse")
     m3.metric("Answer Relevancy", f"{rel:.2f}", delta="Direct" if rel >= 0.70 else "Indirect", delta_color="normal" if rel >= 0.70 else "inverse")
     m4.metric("Context Precision", f"{prec:.2f}")
+    m5.metric("Context Recall", f"{rec:.2f}")
 
     st.markdown("##### 🔍 Evaluator Diagnosis & Reasoning")
     st.info(diagnosis)
+
+
+# Backward-compatible alias
+render_geval_nli_report_card = render_ragas_evaluation_card
 
 
 
@@ -1803,11 +3424,11 @@ def render_chunking_strategy_optimizer(df_chunks: pd.DataFrame):
             with cmp_left:
                 st.markdown(f"#### 🎯 Target Needle Chunk (`{target_chunk_id or 'Not Found'}`)")
                 target_text = s_matches[0][1].text if s_matches else "Needle phrase not found in document"
-                st.text_area("Needle Content", value=target_text, height=170, disabled=True, label_visibility="collapsed")
+                st.text_area("Needle Content", value=target_text, height=170, disabled=True, label_visibility="collapsed", key="retrieval_probe_needle_content")
             with cmp_right:
                 st.markdown(f"#### 🥇 Actual Top-1 Retrieved (`{top_id}`)")
                 top_text = reranked[0]["text"] if reranked else "No chunks retrieved"
-                st.text_area("Actual Top-1 Content", value=top_text, height=170, disabled=True, label_visibility="collapsed")
+                st.text_area("Actual Top-1 Content", value=top_text, height=170, disabled=True, label_visibility="collapsed", key="retrieval_probe_top1_content")
 
         # Stage 1 & Stage 2 Tables
         col_t1, col_t2 = st.columns(2)
@@ -1920,14 +3541,27 @@ def render_retrieval_funnel(df_chunks: pd.DataFrame):
         "Select an interactive workspace below to optimize chunking or inspect candidate rank shifts.",
         icon="ℹ️",
     )
+    funnel_options = [
+        "📊 Ragas Metric Evaluation & Benchmark Studio",
+        "🎯 2-Stage Retrieval & Needle Tester",
+        "🧩 Dynamic Chunking Strategy & Needle Optimizer",
+    ]
+
+    # Handle pending workspace transition BEFORE widget instantiation to prevent StreamlitWidgetAlreadyInstantiatedError
+    if "funnel_workspace_pending" in st.session_state:
+        pending_ws = st.session_state.pop("funnel_workspace_pending")
+        if pending_ws in funnel_options:
+            st.session_state["funnel_workspace_radio"] = pending_ws
+
+    current_ws = st.session_state.get("funnel_workspace_radio", funnel_options[0])
+    if current_ws not in funnel_options:
+        current_ws = funnel_options[0]
+
     # Persistent segmented selection to guarantee zero tab jumping on any button click
     workspace_choice = st.radio(
         "Select Testing Workspace:",
-        [
-            "📊 Ragas Metric Evaluation & Benchmark Studio",
-            "🎯 2-Stage Retrieval & Needle Tester",
-            "🧩 Dynamic Chunking Strategy & Needle Optimizer",
-        ],
+        funnel_options,
+        index=funnel_options.index(current_ws),
         horizontal=True,
         key="funnel_workspace_radio",
         help="Switch between Ragas metric evaluation (Faithfulness, Factual Correctness, Relevancy), 2-stage vector retrieval & needle testing, and dynamic chunking strategy optimization.",
@@ -1947,9 +3581,10 @@ def render_retrieval_funnel(df_chunks: pd.DataFrame):
 
     with st.expander("🧩 Want to play with different chunking strategies & optimal tokens on this needle?", expanded=False):
         st.caption("Test how different chunking strategies (Hierarchical, Recursive Sliding Window, Semantic Paragraph, Sentence Window) impact retrieval rank and needle detection for this query.")
-        if st.button("🚀 Open in Chunking Strategy Optimizer", key="btn_jump_to_optimizer"):
-            st.session_state["funnel_workspace_radio"] = "🧩 Dynamic Chunking Strategy & Needle Optimizer"
-            st.rerun()
+        def _jump_to_optimizer():
+            st.session_state["funnel_workspace_pending"] = "🧩 Dynamic Chunking Strategy & Needle Optimizer"
+
+        st.button("🚀 Open in Chunking Strategy Optimizer", key="btn_jump_to_optimizer", on_click=_jump_to_optimizer)
 
     active_res = st.session_state.get("active_chunk_results")
 
@@ -2129,6 +3764,7 @@ def render_retrieval_funnel(df_chunks: pd.DataFrame):
             "top_text": top_retrieved_text,
         }
         # Initialize candidate response with first factual sentence and clear old audit
+        st.session_state.pop("ragas_audit_result", None)
         st.session_state.pop("geval_audit_result", None)
         first_sentence = top_retrieved_text.split(".")[0].strip() + "." if "." in top_retrieved_text else top_retrieved_text[:120]
         st.session_state["eval_rag_resp_text"] = first_sentence
@@ -2221,7 +3857,7 @@ def render_retrieval_funnel(df_chunks: pd.DataFrame):
                 with cmp_left:
                     st.markdown(f"#### 🎯 Expected Target: `{primary_target}`")
                     st.caption(f"Document: `{target_meta.get('source', 'N/A')}` | Tokens: `{len(target_text.split())}`")
-                    st.text_area(label="Expected Chunk Content", value=target_text, height=180, disabled=True, label_visibility="collapsed")
+                    st.text_area(label="Expected Chunk Content", value=target_text, height=180, disabled=True, label_visibility="collapsed", key="funnel_expected_chunk_content")
 
                 with cmp_right:
                     top_obj = b_reranked[0] if b_reranked else {}
@@ -2230,7 +3866,7 @@ def render_retrieval_funnel(df_chunks: pd.DataFrame):
                     top_score = top_obj.get("_rerank_score", 0.0)
                     st.markdown(f"#### 🥇 Actual Top-1: `{top_fetched_id}`")
                     st.caption(f"Document: `{top_meta.get('source', 'N/A')}` | Score: `{top_score:.4f}` | Tokens: `{len(top_text.split())}`")
-                    st.text_area(label="Actual Top-1 Content", value=top_text, height=180, disabled=True, label_visibility="collapsed")
+                    st.text_area(label="Actual Top-1 Content", value=top_text, height=180, disabled=True, label_visibility="collapsed", key="funnel_top1_content")
 
                 if top_fetched_id and top_fetched_id != "NONE" and top_fetched_id not in b_target_ids:
                     target_key = "custom_funnel_target" if funnel_mode == "✏️ Custom Query & Target Needle" else "preset_funnel_target"
@@ -2697,12 +4333,29 @@ def render_benchmark_suite(df_chunks: pd.DataFrame):
 
 
 def main():
-    st.markdown('<div class="main-title">🧪 KnowLayer Developer Sandbox & Observability</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-title">Interactive workbench for ChromaDB chunk validation, RAG funnel inspection, and benchmark testing.</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="workbench-header">
+        <div class="brand-row">
+            <span class="brand-badge">KNOWLAYER</span>
+            <span class="brand-title">Developer Sandbox & Observability Studio</span>
+            <span class="brand-version">v3.4 • Enterprise RAG</span>
+        </div>
+        <div class="brand-subline">Interactive evaluation workbench for ChromaDB chunk validation, 6-dimension quality auditing, 2-stage retrieval funnel, and RAGAS benchmarks.</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     df_chunks = load_all_chunks()
 
     with st.sidebar:
+        st.markdown("""
+        <div class="sidebar-brand">
+            <div class="sidebar-logo">KL</div>
+            <div>
+                <div class="sidebar-title">KnowLayer Studio</div>
+                <div class="sidebar-sub">Observability Suite</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         st.markdown("### ⚙️ System Status")
         st.metric("Total Chunks", f"{len(df_chunks):,}")
         st.metric("Embedder Context", "256 tokens")

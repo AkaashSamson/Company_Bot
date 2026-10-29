@@ -12,9 +12,12 @@ the concrete case: the application has always accepted ``.rst`` and the
 structural parser has no backend for it.
 """
 
+from __future__ import annotations
+
+import asyncio
 import logging
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from app.core.settings import DOCLING_ENABLED
 from app.domain.ports.document_processing import (
@@ -85,3 +88,49 @@ def build_document_processor(structural: bool | None = None) -> DocumentProcessi
             exc,
         )
         return CompositeDocumentProcessor(text_processor, pdf_processor)
+
+
+class UploadFileProcessorAdapter:
+    """Adapter allowing FastAPI UploadFile or bytes/content to be processed via DocumentProcessingPort."""
+
+    def __init__(self, port: DocumentProcessingPort, filename: Optional[str] = None):
+        self.port = port
+        self.filename = filename
+
+    async def process(self, file_or_content: Any, filename: Optional[str] = None) -> List[Dict[str, Any]]:
+        target_name = filename or self.filename or getattr(file_or_content, "filename", "document.txt")
+        if hasattr(file_or_content, "read"):
+            read_fn = file_or_content.read
+            content = read_fn()
+            if asyncio.iscoroutine(content):
+                content = await content
+            if hasattr(file_or_content, "seek"):
+                seek_fn = file_or_content.seek
+                res = seek_fn(0)
+                if asyncio.iscoroutine(res):
+                    await res
+        elif isinstance(file_or_content, bytes):
+            content = file_or_content
+        else:
+            content = str(file_or_content).encode("utf-8")
+
+        processed: ProcessedDocument = self.port.process(content, target_name)
+        raw_fragments: List[Dict[str, Any]] = []
+        for idx, chunk in enumerate(processed.chunks):
+            raw_fragments.append(
+                {
+                    "chunk_id": f"{target_name}_{idx}",
+                    "text": chunk.text,
+                    "metadata": {
+                        **chunk.metadata,
+                        "page_number": getattr(chunk, "page_number", None),
+                        "section_heading": getattr(chunk, "section_heading", None),
+                    },
+                }
+            )
+        return raw_fragments
+
+
+def get_document_processor(filename: Optional[str] = None) -> UploadFileProcessorAdapter:
+    port = build_document_processor()
+    return UploadFileProcessorAdapter(port, filename=filename)

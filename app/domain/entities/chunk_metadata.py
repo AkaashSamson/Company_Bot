@@ -89,7 +89,7 @@ class ChunkMetadata:
                 raise TypeError(f"page_number must be int or None, got {type(self.page_number).__name__}")
             if self.page_number < 1:
                 raise ValueError(f"page_number is one-based, got {self.page_number}")
-        if self.section_heading is not None and not str(self.section_heading).strip():
+        if self.section_heading is not None and not self.section_heading.strip():
             raise ValueError("section_heading must be a non-empty heading or None")
         if not isinstance(self.content_type, str) or not self.content_type.strip():
             raise ValueError("content_type must be a non-empty string")

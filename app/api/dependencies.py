@@ -1,5 +1,6 @@
 from fastapi import Depends, HTTPException, Request
 from functools import partial
+from typing import TYPE_CHECKING
 
 from app.domain.services.business_id_generator import build_business_id_generator
 from app.domain.ports.authorization_service import AuthenticatedPrincipal
@@ -19,6 +20,7 @@ from app.infrastructure.ingestion.provisioner import provision_document, remove_
 from app.infrastructure.document.processor_factory import build_document_processor
 from app.domain.services.authentication_service import AuthenticationServiceImpl
 from app.infrastructure.authentication.password_hasher import PasswordHasher
+from app.domain.entities.organization_models import Employee
 from app.core.settings import (
     AUTH_SECRET_KEY,
     DEPARTMENT_ID_PREFIX,
@@ -26,6 +28,9 @@ from app.core.settings import (
     EMPLOYEE_ID_PREFIX,
     PROJECT_ID_PREFIX,
 )
+
+if TYPE_CHECKING:
+    from app.use_cases.ingestion.document_processing import DocumentIngestionUseCase
 
 
 def get_business_id_generator():
@@ -67,6 +72,27 @@ def get_chat_principal(
         return get_current_principal(request, authentication_service)
     except HTTPException:
         return getattr(request.state, "principal", None)
+
+
+def get_current_user(
+    principal: AuthenticatedPrincipal = Depends(get_current_principal),
+) -> Employee:
+    """Resolve authenticated principal to an Employee domain model."""
+    return Employee(
+        uid=principal.uid,
+        name=principal.uid,
+        email=f"{principal.uid}@example.com",
+        role="Admin" if principal.uid == "admin" else "Member",
+        department_id="general",
+    )
+
+
+def get_document_ingestion_use_case() -> "DocumentIngestionUseCase":
+    """Dependency provider for DocumentIngestionUseCase."""
+    from app.infrastructure.vector.chroma_client import ChromaClient
+    from app.use_cases.ingestion.document_processing import DocumentIngestionUseCase
+
+    return DocumentIngestionUseCase(ChromaClient())
 
 
 def get_unit_of_work():

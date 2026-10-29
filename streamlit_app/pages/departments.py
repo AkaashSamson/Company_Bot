@@ -56,7 +56,7 @@ with st.expander("Update department"):
     if not department_options:
         st.info("No departments available to update.")
     else:
-        selected_label = st.selectbox("Department", list(department_options))
+        selected_label = st.selectbox("Department", list(department_options), key="update-dept-select")
         department_id = department_options[selected_label]
         current = next((d for d in departments if d["department_id"] == department_id), {})
         with st.form("update-department"):
@@ -96,10 +96,10 @@ with st.expander("Assign employee to department"):
     else:
         dept_label = st.selectbox("Department", list(department_options), key="assign-dept")
         user_label = st.selectbox("User", list(user_options), key="assign-user")
-        membership_role = st.text_input("Membership role", value="Member")
-        billable = st.selectbox("Billable status", ["Unset (department default)", "billable", "non-billable"])
+        membership_role = st.text_input("Membership role", value="Member", key="assign_member_role")
+        billable = st.selectbox("Billable status", ["Unset (department default)", "billable", "non-billable"], key="assign_member_billable")
         billable_value = None if billable.startswith("Unset") else billable
-        if st.button("Assign employee"):
+        if st.button("Assign employee", key="btn_assign_member"):
             try:
                 service.assign_department_member(department_options[dept_label], {
                     "user_id": user_options[user_label],
@@ -135,8 +135,10 @@ else:
         member_id_label = st.selectbox(
             "Member",
             [f"{m['user_id']} ({uid_to_name.get(m['user_id'], '')})" for m in members],
+            key=f"select_member_{member_dept_id}",
         )
         selected_member = next(m for m in members if member_id_label.startswith(m["user_id"] + " "))
+        target_uid = selected_member["user_id"]
         col1, col2, col3 = st.columns(3)
         with col1:
             new_billable = st.selectbox(
@@ -145,16 +147,22 @@ else:
                 index=BILLABLE_STATUSES.index(selected_member.get("billable_status") or "")
                 if selected_member.get("billable_status") in BILLABLE_STATUSES
                 else 0,
+                key=f"edit_billable_{member_dept_id}_{target_uid}",
             )
         with col2:
-            new_role = st.text_input("Membership role", value=selected_member.get("membership_role") or "Member")
+            new_role = st.text_input(
+                "Membership role",
+                value=selected_member.get("membership_role") or "Member",
+                key=f"edit_role_{member_dept_id}_{target_uid}",
+            )
         with col3:
             new_status = st.selectbox(
                 "Status",
                 ["", "active", "inactive"],
                 index=["", "active", "inactive"].index(selected_member.get("status") or "active"),
+                key=f"edit_status_{member_dept_id}_{target_uid}",
             )
-        if st.button("Save member changes"):
+        if st.button("Save member changes", key=f"btn_save_member_{member_dept_id}_{target_uid}"):
             payload = {}
             if new_billable:
                 payload["billable_status"] = new_billable
@@ -168,7 +176,7 @@ else:
                 st.rerun()
             except Exception as error:
                 st.error(format_error(error))
-        if st.button("Remove from department"):
+        if st.button("Remove from department", key=f"btn_remove_member_{member_dept_id}_{target_uid}"):
             try:
                 service.remove_department_member(member_dept_id, selected_member["user_id"])
                 st.success("Member removed.")

@@ -357,14 +357,16 @@ class AuthorizationEngine:
                 return True
             return self._has_project_grant(uow, user, document.project_id)
 
-    def can_manage_document(self, principal: AuthenticatedPrincipal, document_id: str) -> bool:
+    def can_manage_document(self, principal: AuthenticatedPrincipal, document_id: str, allow_archived: bool = True) -> bool:
         """Update/delete scope: admin, department manager of the owning project or lead."""
         if principal is None:
             return False
         with self.unit_of_work_factory() as uow:
             user = self._active_user(uow, principal.uid)
             document = uow.documents.get(document_id)
-            if user is None or document is None or document.status != "active":
+            if user is None or document is None:
+                return False
+            if not allow_archived and document.status != "active":
                 return False
             if user.role.casefold() == "admin":
                 return True

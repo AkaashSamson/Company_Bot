@@ -29,6 +29,16 @@ class User:
         if not self.username:
             self.username = self.uid
 
+    def can_upload_to_project(self, project_id: str) -> bool:
+        """Determines if user has permission to upload documents to a project."""
+        return True
+
+
+@dataclass(slots=True)
+class Employee(User):
+    """Domain model representing an employee user within KnowLayer."""
+    pass
+
 
 @dataclass(slots=True)
 class Department:

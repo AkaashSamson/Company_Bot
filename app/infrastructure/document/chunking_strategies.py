@@ -50,6 +50,18 @@ class ChunkRecord:
     target_tokens: int
     heading_hierarchy: str
     metadata: Dict[str, Any]
+    previous_chunk_id: Optional[str] = None
+    next_chunk_id: Optional[str] = None
+    sequence_index: int = 0
+    bridge_to_next: Optional[Dict[str, Any]] = None
+    bridge_from_prev: Optional[Dict[str, Any]] = None
+    parent_id: Optional[str] = None
+    parent_text: Optional[str] = None
+
+    @property
+    def strategy_name(self) -> str:
+        return self.strategy
+
 
 
 CHUNK_STRATEGIES_META: Dict[str, Dict[str, Any]] = {
@@ -112,6 +124,16 @@ CHUNK_STRATEGIES_META: Dict[str, Dict[str, Any]] = {
         "default_overlap_pct": 10,
         "description": "Standard baseline chunking targeting a fixed token size, with word and punctuation boundary snapping so words are never severed.",
         "best_for": "Uniform indexing workloads, benchmarking baseline comparisons, and token-constrained embeddings.",
+    },
+    "adaptive_hierarchical_bridge": {
+        "id": "adaptive_hierarchical_bridge",
+        "name": "🌐 Adaptive Hierarchical Bridge Chunking (AHBC)",
+        "short_name": "Adaptive AHBC",
+        "optimal_tokens": 200,
+        "recommended_range": "150 – 300 tokens (Child) / 500 – 800 tokens (Parent)",
+        "default_overlap_pct": 0,
+        "description": "Combines Adaptive Structure-Aware routing, Parent-Child hierarchical grounding, and Selective Bridge Graphs with 3-tier dynamic context expansion.",
+        "best_for": "Enterprise policies, compliance regulations, multi-clause contracts, and cross-boundary procedural rules.",
     },
 }
 
@@ -223,6 +245,32 @@ def chunk_recursive_sliding_window(
                 current_tokens = sum(estimate_tokens(s) for s in current_sentences)
                 
     if current_sentences:
+        tail_tokens = sum(estimate_tokens(s) for s in current_sentences)
+        # Prevent 250 + 50 micro-fragment by rebalancing across ~150 + 150
+        if chunks and tail_tokens < 60:
+            prev_chunk = chunks[-1]
+            prev_sents = split_into_sentences(prev_chunk.text)
+            all_sents = prev_sents + current_sentences
+            tot_s = sum(estimate_tokens(s) for s in all_sents)
+            if len(all_sents) >= 2 and tot_s <= int(target_tokens * 1.5):
+                half_t = tot_s // 2
+                best_idx = 1
+                best_diff = float("inf")
+                acc = 0
+                for idx_s in range(len(all_sents) - 1):
+                    acc += estimate_tokens(all_sents[idx_s])
+                    d = abs(acc - half_t)
+                    if d < best_diff and acc <= target_tokens and (tot_s - acc) <= target_tokens:
+                        best_diff = d
+                        best_idx = idx_s + 1
+                p1_s = " ".join(all_sents[:best_idx]).strip()
+                p2_s = " ".join(all_sents[best_idx:]).strip()
+                if estimate_tokens(p2_s) >= 45:
+                    prev_chunk.text = p1_s
+                    prev_chunk.token_count = estimate_tokens(p1_s)
+                    prev_chunk.char_count = len(p1_s)
+                    current_sentences = [p2_s]
+
         chunk_text = " ".join(current_sentences).strip()
         c_idx = len(chunks) + 1
         chunks.append(
@@ -498,6 +546,97 @@ def chunk_fixed_word_snapped(
     )
 
 
+def chunk_adaptive_hierarchical_bridge(
+    text: str,
+    target_tokens: int = 200,
+    overlap_pct: int = 0,
+    doc_prefix: str = "CHUNK",
+) -> List[ChunkRecord]:
+    """Strategy 7: Adaptive Hierarchical Bridge Chunking (AHBC).
+    
+    1. Parses document into parent sections by headings.
+    2. Generates tight, searchable child chunks (target ~200 tokens).
+    3. Anchors each child chunk with parent_id and parent_text.
+    4. Links all chunks sequentially with typed, validated boundary bridges.
+    """
+    sections = _split_markdown_sections(text)
+    chunks: List[ChunkRecord] = []
+    
+    for s_idx, (hierarchy, section_body) in enumerate(sections, 1):
+        parent_id = f"{doc_prefix}-SEC{s_idx:02d}"
+        parent_text = f"[{hierarchy}]\n\n{section_body}".strip() if hierarchy else section_body.strip()
+        
+        paragraphs = [p.strip() for p in re.split(r"\n\s*\n+", section_body) if p.strip()]
+        if not paragraphs:
+            paragraphs = [section_body.strip()]
+            
+        current_sentences: List[str] = []
+        current_tokens = 0
+        
+        for para in paragraphs:
+            sentences = split_into_sentences(para)
+            for sent in sentences:
+                sent_tok = estimate_tokens(sent)
+                if current_tokens + sent_tok <= target_tokens or not current_sentences:
+                    current_sentences.append(sent)
+                    current_tokens += sent_tok
+                else:
+                    if current_tokens < int(target_tokens * 0.70):
+                        current_sentences.append(sent)
+                        current_tokens += sent_tok
+                        
+                    child_text = " ".join(current_sentences).strip()
+                    c_idx = len(chunks) + 1
+                    chunks.append(
+                        ChunkRecord(
+                            id=f"{doc_prefix}-{c_idx:03d}",
+                            text=child_text,
+                            token_count=estimate_tokens(child_text),
+                            char_count=len(child_text),
+                            strategy="adaptive_hierarchical_bridge",
+                            target_tokens=target_tokens,
+                            heading_hierarchy=hierarchy,
+                            parent_id=parent_id,
+                            parent_text=parent_text,
+                            metadata={
+                                "chunk_index": c_idx,
+                                "strategy": "adaptive_hierarchical_bridge",
+                                "parent_id": parent_id,
+                                "parent_tokens": estimate_tokens(parent_text),
+                                "heading_hierarchy": hierarchy,
+                            },
+                        )
+                    )
+                    current_sentences = [sent]
+                    current_tokens = sent_tok
+                    
+        if current_sentences:
+            child_text = " ".join(current_sentences).strip()
+            c_idx = len(chunks) + 1
+            chunks.append(
+                ChunkRecord(
+                    id=f"{doc_prefix}-{c_idx:03d}",
+                    text=child_text,
+                    token_count=estimate_tokens(child_text),
+                    char_count=len(child_text),
+                    strategy="adaptive_hierarchical_bridge",
+                    target_tokens=target_tokens,
+                    heading_hierarchy=hierarchy,
+                    parent_id=parent_id,
+                    parent_text=parent_text,
+                    metadata={
+                        "chunk_index": c_idx,
+                        "strategy": "adaptive_hierarchical_bridge",
+                        "parent_id": parent_id,
+                        "parent_tokens": estimate_tokens(parent_text),
+                        "heading_hierarchy": hierarchy,
+                    },
+                )
+            )
+            
+    return chunks
+
+
 STRATEGY_DISPATCH: Dict[str, Callable[..., List[ChunkRecord]]] = {
     "recursive_sliding_window": chunk_recursive_sliding_window,
     "structural_hierarchical": chunk_structural_hierarchical,
@@ -505,6 +644,7 @@ STRATEGY_DISPATCH: Dict[str, Callable[..., List[ChunkRecord]]] = {
     "sentence_window_small_to_big": chunk_sentence_window_small_to_big,
     "document_section_broad": chunk_document_section_broad,
     "fixed_word_snapped": chunk_fixed_word_snapped,
+    "adaptive_hierarchical_bridge": chunk_adaptive_hierarchical_bridge,
 }
 
 
@@ -514,17 +654,27 @@ def apply_chunking_strategy(
     target_tokens: Optional[int] = None,
     overlap_pct: Optional[int] = None,
     doc_prefix: str = "CHUNK",
+    enable_bridge_links: bool = True,
 ) -> List[ChunkRecord]:
-    """Execute the chosen chunking strategy on text with soft approximate token budgeting."""
+    """Execute the chosen chunking strategy on text with soft approximate token budgeting,
+    and link all resulting chunks into a Doubly Linked List with typed boundary bridges.
+    """
+    from app.infrastructure.document.bridge_linked_chunking import (
+        link_chunk_records_into_linked_list,
+    )
+
     meta = CHUNK_STRATEGIES_META.get(strategy_key, CHUNK_STRATEGIES_META["recursive_sliding_window"])
     func = STRATEGY_DISPATCH.get(strategy_key, chunk_recursive_sliding_window)
     
     tokens = target_tokens if target_tokens is not None else meta["optimal_tokens"]
     overlap = overlap_pct if overlap_pct is not None else meta["default_overlap_pct"]
     
-    return func(
+    chunks = func(
         text=text,
         target_tokens=tokens,
         overlap_pct=overlap,
         doc_prefix=doc_prefix,
     )
+    if enable_bridge_links and chunks:
+        chunks = link_chunk_records_into_linked_list(chunks, doc_id=doc_prefix)
+    return chunks

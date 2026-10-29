@@ -1,12 +1,62 @@
 import base64
+import importlib
 
+import requests
 import streamlit as st
+
+import streamlit_app.services.admin_api
+import streamlit_app.services.document_service
+
+importlib.reload(streamlit_app.services.admin_api)
+importlib.reload(streamlit_app.services.document_service)
 
 from streamlit_app.services.admin_api import AdminAPI
 from streamlit_app.services.document_service import DocumentService
 from streamlit_app.services.organization_service import OrganizationService
 from streamlit_app.services.ui_helpers import format_error
 from streamlit_app.session_auth import require_auth
+
+
+def _archive_document(service, document_id: str):
+    if hasattr(service, "archive_document"):
+        try:
+            return service.archive_document(document_id)
+        except TypeError:
+            pass
+    headers = service._headers() if hasattr(service, "_headers") else {}
+    base_url = getattr(service, "base_url", "http://127.0.0.1:8000")
+    resp = requests.post(f"{base_url}/api/documents/{document_id}/archive", headers=headers, timeout=15)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _unarchive_document(service, document_id: str):
+    if hasattr(service, "unarchive_document"):
+        try:
+            return service.unarchive_document(document_id)
+        except TypeError:
+            pass
+    headers = service._headers() if hasattr(service, "_headers") else {}
+    base_url = getattr(service, "base_url", "http://127.0.0.1:8000")
+    resp = requests.post(f"{base_url}/api/documents/{document_id}/unarchive", headers=headers, timeout=30)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _delete_document(service, document_id: str, permanent: bool = True):
+    try:
+        return service.delete_document(document_id, permanent=permanent)
+    except TypeError:
+        params = {"permanent": "true"} if permanent else {"permanent": "false"}
+        headers = service._headers() if hasattr(service, "_headers") else {}
+        base_url = getattr(service, "base_url", "http://127.0.0.1:8000")
+        resp = requests.delete(
+            f"{base_url}/api/documents/{document_id}",
+            params=params,
+            headers=headers,
+            timeout=15,
+        )
+        resp.raise_for_status()
 
 
 st.set_page_config(page_title="Documents | KnowLayer")
@@ -48,7 +98,10 @@ except Exception as error:
 project_name_by_id = {p["project_id"]: p["project_name"] for p in projects}
 user_name_by_uid = {u["uid"]: u["name"] or u["uid"] for u in users}
 role_name_by_id = {r["role_id"]: r["name"] for r in roles}
-document_options = {d["document_name"]: d["document_id"] for d in documents}
+document_options = {
+    f"{d.get('document_name') or d['document_id']} ({d['document_id']})" + (" [Archived]" if d.get("status") == "archived" else ""): d["document_id"]
+    for d in documents
+}
 
 with st.expander("Upload document", expanded=True):
     uploaded_file = st.file_uploader("Choose a file to provision for Q&A", type=["pdf", "docx", "txt", "md", "rst"])
@@ -96,6 +149,42 @@ else:
 
     if detail.get("description"):
         st.caption(detail["description"])
+
+    # Document Actions
+    detail_status = detail.get("status", "active")
+    action_col1, action_col2 = st.columns(2)
+    with action_col1:
+        if detail_status != "archived":
+            if st.button("📦 Archive Document", key=f"detail-archive-{detail_id}", help="Soft-archive: excludes document from retrieval while keeping record"):
+                try:
+                    _archive_document(document_service, detail_id)
+                    st.success("Document archived.")
+                    st.rerun()
+                except Exception as error:
+                    st.error(format_error(error))
+        else:
+            if st.button("📂 Unarchive Document", key=f"detail-unarchive-{detail_id}", help="Restore document to active status and re-index for Q&A"):
+                try:
+                    _unarchive_document(document_service, detail_id)
+                    st.success("Document unarchived.")
+                    st.rerun()
+                except Exception as error:
+                    st.error(format_error(error))
+    with action_col2:
+        confirm_detail_del = st.checkbox("Confirm permanent deletion", key=f"confirm-del-{detail_id}")
+        if st.button(
+            "🗑️ Delete Document & Chunks",
+            key=f"detail-delete-{detail_id}",
+            type="primary" if detail_status == "archived" else "secondary",
+            disabled=not confirm_detail_del,
+            help="Permanently deletes the document record, files on disk, and all vector chunks from Chroma",
+        ):
+            try:
+                _delete_document(document_service, detail_id, permanent=True)
+                st.success("Document and all associated chunks permanently deleted.")
+                st.rerun()
+            except Exception as error:
+                st.error(format_error(error))
 
 # ------------------------------------------------- access configuration
 
@@ -160,15 +249,48 @@ else:
             except Exception as error:
                 st.error(format_error(error))
 
+st.subheader("Manage documents")
 if documents:
     st.dataframe(documents, use_container_width=True)
+    st.markdown("##### Actions")
     for document in documents:
-        if st.button(f"Archive {document['document_name']}", key=f"archive-{document['document_id']}"):
-            try:
-                document_service.delete_document(document["document_id"])
-                st.success("Document archived.")
-                st.rerun()
-            except Exception as error:
-                st.error(str(error))
+        doc_id = document["document_id"]
+        doc_name = document.get("document_name") or doc_id
+        doc_status = document.get("status", "active")
+
+        row_col1, row_col2, row_col3 = st.columns([3, 1, 1.5])
+        with row_col1:
+            badge = "🏷️ `archived`" if doc_status == "archived" else "🟢 `active`"
+            st.write(f"**{doc_name}** (`{doc_id}`) — {badge}")
+        with row_col2:
+            if doc_status != "archived":
+                if st.button("Archive", key=f"row-archive-{doc_id}", help="Soft-archive: excludes document from Q&A"):
+                    try:
+                        _archive_document(document_service, doc_id)
+                        st.success(f"Archived {doc_name}.")
+                        st.rerun()
+                    except Exception as error:
+                        st.error(format_error(error))
+            else:
+                if st.button("Unarchive", key=f"row-unarchive-{doc_id}", help="Restore document to active status and re-index for Q&A"):
+                    try:
+                        _unarchive_document(document_service, doc_id)
+                        st.success(f"Unarchived {doc_name}.")
+                        st.rerun()
+                    except Exception as error:
+                        st.error(format_error(error))
+        with row_col3:
+            btn_label = "🗑️ Delete Chunks" if doc_status == "archived" else "🗑️ Delete"
+            if st.button(
+                btn_label,
+                key=f"row-delete-{doc_id}",
+                help="Permanently delete document record and all its vector chunks",
+            ):
+                try:
+                    _delete_document(document_service, doc_id, permanent=True)
+                    st.success(f"Deleted {doc_name} and its chunks.")
+                    st.rerun()
+                except Exception as error:
+                    st.error(format_error(error))
 else:
     st.info("No documents found. Upload a file above to provision it for Q&A.")

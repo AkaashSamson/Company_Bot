@@ -6,6 +6,7 @@ kinds, and error translation — without loading Docling layout models or a
 tokenizer. The Docling-specific pieces are never asserted on directly; the
 tests are written against the neutral port contract.
 """
+# pyrefly: ignore[missing-import]
 import pytest
 
 from app.core.settings import DOCLING_MAX_TOKENS, EMBEDDING_MODEL
@@ -17,19 +18,28 @@ from app.domain.ports.document_processing import (
 from app.infrastructure.document.docling_processor import DoclingDocumentProcessor
 
 
+class FakeBBox:
+    def __init__(self, l, t, r, b):
+        self.l = l
+        self.t = t
+        self.r = r
+        self.b = b
+
+
 class FakeProvenance:
-    def __init__(self, page_no):
+    def __init__(self, page_no, bbox=None):
         self.page_no = page_no
+        self.bbox = bbox
 
 
 class FakeItem:
     """Stands in for a Docling document item."""
 
-    def __init__(self, self_ref, label, text="", page_no=None):
+    def __init__(self, self_ref, label, text="", page_no=None, bbox=None):
         self.self_ref = self_ref
         self.label = label
         self.text = text
-        self.prov = [FakeProvenance(page_no)] if page_no is not None else []
+        self.prov = [FakeProvenance(page_no, bbox)] if page_no is not None or bbox is not None else []
 
 
 class FakeDocument:
@@ -391,3 +401,63 @@ def test_result_contains_only_neutral_types():
     assert {type(chunk).__module__ for chunk in result.chunks} == {
         "app.domain.ports.document_processing"
     }
+
+
+def test_layout_aware_table_detection_and_metadata():
+    """Table layout kind and metadata are captured on processed chunk."""
+    table = FakeItem("#/tables/0", "table", "| Col A | Col B |\n|---|---|\n| 1 | 2 |", page_no=1)
+    processor = _processor([(table, 1)], [FakeChunk(table.text, [table])], pages=[1])
+
+    result = processor.process(b"payload", "sheet.pdf")
+
+    assert len(result.chunks) == 1
+    chunk = result.chunks[0]
+    assert chunk.content_type == "table"
+    assert chunk.metadata.get("layout_type") == "table"
+    assert chunk.metadata.get("is_table") is True
+
+
+def test_layout_aware_bbox_extraction():
+    """Spatial bounding box coordinates are extracted and aggregated."""
+    bbox = FakeBBox(l=15.5, t=20.0, r=400.0, b=120.5)
+    item = FakeItem("#/texts/0", "text", "Bounded text.", page_no=2, bbox=bbox)
+    processor = _processor([(item, 1)], [FakeChunk(item.text, [item])], pages=[1, 2])
+
+    result = processor.process(b"payload", "form.pdf")
+
+    assert len(result.chunks) == 1
+    chunk = result.chunks[0]
+    assert chunk.metadata.get("bbox") == "15.5,20.0,400.0,120.5"
+
+
+def test_layout_aware_header_footer_filtering(monkeypatch):
+    """Standalone page headers and footers are suppressed when configured."""
+    monkeypatch.setattr("app.infrastructure.document.docling_processor.DOCLING_FILTER_HEADERS_FOOTERS", True)
+    header = FakeItem("#/headers/0", "page_header", "Confidential Page 1", page_no=1)
+    body = FakeItem("#/texts/0", "text", "Important policy content.", page_no=1)
+    footer = FakeItem("#/footers/0", "page_footer", "Page 1 of 10", page_no=1)
+    processor = _processor(
+        [(header, 1), (body, 1), (footer, 1)],
+        [FakeChunk(header.text, [header]), FakeChunk(body.text, [body]), FakeChunk(footer.text, [footer])],
+        pages=[1],
+    )
+
+    result = processor.process(b"payload", "doc.pdf")
+
+    # Header and footer chunks filtered out, only body chunk survives
+    assert len(result.chunks) == 1
+    assert result.chunks[0].text == "Important policy content."
+
+
+def test_build_pdf_format_option_configures_layout_aware_pipeline():
+    """PdfFormatOption is configured with TableFormer, OCR, and reading order."""
+    from app.infrastructure.document.docling_processor import _build_pdf_format_option
+    from docling.document_converter import PdfFormatOption
+    from docling.datamodel.pipeline_options import TableFormerMode
+
+    option = _build_pdf_format_option()
+    assert isinstance(option, PdfFormatOption)
+    assert option.pipeline_options.do_table_structure is True
+    assert option.pipeline_options.table_structure_options.mode == TableFormerMode.ACCURATE
+    assert option.pipeline_options.use_reading_order_separators is True
+
