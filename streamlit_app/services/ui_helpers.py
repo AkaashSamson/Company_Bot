@@ -6,6 +6,14 @@ def format_error(error):
     if isinstance(error, requests.HTTPError):
         response = error.response
         if response is not None:
+            if response.status_code == 403:
+                try:
+                    import streamlit as st
+                    st.session_state['user_profile'] = None
+                    if isinstance(st.session_state.get('auth'), dict):
+                        st.session_state.auth.pop('permissions', None)
+                except Exception:
+                    pass
             try:
                 body = response.json()
             except ValueError:

@@ -13,6 +13,7 @@ def get_current_profile():
 
 
 def logout_user():
+    st.session_state["logged_out"] = True
     st.session_state["auth"] = None
     st.session_state["user_profile"] = None
     st.session_state["messages"] = []
@@ -24,7 +25,10 @@ def logout_user():
         cookies.remove("knowlayer_auth")
     except Exception:
         pass
-    st.rerun()
+    try:
+        st.switch_page("app.py")
+    except Exception:
+        st.rerun()
 
 
 def render_sidebar():

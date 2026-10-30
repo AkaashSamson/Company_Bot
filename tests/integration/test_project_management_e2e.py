@@ -62,7 +62,8 @@ def test_project_manager_cannot_manage_unrelated_project_in_database():
         raise AssertionError("project manager managed an unrelated project")
 
     with SqlAlchemyUnitOfWork(session_factory) as uow:
-        assert len(uow.memberships.list_for_project("p1")) == 1
+        # p1 has 2 members: the project manager (m1) auto-assigned on creation + u1
+        assert len(uow.memberships.list_for_project("p1")) == 2
         assert len(uow.memberships.list_for_project("p2")) == 0
 
 

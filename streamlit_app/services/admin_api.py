@@ -85,6 +85,9 @@ class AdminAPI:
     def list_user_memberships(self, uid):
         return self._get(f"{self.base_url}/api/users/{uid}/memberships", headers=self._headers())
 
+    def list_user_project_memberships(self, uid):
+        return self._get(f"{self.base_url}/api/users/{uid}/project-memberships", headers=self._headers())
+
     def list_user_roles(self, uid):
         return self._get(f"{self.base_url}/api/users/{uid}/roles", headers=self._headers())
 

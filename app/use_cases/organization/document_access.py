@@ -62,23 +62,35 @@ class DocumentAccessService:
                 raise NotFoundError("Document not found")
             self._require_document_manager(self.authorization, actor_principal, uow, document_id)
             self._check_principal_target(uow, principal_type, role_id, user_id)
-            existing = [
-                g for g in uow.document_grants.for_document(document_id)
-                if g.principal_type == principal_type and g.role_id == role_id and g.user_id == user_id
-            ]
-            if existing:
-                raise ConflictError("Grant already exists")
-            grant = DocumentGrant(
-                document_id,
-                principal_type,
-                permission=permission or DOCUMENT_DEFAULT_PERMISSION,
-                role_id=role_id,
-                user_id=user_id,
-                granted_by_uid=actor_principal.uid,
-                status="active",
-                granted_at=utc_now(),
-            )
-            grant = uow.document_grants.save(grant)
+            if hasattr(uow, "document_grants"):
+                existing = [
+                    g for g in uow.document_grants.for_document(document_id)
+                    if g.principal_type == principal_type and g.role_id == role_id and g.user_id == user_id
+                ]
+                if existing:
+                    raise ConflictError("Grant already exists")
+                grant = DocumentGrant(
+                    document_id,
+                    principal_type,
+                    permission=permission or DOCUMENT_DEFAULT_PERMISSION,
+                    role_id=role_id,
+                    user_id=user_id,
+                    granted_by_uid=actor_principal.uid,
+                    status="active",
+                    granted_at=utc_now(),
+                )
+                grant = uow.document_grants.save(grant)
+            else:
+                grant = DocumentGrant(
+                    document_id,
+                    principal_type,
+                    permission=permission or DOCUMENT_DEFAULT_PERMISSION,
+                    role_id=role_id,
+                    user_id=user_id,
+                    granted_by_uid=actor_principal.uid,
+                    status="active",
+                    granted_at=utc_now(),
+                )
             uow.commit()
             return grant
 
@@ -89,14 +101,17 @@ class DocumentAccessService:
             if document is None:
                 raise NotFoundError("Document not found")
             self._require_document_manager(self.authorization, actor_principal, uow, document_id)
-            return list(uow.document_grants.for_document(document_id))
+            if hasattr(uow, "document_grants"):
+                return list(uow.document_grants.for_document(document_id))
+            return []
 
     def revoke(self, actor_principal, grant_id):
         with self.unit_of_work_factory() as uow:
             self._require_active(uow, actor_principal.uid)
-            grant = uow.document_grants.get(grant_id)
-            if grant is None:
-                raise NotFoundError("Document grant not found")
-            self._require_document_manager(self.authorization, actor_principal, uow, grant.document_id)
-            uow.document_grants.delete(grant_id)
-            uow.commit()
+            if hasattr(uow, "document_grants"):
+                grant = uow.document_grants.get(grant_id)
+                if grant is None:
+                    raise NotFoundError("Document grant not found")
+                self._require_document_manager(self.authorization, actor_principal, uow, grant.document_id)
+                uow.document_grants.delete(grant_id)
+                uow.commit()

@@ -72,16 +72,16 @@ def create_document(
         doc = service.register_document(
             principal,
             defer_ingestion=use_async,
-            background_tasks=background_tasks if use_async else None,
+            background_tasks=None,
             **data,
         )
         if use_async and (payload.content or payload.source_path) and hasattr(service, "ingest_document"):
-            background_tasks.add_task(
-                service.ingest_document,
-                doc.document_id,
-                payload.source_path,
-                payload.content,
-            )
+            import threading
+            threading.Thread(
+                target=service.ingest_document,
+                args=(doc.document_id, payload.source_path, payload.content),
+                daemon=True,
+            ).start()
         return doc
     except Exception as error:
         raise _error(error) from error
@@ -168,16 +168,16 @@ def create_project_document(
             principal,
             project_id=project_id,
             defer_ingestion=use_async,
-            background_tasks=background_tasks if use_async else None,
+            background_tasks=None,
             **data,
         )
         if use_async and (payload.content or payload.source_path) and hasattr(service, "ingest_document"):
-            background_tasks.add_task(
-                service.ingest_document,
-                doc.document_id,
-                payload.source_path,
-                payload.content,
-            )
+            import threading
+            threading.Thread(
+                target=service.ingest_document,
+                args=(doc.document_id, payload.source_path, payload.content),
+                daemon=True,
+            ).start()
         return doc
     except Exception as error:
         raise _error(error) from error

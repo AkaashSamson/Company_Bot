@@ -24,6 +24,7 @@ playwright-report/
 .chroma*/
 *.sqlite3
 *.db
+*.db*
 company_bot.db
 instance/
 
@@ -57,3 +58,6 @@ input/DOC-005.pdf
 # Runtime document storage subfolders & archives
 input/archived/
 input/*/
+
+# Playwright test recordings & traces
+test-results/

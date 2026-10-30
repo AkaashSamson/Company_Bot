@@ -12,8 +12,8 @@ async def test_lifespan_starts_and_cancels_background_task(caplog):
     
     app = FastAPI()
     
-    # We will patch init_orchestrator and initialize_persistence to avoid db setup
-    with patch("app.main.init_orchestrator"), patch("app.infrastructure.persistence.factory.initialize_persistence"), patch("app.infrastructure.logging.conversation_log_cleanup.ConversationLogCleanup") as MockCleanup:
+    # We will patch init_orchestrator and persistence to avoid db setup
+    with patch("app.main.init_orchestrator"), patch("app.infrastructure.persistence.factory.initialize_persistence"), patch("app.infrastructure.persistence.factory.create_unit_of_work"), patch("app.infrastructure.logging.conversation_log_cleanup.ConversationLogCleanup") as MockCleanup:
         
         async with lifespan(app):
             # The background task is now running and sleeping.

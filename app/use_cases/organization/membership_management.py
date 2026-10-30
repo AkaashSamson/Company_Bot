@@ -26,8 +26,8 @@ class MembershipManagementService:
             raise NotFoundError("User or project not found")
         if not self.authorization.can_manage_project(AuthenticatedPrincipal(actor_uid), project_id):
             raise ForbiddenError("Membership is outside manager scope")
-        if actor.role.casefold() == "manager" and actor.department_id != target.department_id:
-            raise ForbiddenError("Membership is outside manager scope")
+        # Cross-department project membership is permitted for project managers
+        pass
 
     def assign(self, actor_uid, uid, project_id, membership_role="Member"):
         with self.unit_of_work_factory() as uow:
@@ -84,3 +84,13 @@ class MembershipManagementService:
             if not self.authorization.can_manage_project(AuthenticatedPrincipal(actor_uid), project_id):
                 raise ForbiddenError("Project is outside manager scope")
             return list(uow.memberships.list_for_project(project_id))
+
+    def list_for_user(self, actor_uid, uid):
+        with self.unit_of_work_factory() as uow:
+            actor = uow.users.get_by_uid(actor_uid)
+            if actor is None or actor.status != "active":
+                raise ForbiddenError("Active authenticated user required")
+            if actor.uid != uid and not self.authorization.is_admin(AuthenticatedPrincipal(actor_uid)):
+                raise ForbiddenError("Membership is outside actor scope")
+            return list(uow.memberships.list_for_user(uid))
+

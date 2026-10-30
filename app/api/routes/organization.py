@@ -136,6 +136,18 @@ def list_user_memberships(
         raise _error(error) from error
 
 
+@router.get("/users/{uid}/project-memberships", response_model=list[ProjectMemberResponse])
+def list_user_project_memberships(
+    uid: str,
+    principal=Depends(get_current_principal),
+    service=Depends(get_membership_management_service),
+):
+    try:
+        return service.list_for_user(principal.uid, uid)
+    except Exception as error:
+        raise _error(error) from error
+
+
 @router.get("/users/me/profile", response_model=ProfileResponse)
 def get_my_profile(
     principal=Depends(get_current_principal),

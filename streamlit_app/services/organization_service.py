@@ -90,3 +90,11 @@ class OrganizationService:
         )
         response.raise_for_status()
         return True
+    def list_user_project_memberships(self, uid):
+        response = requests.get(
+            f"{self.base_url}/api/users/{uid}/project-memberships",
+            headers=self._headers(),
+            timeout=15,
+        )
+        response.raise_for_status()
+        return response.json()

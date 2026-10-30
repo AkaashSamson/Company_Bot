@@ -64,6 +64,7 @@ if can_create:
                         "description": description.strip() or None,
                         "default_billable": default_billable,
                     })
+                    st.toast("Department created successfully.")
                     st.success("Department created successfully.")
                     st.rerun()
                 except Exception as error:
