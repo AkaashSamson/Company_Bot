@@ -5,6 +5,8 @@ import subprocess
 import sys
 import time
 import urllib.request
+import base64
+from pathlib import Path
 import pytest
 from playwright.sync_api import Page, expect
 
@@ -352,6 +354,14 @@ class UIActions:
 
         self.page.wait_for_timeout(500)
 
+    def send_chat_message(self, text: str):
+        """Submit a question through the Streamlit st.chat_input."""
+        chat_box = self.page.locator('[data-testid="stChatInputTextArea"]').first
+        expect(chat_box).to_be_visible(timeout=10000)
+        chat_box.fill(text)
+        chat_box.press("Enter")
+        self.page.wait_for_timeout(1000)
+
 
 @pytest.fixture
 def ui(page: Page, e2e_servers) -> UIActions:
@@ -561,9 +571,8 @@ def ensure_act4_state(ensure_act2_state, e2e_servers):
     members = [m.get("uid") for m in (members_resp.json() if members_resp.status_code == 200 else [])]
     if elena_uid not in members:
         requests.post(
-            f"{backend_url}/api/projects/{apollo_project_id}/members",
+            f"{backend_url}/api/projects/{apollo_project_id}/members/{elena_uid}",
             headers=headers,
-            json={"uid": elena_uid},
             timeout=10,
         ).raise_for_status()
 
@@ -574,4 +583,117 @@ def ensure_act4_state(ensure_act2_state, e2e_servers):
         "elena": {"username": "elena.dev", "password": "Password123!", "uid": elena_uid},
         "david": {"username": "david.hr", "password": "Password123!"},
         "apollo_project_id": apollo_project_id,
+    }
+
+
+@pytest.fixture
+def ensure_act6_state(ensure_act4_state, e2e_servers):
+    """Ensures Act 6 state:
+    1. Users: david.hr, roy.hr, elena.dev, marcus.eng.
+    2. Project Titan created under Engineering dept with Marcus Vance as manager.
+    3. Roy Miller (roy.hr) and Elena Rostova (elena.dev) assigned as members to Project Titan.
+    4. David Kim (david.hr) NOT assigned to Project Titan.
+    5. timesheet_policy.md ingested into general KB (project_id=None) and Active.
+    6. titan_architecture.md ingested into Project Titan and Active.
+    """
+    backend_url = e2e_servers["api_url"]
+    token = _get_admin_token(backend_url)
+    headers = {"Authorization": f"Bearer {token}"}
+    depts = ensure_act4_state["departments"]
+
+    # 1. Fetch user map
+    users_resp = requests.get(f"{backend_url}/api/users", headers=headers, timeout=10)
+    users = {u.get("username"): u for u in (users_resp.json() if users_resp.status_code == 200 else [])}
+
+    marcus_uid = users["marcus.eng"]["uid"]
+    roy_uid = users["roy.hr"]["uid"]
+    elena_uid = users["elena.dev"]["uid"]
+    david_uid = users["david.hr"]["uid"]
+
+    # 2. Ensure Project Titan exists
+    projects_resp = requests.get(f"{backend_url}/api/projects", headers=headers, timeout=10)
+    projects = {p.get("project_name"): p for p in (projects_resp.json() if projects_resp.status_code == 200 else [])}
+
+    if "Project Titan" not in projects:
+        r = requests.post(
+            f"{backend_url}/api/projects",
+            headers=headers,
+            json={
+                "project_name": "Project Titan",
+                "department_id": depts["Engineering"],
+                "manager_uid": marcus_uid,
+                "description": "High-throughput telemetry and analytics platform",
+            },
+            timeout=10,
+        )
+        r.raise_for_status()
+        titan_project_id = r.json()["project_id"]
+    else:
+        titan_project_id = projects["Project Titan"]["project_id"]
+
+    # 3. Ensure Roy Miller and Elena Rostova are members of Project Titan
+    members_resp = requests.get(f"{backend_url}/api/projects/{titan_project_id}/members", headers=headers, timeout=10)
+    members = [m.get("uid") for m in (members_resp.json() if members_resp.status_code == 200 else [])]
+
+    if roy_uid not in members:
+        requests.post(
+            f"{backend_url}/api/projects/{titan_project_id}/members/{roy_uid}",
+            headers=headers,
+            timeout=10,
+        ).raise_for_status()
+
+    if elena_uid not in members:
+        requests.post(
+            f"{backend_url}/api/projects/{titan_project_id}/members/{elena_uid}",
+            headers=headers,
+            timeout=10,
+        ).raise_for_status()
+
+    # 4. Helper to ensure document is uploaded & active
+    def _ensure_doc(doc_name: str, file_rel_path: str, project_id: str | None = None) -> str:
+        docs_resp = requests.get(f"{backend_url}/api/documents", headers=headers, timeout=10)
+        docs = docs_resp.json() if docs_resp.status_code == 200 else []
+        for d in docs:
+            if (d.get("document_name") == doc_name or d.get("original_filename") == doc_name) and d.get("project_id") == project_id:
+                if d.get("status") == "active":
+                    return d["document_id"]
+                doc_id = d["document_id"]
+                break
+        else:
+            p = Path(file_rel_path).resolve()
+            assert p.exists(), f"File {file_rel_path} not found"
+            b64_content = base64.b64encode(p.read_bytes()).decode("utf-8")
+            ext = p.suffix.lstrip(".")
+            r = requests.post(
+                f"{backend_url}/api/documents",
+                headers=headers,
+                json={
+                    "document_name": doc_name,
+                    "original_filename": doc_name,
+                    "file_type": ext,
+                    "content": b64_content,
+                    "project_id": project_id,
+                    "description": f"Seeded {doc_name}",
+                    "async_mode": True,
+                },
+                timeout=10,
+            )
+            r.raise_for_status()
+            doc_id = r.json()["document_id"]
+
+        for _ in range(45):
+            st_resp = requests.get(f"{backend_url}/api/documents/{doc_id}/status", headers=headers, timeout=10)
+            if st_resp.status_code == 200 and st_resp.json().get("status") == "active":
+                return doc_id
+            time.sleep(1)
+        return doc_id
+
+    _ensure_doc("timesheet_policy.md", "tests/fixtures/synthetic_data/timesheet_policy.md", project_id=None)
+    _ensure_doc("titan_architecture.md", "tests/fixtures/synthetic_data/titan_architecture.md", project_id=titan_project_id)
+
+    return {
+        "david": {"username": "david.hr", "password": "Password123!"},
+        "roy": {"username": "roy.hr", "password": "Password123!"},
+        "elena": {"username": "elena.dev", "password": "Password123!"},
+        "titan_project_id": titan_project_id,
     }
