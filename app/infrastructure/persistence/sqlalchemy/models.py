@@ -72,7 +72,6 @@ class UserRecord(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utc_now, onupdate=_utc_now)
-    password_representation: Mapped[str] = mapped_column(String(512), nullable=False, default="")
     password_hash: Mapped[str] = mapped_column(String(512), nullable=False, default="")
     password_changed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     must_change_password: Mapped[bool] = mapped_column(nullable=False, default=False)

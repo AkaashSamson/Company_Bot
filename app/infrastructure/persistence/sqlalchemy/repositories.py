@@ -128,7 +128,6 @@ class SqlAlchemyUserRepository:
         record.updated_at = user.updated_at
         pwd = getattr(user, "password_hash", None) or getattr(user, "password_representation", "")
         record.password_hash = pwd
-        record.password_representation = pwd
         record.password_changed_at = user.password_changed_at
         record.must_change_password = user.must_change_password
         record.employee_id = user.employee_id
