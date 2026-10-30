@@ -283,6 +283,35 @@ class ObservabilityManager(BaseObservabilityProvider):
         except Exception as exc:
             logger.warning("ObservabilityManager failed to dispatch trace %s: %s", getattr(trace, "trace_id", "unknown"), exc)
 
+    def record_decision_call(
+        self,
+        name: str,
+        state: str,
+        questions: Dict[str, Any],
+        selection: Dict[str, Any],
+        model: str = "laya",
+        token_usage: Optional[TokenUsage] = None,
+        latency_ms: float = 0.0,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Record an individual decision / guardrail call to the active provider."""
+        with self._lock:
+            provider = self._active_provider
+        if hasattr(provider, "record_decision_call"):
+            try:
+                provider.record_decision_call(
+                    name=name,
+                    state=state,
+                    questions=questions,
+                    selection=selection,
+                    model=model,
+                    token_usage=token_usage,
+                    latency_ms=latency_ms,
+                    metadata=metadata,
+                )
+            except Exception as exc:
+                logger.warning("ObservabilityManager record_decision_call failed: %s", exc)
+
     def close(self) -> None:
         with self._lock:
             provider = self._active_provider

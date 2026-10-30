@@ -58,5 +58,18 @@ class NullObservabilityProvider(BaseObservabilityProvider):
     ) -> None:
         pass
 
+    def record_decision_call(
+        self,
+        name: str,
+        state: str,
+        questions: Dict[str, Any],
+        selection: Dict[str, Any],
+        model: str = "laya",
+        token_usage: Optional[TokenUsage] = None,
+        latency_ms: float = 0.0,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        pass
+
     def flush(self) -> None:
         pass

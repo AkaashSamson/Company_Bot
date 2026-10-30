@@ -58,6 +58,8 @@ def _resolve_observation_type(name: str, run_type: Optional[str] = None) -> str:
             return "agent"
 
     lower = name.lower()
+    if lower.startswith("laya_"):
+        return "guardrail"
     if any(k in lower for k in ("generation", "llm", "generate", "chat")):
         return "generation"
     if any(k in lower for k in ("retrieval", "retriever", "vector", "search", "cache", "faq")):
@@ -286,8 +288,9 @@ class LangfuseProvider(BaseObservabilityProvider):
                     },
                 }
 
-                # Attach generation model & token metrics for LLM stages
-                if obs_type == "generation" or "generation" in stage_val.lower():
+                # Attach generation model & token metrics for LLM stages and LAYA guardrail stages
+                is_laya_or_guardrail = (obs_type == "guardrail") or stage_val.startswith("LAYA_")
+                if obs_type == "generation" or "generation" in stage_val.lower() or is_laya_or_guardrail:
                     in_meta = getattr(span, "input_metadata", {}) or {}
                     out_meta = getattr(span, "output_metadata", {}) or {}
                     model_name = in_meta.get("model", "unknown")
@@ -462,6 +465,46 @@ class LangfuseProvider(BaseObservabilityProvider):
                 pass
         except Exception as exc:
             logger.debug("Langfuse record_llm_call failed: %s", exc)
+
+    def record_decision_call(
+        self,
+        name: str,
+        state: str,
+        questions: Dict[str, Any],
+        selection: Dict[str, Any],
+        model: str = "laya",
+        token_usage: Optional[TokenUsage] = None,
+        latency_ms: float = 0.0,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Record an individual decision / guardrail call as a Langfuse guardrail observation."""
+        if not self.enabled or self._client is None:
+            logger.debug("Langfuse dry-run recorded decision call: %s (%s)", name, model)
+            return
+
+        try:
+            p_tok = token_usage.prompt_tokens if token_usage else 0
+            c_tok = token_usage.completion_tokens if token_usage else 0
+            t_tok = token_usage.total_tokens if token_usage else (p_tok + c_tok)
+            obs = self._client.start_observation(
+                name=name,
+                as_type="guardrail",
+                model=model,
+                input={"state": state, "questions": questions},
+                output={"selection": selection},
+                usage_details={
+                    "input": p_tok,
+                    "output": c_tok,
+                    "total": t_tok,
+                } if t_tok > 0 else None,
+                metadata={
+                    **(metadata or {}),
+                    "latency_ms": latency_ms,
+                },
+            )
+            obs.end()
+        except Exception as exc:
+            logger.warning("Langfuse record_decision_call failed: %s", exc)
 
     def flush(self) -> None:
         """Flush the Langfuse client event queue to ensure all background events are pushed."""

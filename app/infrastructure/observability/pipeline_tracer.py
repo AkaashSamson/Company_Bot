@@ -64,6 +64,12 @@ class PipelineStage(Enum):
     QUALITY_ASSESSMENT = "quality_assessment"
     CACHE_WRITE = "cache_write"
 
+    # LAYA (System-1 judge) guardrail / decision stages
+    LAYA_INPUT_SAFETY = "laya_input_safety"
+    LAYA_OUTPUT_SAFETY = "laya_output_safety"
+    LAYA_QUERY_INTENT = "laya_query_intent"
+    LAYA_FOLLOWUP_INTENT = "laya_followup_intent"
+
 
 @dataclass
 class StageSpan:
@@ -94,6 +100,10 @@ class StageSpan:
         self.duration_ms = (time.perf_counter() - self.start_perf) * 1000.0
         if output_metadata:
             self.output_metadata = output_metadata
+
+    def set_input(self, **kwargs) -> None:
+        """Set input metadata fields for this stage."""
+        self.input_metadata.update(kwargs)
 
     def set_output(self, **kwargs) -> None:
         """Set output metadata fields for this stage."""
@@ -227,6 +237,12 @@ class TraceContext:
             self.span.tokens_used = self.tokens_used
         if self.tracer and hasattr(self.tracer, "record_tokens"):
             self.tracer.record_tokens(self.stage, prompt_tokens, completion_tokens)
+
+    def set_input(self, **kwargs) -> None:
+        """Set input metadata for this stage."""
+        self.input_metadata.update(kwargs)
+        if self.span:
+            self.span.input_metadata.update(kwargs)
 
     def set_output(self, **kwargs) -> None:
         """Set output metadata for this stage."""

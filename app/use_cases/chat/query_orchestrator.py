@@ -41,9 +41,13 @@ from app.infrastructure.observability.pipeline_tracer import (
     get_pipeline_tracer,
 )
 
+from app.infrastructure.llm.laya_client import LayaClient
+from app.domain.ports.laya_guardrail import LayaGuardrailPort
+from app.domain.services.guardrails import SecurityGuardrails
+
 logger = logging.getLogger(__name__)
 
-RELEVANCE_PROMPT = ""
+RELEVANCE_PROMPT = "Was this response relevant to your question?"
 REFERENCES_CONFIRM_PROMPT = "Would you like to see the source references?"
 
 # Words/phrases that count as a positive response / relevant
@@ -276,6 +280,7 @@ class QueryOrchestrator:
         query_normalizer=None,
         pipeline_tracer=None,
         document_timestamp_lookup: Optional[Callable[[str], Optional[float]]] = None,
+        laya=None,
     ):
         self.retrieval = retrieval or RetrievalService()
         self.reranker = reranker or getattr(self.retrieval, "reranker", None)
@@ -291,7 +296,7 @@ class QueryOrchestrator:
         self.context_builder = context_builder or RAGContextBuilder()
         self.project_contact_lookup = project_contact_lookup
         semantic_cache_enabled = cache_master and getattr(settings, "SEMANTIC_CACHE_ENABLED", False)
-        self.response_cache = response_cache if semantic_cache_enabled else None
+        self.response_cache = response_cache if (response_cache is not None or semantic_cache_enabled) else None
         self.employee_id_provider = employee_id_provider
         self.document_timestamp_lookup = document_timestamp_lookup or _default_doc_timestamp_lookup
 
@@ -325,6 +330,12 @@ class QueryOrchestrator:
             self.llm,
             memory=self.memory,
         )
+        self.laya: LayaGuardrailPort = laya or LayaClient()
+        try:
+            if getattr(self.laya, "pipeline_tracer", None) is None:
+                self.laya.pipeline_tracer = self.pipeline_tracer  # type: ignore[attr-defined]
+        except Exception:
+            pass
 
     @contextmanager
     def _stage_ctx(self, stage: PipelineStage, input_metadata: Optional[dict[str, Any]] = None):
@@ -438,6 +449,13 @@ class QueryOrchestrator:
                 if "corrections" not in res:
                     res["corrections"] = list(query_corrections)
 
+                # Output Guardrail: Post-generation safety and credential leak check
+                is_rejection = bool(res.get("is_rejection"))
+                if not is_rejection and "answer" in res and isinstance(res["answer"], str) and res["answer"]:
+                    out_guard = SecurityGuardrails.validate_output(res["answer"], laya_client=self.laya)
+                    res["answer"] = out_guard.sanitized_text
+                    res["output_guardrail_provider"] = out_guard.provider
+
                 ans_str = res.get("answer", "")
                 ans_lower = ans_str.lower()
                 is_terminal = any(term in ans_lower for term in [
@@ -512,6 +530,24 @@ class QueryOrchestrator:
 
             return res
 
+        # ── Pre-flight Input Security Guardrails (Injection, Jailbreak, Script Detection) ──
+        try:
+            input_guard = SecurityGuardrails.validate_input(question, laya_client=self.laya)
+        except Exception as exc:
+            logger.error("Critical failure during input guardrail: %s. Using local fallback.", exc)
+            input_guard = SecurityGuardrails._local_validate_input(question, provider="local_fallback")
+
+        if not input_guard.is_safe:
+            return _finish({
+                "answer": input_guard.rejection_reason,
+                "citations": [],
+                "cache_hit": False,
+                "tokens": None,
+                "is_rejection": True,
+                "input_guardrail_provider": input_guard.provider,
+            })
+        question = input_guard.sanitized_text
+
         # ── 0. Relevance / References follow-up ─────────────────────────
         asked_relevance = (
             _last_assistant_asked_relevance(conversation_history)
@@ -522,19 +558,51 @@ class QueryOrchestrator:
         )
         asked_references = _last_assistant_offered_references(conversation_history)
 
-        # Allow user dissatisfaction feedback even if the relevance prompt was omitted/truncated
+        # Laya System-1 Decision: Disambiguate follow-up query vs yes/no feedback confirmation
+        # Evaluates user query in context of the previous assistant message.
+        laya_intent_type = None
+        if (asked_relevance or asked_references or session_id in _last_interaction):
+            try:
+                prev_assistant_msg = ""
+                if conversation_history:
+                    for m in reversed(conversation_history):
+                        if m.get("role") == "assistant":
+                            prev_assistant_msg = m.get("content", "")
+                            break
+                if not prev_assistant_msg and session_id in _last_interaction:
+                    prev_assistant_msg = _last_interaction[session_id].get("answer", "")
+
+                laya_res = self.laya.classify_followup_intent(
+                    current_input=question,
+                    last_bot_prompt_type="relevance" if asked_relevance else "references",
+                    previous_assistant_message=prev_assistant_msg,
+                )
+                laya_intent_type = laya_res.get("intent")
+            except Exception as e:
+                logger.debug("Laya followup intent evaluation failed: %s", e)
+
+        # If user is asking a follow-up query, bypass feedback hijacking
+        is_followup_query = laya_intent_type == "followup_query"
+
+        # Allow user dissatisfaction feedback only if it's NOT a new follow-up question
         is_feedback_turn = (
-            asked_relevance
-            or (
-                session_id in _last_interaction
-                and (_is_not_relevant(question) or _is_relevant(question))
+            not is_followup_query
+            and (
+                asked_relevance
+                or (
+                    session_id in _last_interaction
+                    and (_is_not_relevant(question) or _is_relevant(question))
+                )
             )
         )
 
         # ── 0-pre. Did the bot ask "Would you like to see the source references?" ──
         asked_refs_confirm = (
-            _asked_references_confirm.get(session_id, False)
-            or _last_assistant_asked_references_confirm(conversation_history)
+            not is_followup_query
+            and (
+                _asked_references_confirm.get(session_id, False)
+                or _last_assistant_asked_references_confirm(conversation_history)
+            )
         )
         if asked_refs_confirm:
             _asked_references_confirm.pop(session_id, None)
@@ -1474,9 +1542,11 @@ class QueryOrchestrator:
             except Exception:
                 pass
 
-        # Clean up any trailing legacy prompt text from answer
+        # Ensure answer ends with RELEVANCE_PROMPT so feedback buttons render
         if "Would you like to see the references for this?" in answer:
-            answer = answer.replace("Would you like to see the references for this?", "").rstrip()
+            answer = answer.replace("Would you like to see the references for this?", RELEVANCE_PROMPT)
+        if defer_citations and RELEVANCE_PROMPT and RELEVANCE_PROMPT not in answer and REFERENCES_CONFIRM_PROMPT not in answer:
+            answer = answer.rstrip() + f"\n\n{RELEVANCE_PROMPT}"
 
 
         # Store interaction state for feedback

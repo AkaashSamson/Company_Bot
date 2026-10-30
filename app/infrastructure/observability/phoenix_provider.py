@@ -158,6 +158,37 @@ class PhoenixProvider(BaseObservabilityProvider):
             self.total_llm_calls_recorded += 1
         logger.debug("Phoenix recorded LLM call: %s (%d tokens)", model, token_usage.total_tokens)
 
+    def record_decision_call(
+        self,
+        name: str,
+        state: str,
+        questions: Dict[str, Any],
+        selection: Dict[str, Any],
+        model: str = "laya",
+        token_usage: Optional[TokenUsage] = None,
+        latency_ms: float = 0.0,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Record decision / guardrail call using Phoenix semantic attributes."""
+        p_tok = token_usage.prompt_tokens if token_usage else 0
+        c_tok = token_usage.completion_tokens if token_usage else 0
+        t_tok = token_usage.total_tokens if token_usage else (p_tok + c_tok)
+        record = {
+            "name": name,
+            "model": model,
+            "state": state,
+            "questions": questions,
+            "selection": selection,
+            "prompt_tokens": p_tok,
+            "completion_tokens": c_tok,
+            "total_tokens": t_tok,
+            "latency_ms": latency_ms,
+            "metadata": metadata or {},
+        }
+        with self._lock:
+            self._llm_calls.append(record)
+            self.total_llm_calls_recorded += 1
+
     def flush(self) -> None:
         with self._lock:
             span_count = len(self._spans)

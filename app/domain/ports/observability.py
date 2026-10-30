@@ -58,6 +58,20 @@ class BaseObservabilityProvider(Protocol):
         """Log token consumption and latency for an LLM generation call."""
         ...
 
+    def record_decision_call(
+        self,
+        name: str,
+        state: str,
+        questions: Dict[str, Any],
+        selection: Dict[str, Any],
+        model: str = "laya",
+        token_usage: Optional[TokenUsage] = None,
+        latency_ms: float = 0.0,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Log a System-One decision / guardrail call with question, state, and selection."""
+        ...
+
     def flush(self) -> None:
         """Ensure all buffered events are sent to the external observability platform."""
         ...
