@@ -71,13 +71,13 @@ MONGODB_SERVER_SELECTION_TIMEOUT_MS = int(
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
-# ── TypeSafe Jev System-One Decision Model ──────────────────────────────────
-# Jev MUST use OpenRouter — it is the only provider exposing the native
-# Decision API (/api/v1/decisions) with Noul / Choice primitives.
-# Groq does NOT support this endpoint. JEV_API_KEY is always OPENROUTER_API_KEY.
-JEV_API_KEY = os.getenv("JEV_API_KEY", OPENROUTER_API_KEY)
-JEV_ENDPOINT = os.getenv("JEV_ENDPOINT", "https://openrouter.ai/api/alpha/decisions")
-JEV_MODEL = os.getenv("JEV_MODEL", "typesafe/jev-1.14")
+# ── TypeSafe Laya Decision Model (via Ollama) ───────────────────────────────
+# Non-autoregressive decision model evaluating state + questions via /v1/systemone.
+# Free and local via Ollama (http://localhost:11434).
+TYPESAFE_BASE_URL = os.getenv("TYPESAFE_BASE_URL", "http://localhost:11434")
+TYPESAFE_API_KEY = os.getenv("TYPESAFE_API_KEY", "ollama")
+TYPESAFE_DEFAULT_MODEL = os.getenv("TYPESAFE_DEFAULT_MODEL", os.getenv("TYPESAFE_MODEL", "laya"))
+TYPESAFE_TIMEOUT = float(os.getenv("TYPESAFE_TIMEOUT", "10.0"))
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./instance/knowlayer.db")
 STREAMLIT_API_BASE_URL = os.getenv("STREAMLIT_API_BASE_URL", "http://127.0.0.1:8000")
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")

@@ -1,7 +1,7 @@
-# Architectural Decision Records: JEV System Enhancement
+# Architectural Decision Records: Laya System Enhancement
 
 **Project:** KnowLayer HR Policy Assistant (`Company_Bot`)  
-**Scope:** JEV (Judge / Evaluation Validator) Architecture, Security Guardrails, and RAG Pipeline  
+**Scope:** Laya (Judge / Evaluation Validator) Architecture, Security Guardrails, and RAG Pipeline  
 **Status:** Pending Approval  
 **Date:** October 2026  
 
@@ -9,7 +9,7 @@
 
 ## Executive Overview
 
-Following the Phase 0 Architecture and Security Audit, this document presents the key architectural decisions required to transform JEV into a robust, enterprise-grade validation and evaluation engine. 
+Following the Phase 0 Architecture and Security Audit, this document presents the key architectural decisions required to transform Laya into a robust, enterprise-grade validation and evaluation engine. 
 
 Each decision defines the context, considered alternatives, trade-offs, and recommended path. **Please review and approve these decisions so implementation can proceed.**
 
@@ -19,7 +19,7 @@ Each decision defines the context, considered alternatives, trade-offs, and reco
 
 | ID | Title | Focus Area | Status |
 | :--- | :--- | :--- | :--- |
-| **ADR-01** | [Document-Access Policy for JEV](#adr-01-document-access-policy-for-jev-groundedness-vs-privacy) | Groundedness & Privacy | **Approved (Option B)** |
+| **ADR-01** | [Document-Access Policy for Laya](#adr-01-document-access-policy-for-laya-groundedness-vs-privacy) | Groundedness & Privacy | **Approved (Option B)** |
 | **ADR-02** | [Evidence-Grounded Context Sufficiency Routing](#adr-02-evidence-grounded-context-sufficiency-routing-replacing-rigid-pre-retrieval-categories) | Routing & Zero Hallucination | **Approved & Implemented** |
 | **ADR-03** | [Provider Transparency & Failure Resilience](#adr-03-provider-transparency--failure-resilience) | Reliability & Monitoring | **Approved & Implemented** |
 | **ADR-04** | [Claim-Level Groundedness Evaluation Strategy](#adr-04-claim-level-groundedness-evaluation-strategy) | Hallucination Prevention | **Approved & Implemented** |
@@ -28,29 +28,29 @@ Each decision defines the context, considered alternatives, trade-offs, and reco
 
 ---
 
-## ADR-01: Document-Access Policy for JEV (Groundedness vs. Privacy)
+## ADR-01: Document-Access Policy for Laya (Groundedness vs. Privacy)
 
 ### Context & Problem Statement
-Currently, JEV operates under a strict "Zero-Document Guarantee" where company handbook chunks are never passed to JEV API endpoints (`api.groq.com`). While this protects handbook text from being sent to JEV, it introduces a critical limitation:
+Currently, Laya operates under a strict "Zero-Document Guarantee" where company handbook chunks are never passed to Laya API endpoints (`api.groq.com`). While this protects handbook text from being sent to Laya, it introduces a critical limitation:
 > **A judge cannot evaluate whether an answer is grounded in facts without reading the source evidence.**
 
-Because JEV cannot see retrieved chunks, the system has **zero claim-level groundedness checking**. The primary LLM already receives these chunks (via Groq or OpenRouter) to generate the answer. Therefore, passing chunks to Groq for JEV evaluation does not cross a new trust boundary, provided secrets are masked.
+Because Laya cannot see retrieved chunks, the system has **zero claim-level groundedness checking**. The primary LLM already receives these chunks (via Groq or OpenRouter) to generate the answer. Therefore, passing chunks to Groq for Laya evaluation does not cross a new trust boundary, provided secrets are masked.
 
 ### Evaluated Options
 
-#### Option A: Maintain 100% Document-Blind JEV (Current State)
-- **Mechanism:** JEV only receives the user question and the final generated answer; never context chunks.
-- **Pros:** Zero risk of document transmission to JEV endpoints.
+#### Option A: Maintain 100% Document-Blind Laya (Current State)
+- **Mechanism:** Laya only receives the user question and the final generated answer; never context chunks.
+- **Pros:** Zero risk of document transmission to Laya endpoints.
 - **Cons:** Impossible to verify factual groundedness, hallucinated leave counts, or policy contradictions. Citations remain unverified.
 
-#### Option B: Full Document Transmission to JEV (Context-Aware JEV) — *(Recommended)*
+#### Option B: Full Document Transmission to Laya (Context-Aware Laya) — *(Recommended)*
 - **Mechanism:** 
   1. Pre-flight input safety and query intent remain **document-blind** (only the user question is passed).
   2. Post-generation groundedness evaluation receives `(context_chunks, candidate_answer)`.
   3. Pre-redaction strips secrets and PII from both chunks and answer before external dispatch.
-  4. If `OLLAMA_ENABLED=true` (air-gapped/local deployment), JEV runs entirely on the local Ollama instance.
+  4. If `OLLAMA_ENABLED=true` (air-gapped/local deployment), Laya runs entirely on the local Ollama instance.
 - **Pros:** Unlocks true hallucination detection, factual entailment verification, and citation accuracy. Ensures the assistant never misquotes company policy.
-- **Cons:** Document chunks are sent to the JEV model provider (same provider as primary LLM).
+- **Cons:** Document chunks are sent to the Laya model provider (same provider as primary LLM).
 
 #### Option C: Local NLI Model for Groundedness (Zero Cloud Transmission)
 - **Mechanism:** Run a local lightweight Cross-Encoder or NLI model (e.g. `DeBERTa-v3-small`) on the server CPU/GPU for groundedness.
@@ -59,7 +59,7 @@ Because JEV cannot see retrieved chunks, the system has **zero claim-level groun
 
 ### Decision & Recommendation
 > **Recommendation: Option B (Hybrid Context-Aware Policy).**  
-> Allow JEV to receive retrieved context chunks **exclusively** during the post-generation groundedness evaluation stage, while maintaining document-blindness for input safety and query classification. Ensure secret pre-scrubbing applies to chunks.
+> Allow Laya to receive retrieved context chunks **exclusively** during the post-generation groundedness evaluation stage, while maintaining document-blindness for input safety and query classification. Ensure secret pre-scrubbing applies to chunks.
 
 - [ ] **Approve Option B (Recommended)**
 - [ ] **Keep Option A (Document-Blind, no groundedness check)**
@@ -79,35 +79,35 @@ Furthermore, hardcoding narrow threat keys or rigid regex categories in safety g
 ### Architecture Decision: Holistic Safety + Context Sufficiency Routing — *(Approved & Implemented)*
 
 1. **Holistic Maliciousness Evaluation (Pre-Flight Safety):**
-   - Rather than checking only a few hardcoded keys, JEV evaluates whether the entire query is malicious, adversarial, harmful, or an exploit attempt in **ANY** way (prompt injection, jailbreak personas, prompt extraction, social engineering, payload delivery, or unauthorized reconnaissance).
+   - Rather than checking only a few hardcoded keys, Laya evaluates whether the entire query is malicious, adversarial, harmful, or an exploit attempt in **ANY** way (prompt injection, jailbreak personas, prompt extraction, social engineering, payload delivery, or unauthorized reconnaissance).
    - Benign workplace questions are safely permitted.
 
 2. **ChromaDB Retrieval & Dedicated Reranking:**
    - Every legitimate user query is searched in ChromaDB and reranked using the BGE reranker to retrieve the most semantically relevant chunks.
 
 3. **Evidence-Grounded Context Sufficiency Gating (`evaluate_context_sufficiency`):**
-   - JEV evaluates the retrieved candidate chunks against the user query:
+   - Laya evaluates the retrieved candidate chunks against the user query:
      - `can_be_answered (bool)`: Do the chunks contain direct, factual evidence to answer the query?
      - `relevant_chunk_indices (list[int])`: Which specific chunks contain the facts?
      - `is_etiquette (bool)`: Is this an interpersonal etiquette/communication inquiry that policy documents do not record?
      - `reason (str)`: Factual justification.
 
 4. **Guaranteed Zero-Hallucination Routing:**
-   - **If `can_be_answered == True`:** The context is filtered strictly to the `relevant_chunk_indices`, passed to the generative LLM, and validated post-generation by JEV claim-level groundedness checking.
+   - **If `can_be_answered == True`:** The context is filtered strictly to the `relevant_chunk_indices`, passed to the generative LLM, and validated post-generation by Laya claim-level groundedness checking.
    - **If `can_be_answered == False`:** The generative LLM is **never** invoked with irrelevant chunks!
      - If `is_etiquette == True`: Provides courteous workplace advice with the explicit disclaimer: *"Company policy documents do not contain specific rules or records on this individual matter."*
      - Else: Safely abstains: *"I could not find that information in the available documents."*
 
 ### Status
 - **Status:** **Approved and Implemented**
-- **Validation:** 24 unit tests passing in `test_jev_enhancements.py` and `test_security_guardrails.py`.
+- **Validation:** 24 unit tests passing in `test_laya_enhancements.py` and `test_security_guardrails.py`.
 
 ---
 
 ## ADR-03: Provider Transparency & Failure Resilience
 
 ### Context & Problem Statement
-`guardrails.py` currently reports `provider="jev"` even when `JevClient` encounters HTTP 402, 429, 500, or timeouts and falls back to local regex. Furthermore, `JevClient` does not log HTTP error codes or response bodies when non-200 responses occur.
+`guardrails.py` currently reports `provider="laya"` even when `LayaClient` encounters HTTP 402, 429, 500, or timeouts and falls back to local regex. Furthermore, `LayaClient` does not log HTTP error codes or response bodies when non-200 responses occur.
 
 ### Evaluated Options
 
@@ -116,10 +116,10 @@ Furthermore, hardcoding narrow threat keys or rigid regex categories in safety g
 
 #### Option B: Honest Attribution with Circuit Breaker & Metrics — *(Recommended)*
 - **Mechanism:**
-  1. `GuardrailResult.provider` strictly reflects reality: `"jev"` if semantic model evaluated, `"local_fallback"` if local regex was used due to error, `"local"` if running in offline mode.
+  1. `GuardrailResult.provider` strictly reflects reality: `"laya"` if semantic model evaluated, `"local_fallback"` if local regex was used due to error, `"local"` if running in offline mode.
   2. Explicitly log HTTP status codes (402, 429, 500) and response excerpts.
   3. Emit failure counters to `ObservabilityManager` / `PipelineTracer`.
-  4. Introduce a simple circuit breaker: if JEV fails 3 consecutive times, short-circuit to local fallback for 60 seconds rather than waiting for 8.0s timeouts on every request.
+  4. Introduce a simple circuit breaker: if Laya fails 3 consecutive times, short-circuit to local fallback for 60 seconds rather than waiting for 8.0s timeouts on every request.
 - **Pros:** Complete operational transparency; prevents thread pool congestion during external outages.
 
 ### Decision & Recommendation
@@ -136,10 +136,10 @@ Furthermore, hardcoding narrow threat keys or rigid regex categories in safety g
 
 ### Evaluated Options
 
-#### Option A: Two-Step Generation + JEV Groundedness Verification — *(Recommended)*
+#### Option A: Two-Step Generation + Laya Groundedness Verification — *(Recommended)*
 - **Mechanism:**
   1. LLM generates candidate answer.
-  2. JEV evaluates candidate answer against retrieved context chunks:
+  2. Laya evaluates candidate answer against retrieved context chunks:
      ```json
      {
        "is_grounded": true,
@@ -160,9 +160,9 @@ Furthermore, hardcoding narrow threat keys or rigid regex categories in safety g
 - **Cons:** LLMs still hallucinate ~5-15% of the time, especially on numerical policy limits (probation months, leave days).
 
 ### Decision & Recommendation
-> **Recommendation: Option A.** Implement post-generation JEV groundedness evaluation with clean abstention fallback.
+> **Recommendation: Option A.** Implement post-generation Laya groundedness evaluation with clean abstention fallback.
 
-- [ ] **Approve Option A (JEV Groundedness Evaluation)**
+- [ ] **Approve Option A (Laya Groundedness Evaluation)**
 - [ ] **Approve Option B (Prompt-only constraints)**
 
 ---
@@ -207,7 +207,7 @@ Every invocation of `check_input_safety`, `check_output_safety`, or `classify_qu
 
 #### Option A: Persistent Pooled `httpx.Client` — *(Recommended)*
 - **Mechanism:** 
-  1. Instantiate a single, long-lived `httpx.Client` on `JevClient` during initialization with keep-alive connection pooling:
+  1. Instantiate a single, long-lived `httpx.Client` on `LayaClient` during initialization with keep-alive connection pooling:
      ```python
      self._client = httpx.Client(
          timeout=httpx.Timeout(self.timeout, connect=3.0),
@@ -216,7 +216,7 @@ Every invocation of `check_input_safety`, `check_output_safety`, or `classify_qu
      ```
   2. Implement proper cleanup in `close()` and application lifespan hooks.
   3. Bypass `validate_output` when `_finish` is called for early input rejections.
-- **Pros:** Saves 150-300ms per JEV turn; reuses TLS sessions; prevents socket churn.
+- **Pros:** Saves 150-300ms per Laya turn; reuses TLS sessions; prevents socket churn.
 - **Cons:** Requires managing client shutdown lifecycle.
 
 ### Decision & Recommendation
@@ -233,7 +233,7 @@ Every invocation of `check_input_safety`, `check_output_safety`, or `classify_qu
 | **ADR-01: Document Access** | **Option B (Context-Aware for Groundedness)** | Enables real hallucination & claim verification |
 | **ADR-02: Context Sufficiency Routing** | **Context Sufficiency & Chunk Answerability** | Eliminates hallucinations & false category denials |
 | **ADR-03: Provider Transparency** | **Option B (Honest Attribution + Circuit Breaker)** | Accurate observability & outage protection |
-| **ADR-04: Groundedness Strategy** | **Option A (Structured JEV Evaluator)** | Eliminates false citations & ungrounded policy answers |
+| **ADR-04: Groundedness Strategy** | **Option A (Structured Laya Evaluator)** | Eliminates false citations & ungrounded policy answers |
 | **ADR-05: Security Perimeter** | **Option A (Comprehensive Regex + NFKC)** | Blocks AWS/GitHub/PEM leaks & Unicode evasion |
 | **ADR-06: Client Lifecycle** | **Option A (Pooled Client + Rejection Bypass)** | Cuts 300ms+ latency & prevents socket exhaustion |
 

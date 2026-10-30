@@ -34,8 +34,8 @@ from app.infrastructure.observability.pipeline_tracer import (
     get_pipeline_tracer,
 )
 
-from app.infrastructure.llm.jev_client import JevClient
-from app.domain.ports.jev_guardrail import JevGuardrailPort
+from app.infrastructure.llm.laya_client import LayaClient
+from app.domain.ports.laya_guardrail import LayaGuardrailPort
 from app.domain.services.guardrails import SecurityGuardrails
 
 logger = logging.getLogger(__name__)
@@ -179,7 +179,7 @@ class QueryOrchestrator:
         query_normalizer=None,
         pipeline_tracer=None,
         document_timestamp_lookup: Optional[Callable[[str], Optional[float]]] = None,
-        jev=None,
+        laya=None,
     ):
         self.retrieval = retrieval or RetrievalService()
         self.reranker = reranker or getattr(self.retrieval, "reranker", None)
@@ -236,12 +236,13 @@ class QueryOrchestrator:
             self.llm,
             memory=self.memory,
         )
-        self.jev: JevGuardrailPort = jev or JevClient()
+        self.laya: LayaGuardrailPort = laya or LayaClient()
         try:
-            if getattr(self.jev, "pipeline_tracer", None) is None:
-                self.jev.pipeline_tracer = self.pipeline_tracer  # type: ignore[attr-defined]
+            if getattr(self.laya, "pipeline_tracer", None) is None:
+                self.laya.pipeline_tracer = self.pipeline_tracer  # type: ignore[attr-defined]
         except Exception:
             pass
+
 
     @contextmanager
     def _stage_ctx(self, stage: PipelineStage, input_metadata: Optional[dict[str, Any]] = None):
@@ -335,7 +336,7 @@ class QueryOrchestrator:
                 # Output Guardrail: Post-generation safety and credential leak check
                 is_rejection = bool(res.get("is_rejection"))
                 if not is_rejection and "answer" in res and isinstance(res["answer"], str) and res["answer"]:
-                    out_guard = SecurityGuardrails.validate_output(res["answer"], jev_client=self.jev)
+                    out_guard = SecurityGuardrails.validate_output(res["answer"], laya_client=self.laya)
                     res["answer"] = out_guard.sanitized_text
                     res["output_guardrail_provider"] = out_guard.provider
             ans_text = res.get("answer", "") if isinstance(res, dict) else str(res)
@@ -393,7 +394,7 @@ class QueryOrchestrator:
 
         # ── Pre-flight Input Security Guardrails (Injection, Jailbreak, Script Detection) ──
         try:
-            input_guard = SecurityGuardrails.validate_input(question, jev_client=self.jev)
+            input_guard = SecurityGuardrails.validate_input(question, laya_client=self.laya)
         except Exception as exc:
             logger.error("Critical failure during input guardrail: %s. Using local fallback.", exc)
             input_guard = SecurityGuardrails._local_validate_input(question, provider="local_fallback")
@@ -419,9 +420,9 @@ class QueryOrchestrator:
         )
         asked_references = _last_assistant_offered_references(conversation_history)
 
-        # JEV System-1 Decision: Disambiguate follow-up query vs yes/no feedback confirmation
+        # Laya System-1 Decision: Disambiguate follow-up query vs yes/no feedback confirmation
         # Evaluates user query in context of the previous assistant message.
-        jev_intent_type = None
+        laya_intent_type = None
         if (asked_relevance or asked_references or session_id in _last_interaction):
             try:
                 prev_assistant_msg = ""
@@ -433,17 +434,17 @@ class QueryOrchestrator:
                 if not prev_assistant_msg and session_id in _last_interaction:
                     prev_assistant_msg = _last_interaction[session_id].get("answer", "")
 
-                jev_res = self.jev.classify_followup_intent(
+                laya_res = self.laya.classify_followup_intent(
                     current_input=question,
                     last_bot_prompt_type="relevance" if asked_relevance else "references",
                     previous_assistant_message=prev_assistant_msg,
                 )
-                jev_intent_type = jev_res.get("intent")
+                laya_intent_type = laya_res.get("intent")
             except Exception as e:
-                logger.debug("Jev followup intent evaluation failed: %s", e)
+                logger.debug("Laya followup intent evaluation failed: %s", e)
 
         # If user is asking a follow-up query, bypass feedback hijacking
-        is_followup_query = jev_intent_type == "followup_query"
+        is_followup_query = laya_intent_type == "followup_query"
 
         # Allow user dissatisfaction feedback only if it's NOT a new follow-up question
         is_feedback_turn = (
@@ -1042,47 +1043,6 @@ class QueryOrchestrator:
                 "tokens": None,
             })
 
-        # ── Context Sufficiency & Answerability Gate (ADR-02) ───────────
-        # Determine whether retrieved chunks contain sufficient factual evidence to answer without hallucination
-        context_texts = [e.get("text", "") for e in selected_evidence if isinstance(e, dict)]
-        sufficiency = None
-        try:
-            sufficiency = self.jev.evaluate_context_sufficiency(question=question, context_chunks=context_texts)
-        except Exception as e:
-            logger.debug("Jev context sufficiency evaluation failed: %s", e)
-
-        if sufficiency and not sufficiency.get("can_be_answered", True):
-            logger.info(
-                "Jev context sufficiency: Chunks do NOT contain answer for query (reason=%s). Avoiding hallucination.",
-                sufficiency.get("reason"),
-            )
-            # Chunks do not contain sufficient facts to answer the question:
-            # Safely abstain without invoking the generative LLM to prevent hallucinations!
-            no_info_ans = "I could not find that information in the available documents."
-            _pending_citations[session_id] = []
-            _last_interaction[session_id] = {
-                "question": question,
-                "context": "",
-                "selected_evidence": [],
-                "answer": no_info_ans,
-            }
-            _alternative_answer_given[session_id] = False
-            return _finish({
-                "answer": no_info_ans,
-                "citations": [],
-                "cache_hit": False,
-                "tokens": None,
-            })
-
-        # When chunks can answer the query: filter evidence to the relevant chunk indices
-        if sufficiency and sufficiency.get("relevant_chunk_indices"):
-            valid_indices = [
-                i for i in sufficiency["relevant_chunk_indices"]
-                if isinstance(i, int) and 0 <= i < len(selected_evidence)
-            ]
-            if valid_indices:
-                selected_evidence = [selected_evidence[i] for i in valid_indices]
-
         context = "\n\n".join(
             result.get("text", "")
             for result in selected_evidence
@@ -1203,35 +1163,7 @@ class QueryOrchestrator:
             if answer.strip().lower().startswith("i could not find"):
                 answer = answer.replace(RELEVANCE_PROMPT, "").strip() if RELEVANCE_PROMPT else answer.strip()
 
-        # ── JEV Claim-Level Groundedness Evaluation (ADR-01 & ADR-04) ───
-        if not is_negative and selected_evidence and answer:
-            try:
-                context_texts = [e.get("text", "") for e in selected_evidence if isinstance(e, dict)]
-                ground_res = self.jev.evaluate_groundedness(
-                    question=question,
-                    context_chunks=context_texts,
-                    answer=answer,
-                )
-                if not ground_res.get("is_grounded", True) and ground_res.get("hallucination_score", 0.0) >= 0.7:
-                    logger.warning(
-                        "Jev flagged answer as ungrounded (score=%.2f, unsupported=%s). Triggering safe abstention.",
-                        ground_res.get("hallucination_score"),
-                        ground_res.get("unsupported_claims"),
-                    )
-                    answer = (
-                        "I found relevant company policy documentation, but I cannot confirm all specific details "
-                        "with complete certainty from the text. Please refer directly to the referenced documents or consult HR."
-                    )
-                    if RELEVANCE_PROMPT:
-                        answer = f"{answer}\n\n{RELEVANCE_PROMPT}"
-                else:
-                    supported_indices = ground_res.get("supported_chunk_indices")
-                    if supported_indices and isinstance(supported_indices, list):
-                        valid_indices = set(i for i in supported_indices if isinstance(i, int) and 0 <= i < len(citations))
-                        if valid_indices:
-                            citations = [citations[i] for i in sorted(valid_indices)]
-            except Exception as ground_err:
-                logger.warning("Jev groundedness evaluation failed, proceeding with generation: %s", ground_err)
+
 
         if hasattr(self.faq_store, "save") and not is_negative:
             try:

@@ -164,7 +164,7 @@ class PhoenixProvider(BaseObservabilityProvider):
         state: str,
         questions: Dict[str, Any],
         selection: Dict[str, Any],
-        model: str = "typesafe/jev-1.14",
+        model: str = "laya",
         token_usage: Optional[TokenUsage] = None,
         latency_ms: float = 0.0,
         metadata: Optional[Dict[str, Any]] = None,

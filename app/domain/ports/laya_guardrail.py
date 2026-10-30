@@ -1,10 +1,10 @@
 """
-JEV Guardrail Port — Domain abstraction for the TypeSafe Jev System-One decision model.
+Laya Guardrail Port — Domain abstraction for the TypeSafe Laya System-One decision model.
 
-This port (interface) belongs to the *domain layer*.  No infrastructure details
+This port (interface) belongs to the domain layer. No infrastructure details
 (HTTP clients, API URLs, SDK imports) may appear here.
 
-Adapters live in app.infrastructure.llm.jev_client and must implement this protocol.
+Adapters live in app.infrastructure.llm.laya_client and must implement this protocol.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ class InputSafetyResult(TypedDict):
     threat_type: str          # "none" | "prompt_injection" | "jailbreak" | "system_prompt_extraction" | "script_injection" | "social_engineering" | "malicious_query"
     confidence: float         # 0.0 – 1.0
     reason: str
-    provider: str             # "jev" | "local" | "local_fallback"
+    provider: str             # "laya" | "local" | "local_fallback"
 
 
 class OutputSafetyResult(TypedDict):
@@ -50,38 +50,16 @@ class FollowupIntentResult(TypedDict):
     provider: str
 
 
-class ContextSufficiencyResult(TypedDict):
-    """Structured result from the context-sufficiency gating decision."""
-
-    can_be_answered: bool
-    relevant_chunk_indices: List[int]
-    reason: str
-    provider: str
-
-
-class GroundednessResult(TypedDict):
-    """Structured result from the claim-level groundedness evaluation."""
-
-    is_grounded: bool
-    hallucination_score: float   # 0.0 (none) – 1.0 (fully hallucinated)
-    unsupported_claims: List[str]
-    supported_chunk_indices: List[int]
-    reason: str
-    provider: str
-
-
 # ── Port Protocol ─────────────────────────────────────────────────────────────
 
 
 @runtime_checkable
-class JevGuardrailPort(Protocol):
+class LayaGuardrailPort(Protocol):
     """
-    Port for the TypeSafe Jev System-One guardrail model.
+    Port for the TypeSafe Laya System-One decision guardrail model.
 
-    The Jev model is a *classifier*, not a text generator.  Implementations
-    must use Jev's native Decision API (state + questions) rather than chat
-    completions.  See app.infrastructure.llm.jev_client for the canonical
-    OpenRouter-backed adapter.
+    Laya is a non-autoregressive classifier, not a text generator. Implementations
+    use the TypeSafe / Ollama native Decision API (/v1/systemone) with state + questions.
 
     All methods return typed dictionaries matching the contracts above.
     All methods must be synchronous and never raise on API failure —
@@ -89,15 +67,13 @@ class JevGuardrailPort(Protocol):
     """
 
     def is_available(self) -> bool:
-        """Return True iff the underlying API key is present and the circuit
-        breaker is *not* open."""
+        """Return True iff the underlying API/service is configured and the circuit breaker is not open."""
         ...
 
     def check_input_safety(self, question: str) -> InputSafetyResult:
         """
         Evaluate an incoming user query for security threats.
-
-        Only the sanitized user query is transmitted.
+        Only the sanitized user query is evaluated.
         ZERO company documents or Chroma chunks are sent.
         """
         ...
@@ -105,8 +81,7 @@ class JevGuardrailPort(Protocol):
     def check_output_safety(self, answer: str) -> OutputSafetyResult:
         """
         Evaluate a generated assistant answer for leaks or unsafe content.
-
-        Secrets are pre-redacted *locally* before any transmission.
+        Secrets are pre-redacted locally before transmission.
         """
         ...
 
@@ -123,19 +98,6 @@ class JevGuardrailPort(Protocol):
         """Disambiguate follow-up queries from yes/no feedback signals."""
         ...
 
-    def evaluate_context_sufficiency(
-        self,
-        question: str,
-        context_chunks: List[str],
-    ) -> ContextSufficiencyResult:
-        """Gate whether retrieved chunks contain sufficient evidence to answer."""
-        ...
 
-    def evaluate_groundedness(
-        self,
-        question: str,
-        context_chunks: List[str],
-        answer: str,
-    ) -> GroundednessResult:
-        """Verify every claim in the answer is grounded in retrieved chunks."""
-        ...
+# Type aliases
+DecisionGuardrailPort = LayaGuardrailPort

@@ -44,28 +44,28 @@ A concise summary of architectural and algorithmic improvements implemented acro
 - **Adaptive Length Prompt (`config/prompts.yaml`)**: Dynamically matches response length to query scope (concise for simple lookups, detailed for procedures), avoids conversational filler, and bans oversized markdown headings.
 - **Temperature Setting (`app/core/settings.py`, `.env`)**: Configured `LLM_TEMPERATURE=0.2` for natural synthesis while maintaining strict factual grounding.
 
-## 9. Zero-Trust Jev Decision Router & Workplace Etiquette Fallback (`app/infrastructure/llm/jev_client.py`)
+## 9. Zero-Trust Laya Decision Router & Workplace Etiquette Fallback (`app/infrastructure/llm/laya_client.py`)
 - **Zero Document Leakage Guarantee**:
-  - ZERO company documents or Chroma chunks are ever transmitted to Jev.
-  - Jev acts strictly as a lightweight System-1 decision router that evaluates only the user's sanitized question.
+  - ZERO company documents or Chroma chunks are ever transmitted to Laya.
+  - Laya acts strictly as a lightweight System-1 decision router that evaluates only the user's sanitized question.
   - Automatic PII scrubbing (Employee IDs, Emails, Phone numbers) before any routing call.
 - **Out-of-Document Workplace Etiquette Routing**:
   - Questions like interpersonal etiquette, coworker pronoun preferences, or sensitive communication not documented in formal company policy are routed to a dedicated guidance prompt.
   - The model honestly acknowledges that company documents do not contain rules on the matter, while providing courteous, standard professional guidance without fabricating policy.
 - **Follow-up Disambiguation**:
-  - Uses Jev System-1 decision model to accurately differentiate between user confirmation feedback ("yes", "helpful", "no") and follow-up inquiries ("Can you explain further?"), preventing conversational deadlock.
+  - Uses Laya System-1 decision model to accurately differentiate between user confirmation feedback ("yes", "helpful", "no") and follow-up inquiries ("Can you explain further?"), preventing conversational deadlock.
 
-## 10. Jev-Powered Dynamic Input & Output Security Guardrails (`app/infrastructure/llm/jev_client.py`, `app/domain/services/guardrails.py`)
-- **Dynamic Jev System-1 Guardrails (Non-hardcoded)**:
-  - **Dynamic Threat Classification**: Rather than relying purely on static regex matches, queries and answers are evaluated dynamically by `typesafe/jev-router` via OpenRouter.
+## 10. Laya-Powered Dynamic Input & Output Security Guardrails (`app/infrastructure/llm/laya_client.py`, `app/domain/services/guardrails.py`)
+- **Dynamic Laya System-1 Guardrails (Non-hardcoded)**:
+  - **Dynamic Threat Classification**: Rather than relying purely on static regex matches, queries and answers are evaluated dynamically by `laya` via OpenRouter.
   - **Input Guardrail (`check_input_safety`)**: Evaluates sanitized user queries for prompt injections, jailbreaks (`DAN`, developer mode), system prompt extraction attempts, and code/SQL injections.
   - **Output Guardrail (`check_output_safety`)**: Inspects generated responses to detect accidental leaks of system instructions, prompt templates, or internal credentials before delivery to the user.
 - **Zero-Trust Document Security Guarantees**:
-  - **Zero Company Document Transmission**: No Chroma chunks, repository files, or internal documents are EVER sent to Jev.
+  - **Zero Company Document Transmission**: No Chroma chunks, repository files, or internal documents are EVER sent to Laya.
   - **PII Scrubbing**: User inputs are scrubbed of employee IDs, emails, and phone numbers before safety classification.
   - **Local Secret Redaction**: Secrets (`sk-...`, `gsk_...`, Bearer tokens) are pre-redacted locally before any external transmission.
 - **Resilient Defense-in-Depth**:
   - Local regex patterns and a 2,000-character DoS cap serve as instantaneous zero-network fallbacks in case of network timeouts or offline mode.
 - **Verification**:
-  - 11 unit and integration tests in `tests/unit/test_security_guardrails.py` covering dynamic Jev evaluation, mock isolation, local fallbacks, and zero-document guarantees.
+  - 11 unit and integration tests in `tests/unit/test_security_guardrails.py` covering dynamic Laya evaluation, mock isolation, local fallbacks, and zero-document guarantees.
   - End-to-end live testing with `QueryOrchestrator.answer()`.

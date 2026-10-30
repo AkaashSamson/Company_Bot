@@ -210,10 +210,10 @@ class ObservabilityManager(BaseObservabilityProvider):
                             latency_ms=duration_ms,
                             metadata=out_meta,
                         )
-                elif stage_val.startswith("jev_") and hasattr(provider, "record_decision_call"):
+                elif stage_val.startswith("laya_") and hasattr(provider, "record_decision_call"):
                     in_meta = getattr(span, "input_metadata", {}) or {}
                     out_meta = getattr(span, "output_metadata", {}) or {}
-                    model_name = in_meta.get("model", "typesafe/jev-1.14")
+                    model_name = in_meta.get("model", "laya")
                     token_vo = None
                     if getattr(span, "prompt_tokens", 0) or getattr(span, "completion_tokens", 0):
                         token_vo = TokenUsage(
@@ -247,7 +247,7 @@ class ObservabilityManager(BaseObservabilityProvider):
         state: str,
         questions: Dict[str, Any],
         selection: Dict[str, Any],
-        model: str = "typesafe/jev-1.14",
+        model: str = "laya",
         token_usage: Optional[TokenUsage] = None,
         latency_ms: float = 0.0,
         metadata: Optional[Dict[str, Any]] = None,

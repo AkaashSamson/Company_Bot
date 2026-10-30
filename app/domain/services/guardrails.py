@@ -2,14 +2,14 @@
 Guardrails Subsystem — Pre-flight Input Security and Post-generation Output Safety.
 
 Powered by:
-1. Dynamic TypeSafe Jev System-One Decision Model (Zero-Trust):
+1. Dynamic TypeSafe Laya System-One Decision Model (Zero-Trust via Ollama):
    - Input evaluation for prompt injections, jailbreaks, system prompt extraction, code/script attacks.
    - Output evaluation for system prompt leakage, secret leakage, and unsafe content.
-   - Uses the native Jev Decision API (not LLM chat completions).
+   - Uses the native Laya Decision API (/v1/systemone).
 2. Local Defense-in-Depth Fallback:
    - Fast regex and length caps if API/network is unavailable or in offline mode.
 3. Zero-Document Guarantee:
-   - ZERO company documents or Chroma chunks are ever evaluated or transmitted to Jev.
+   - ZERO company documents or Chroma chunks are ever evaluated or transmitted for input/output safety.
 """
 
 import logging
@@ -18,7 +18,7 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Optional
 
-from app.domain.ports.jev_guardrail import JevGuardrailPort
+from app.domain.ports.laya_guardrail import LayaGuardrailPort
 
 logger = logging.getLogger("knowlayer.guardrails")
 
@@ -76,35 +76,36 @@ class GuardrailResult:
     sanitized_text: str
     rejection_reason: Optional[str] = None
     violation_type: Optional[str] = None  # "prompt_injection", "jailbreak", "script_injection", "secret_leak", "length_limit"
-    provider: str = "jev"                 # "jev", "local", or "local_fallback"
+    provider: str = "laya"                # "laya", "local", or "local_fallback"
 
 
 
-def _get_default_jev_client() -> Optional["JevGuardrailPort"]:
-    """Lazily instantiate the JevClient infrastructure adapter.
+def _get_default_laya_client() -> Optional["LayaGuardrailPort"]:
+    """Lazily instantiate the LayaClient infrastructure adapter.
     
     This factory keeps the domain layer decoupled from infrastructure at
     module-import time while still enabling zero-configuration usage.
     """
     try:
-        from app.infrastructure.llm.jev_client import JevClient
-        return JevClient()
+        from app.infrastructure.llm.laya_client import LayaClient
+        return LayaClient()
     except Exception:
         return None
 
 
+
 class SecurityGuardrails:
-    """Enterprise Input and Output Guardrail Engine powered by Jev System-One Decisions."""
+    """Enterprise Input and Output Guardrail Engine powered by Laya System-One Decisions."""
 
     @classmethod
     def validate_input(
         cls,
         text: str,
-        jev_client: Optional[JevGuardrailPort] = None,
+        laya_client: Optional[LayaGuardrailPort] = None,
     ) -> GuardrailResult:
         """Evaluate incoming user message for malicious injection, jailbreaks, and floods.
 
-        Uses Jev System-1 decision routing dynamically to detect threats without hardcoding,
+        Uses Laya System-1 decision routing dynamically to detect threats without hardcoding,
         with local defense-in-depth fallback.
         """
         if not text:
@@ -125,41 +126,65 @@ class SecurityGuardrails:
                 provider="local",
             )
 
-        # 2. Dynamic Evaluation via Jev System-One Decision API
-        client = jev_client
+        # 2. Dynamic Evaluation via Laya System-One Decision API
+        client = laya_client
         if client is None:
-            client = _get_default_jev_client()
+            client = _get_default_laya_client()
 
         if client is not None and getattr(client, "is_available", lambda: False)():
             try:
-                jev_res = client.check_input_safety(cleaned_text)
-                is_safe = jev_res.get("is_safe", True)
-                threat = jev_res.get("threat_type", "none")
-                actual_provider = str(jev_res.get("provider", "jev"))
+                laya_res = client.check_input_safety(cleaned_text)
+                is_safe = laya_res.get("is_safe", True)
+                threat = laya_res.get("threat_type", "none")
+                actual_provider = str(laya_res.get("provider", "laya"))
 
                 if not is_safe:
-                    logger.warning("Input blocked dynamically by Jev: threat=%s, reason=%s", threat, jev_res.get("reason"))
+                    logger.warning("Input blocked dynamically by Laya: threat=%s, reason=%s", threat, laya_res.get("reason"))
+                    v_type = threat
+                    if threat in ("system_prompt_extraction", "system_prompt_leak_attempt"):
+                        v_type = "prompt_injection"
+                    elif threat == "malicious_query":
+                        if any(p.search(cleaned_text) for p in _SCRIPT_INJECTION_PATTERNS):
+                            v_type = "script_injection"
+                        elif any(p.search(cleaned_text) for p in _SQL_ARTIFACT_PATTERNS):
+                            v_type = "sql_artifact"
+                        else:
+                            v_type = "prompt_injection"
+                    elif threat == "none":
+                        v_type = "prompt_injection"
+
+                    rejection = "I am designed to assist exclusively with company documentation, policies, and workplace inquiries. I cannot process instructions to bypass safety guidelines or reveal system prompts."
+                    if v_type == "script_injection":
+                        rejection = "Invalid query format: Script tags and embedded code execution are not permitted."
+                    elif v_type == "sql_artifact":
+                        rejection = "Invalid query format: Database commands cannot be processed."
+
                     return GuardrailResult(
                         is_safe=False,
                         sanitized_text="",
-                        rejection_reason="I am designed to assist exclusively with company documentation, policies, and workplace inquiries. I cannot process instructions to bypass safety guidelines or reveal system prompts.",
-                        violation_type=threat if threat != "none" else "prompt_injection",
+                        rejection_reason=rejection,
+                        violation_type=v_type,
                         provider=actual_provider,
                     )
-                # If Jev explicitly verified input is safe, return safe with actual provider
+
+                # Defense-in-depth: Even if Laya considered input safe, verify local defense patterns (SQL, script, prompt injection)
+                local_check = cls._local_validate_input(cleaned_text, provider=actual_provider)
+                if not local_check.is_safe:
+                    return local_check
+
                 return GuardrailResult(is_safe=True, sanitized_text=cleaned_text.strip(), provider=actual_provider)
             except Exception as e:
-                logger.warning("Jev input safety check failed, falling back to local defense-in-depth: %s", e)
+                logger.warning("Laya input safety check failed, falling back to local defense-in-depth: %s", e)
                 return cls._local_validate_input(cleaned_text, provider="local_fallback")
 
-        # 3. Local defense-in-depth fallback (if Jev is unavailable or offline)
+        # 3. Local defense-in-depth fallback (if Laya is unavailable or offline)
         return cls._local_validate_input(cleaned_text, provider="local")
 
     @classmethod
     def validate_output(
         cls,
         answer: str,
-        jev_client: Optional[JevGuardrailPort] = None,
+        laya_client: Optional[LayaGuardrailPort] = None,
     ) -> GuardrailResult:
         """Inspect generated answer before delivery to prevent credential leakage or prompt dumping."""
         if not answer:
@@ -175,26 +200,26 @@ class SecurityGuardrails:
                 logger.error("CRITICAL: Detected and redacted leaked secret in LLM output!")
                 sanitized = pattern.sub("[REDACTED_SECRET]", sanitized)
 
-        # 2. Dynamic Output Safety & Leak Check via Jev System-One Decision API
-        client = jev_client
+        # 2. Dynamic Output Safety & Leak Check via Laya System-One Decision API
+        client = laya_client
         if client is None:
-            client = _get_default_jev_client()
+            client = _get_default_laya_client()
 
         output_provider = "local"
         if client is not None and getattr(client, "is_available", lambda: False)():
             try:
-                jev_res = client.check_output_safety(sanitized)
-                output_provider = str(jev_res.get("provider", "jev"))
-                if not jev_res.get("is_safe", True) or jev_res.get("has_leak", False):
-                    leak_type = jev_res.get("leak_type", "system_prompt")
-                    logger.warning("Output flagged dynamically by Jev: leak_type=%s, reason=%s", leak_type, jev_res.get("reason"))
+                laya_res = client.check_output_safety(sanitized)
+                output_provider = str(laya_res.get("provider", "laya"))
+                if not laya_res.get("is_safe", True) or laya_res.get("has_leak", False):
+                    leak_type = laya_res.get("leak_type", "system_prompt")
+                    logger.warning("Output flagged dynamically by Laya: leak_type=%s, reason=%s", leak_type, laya_res.get("reason"))
                     if leak_type == "system_prompt":
                         for sig in _SYSTEM_PROMPT_SIGNATURES:
                             sanitized = sanitized.replace(sig, "").strip()
                     elif leak_type == "credential":
                         leaked_secret = True
             except Exception as e:
-                logger.warning("Jev output safety check failed, falling back to local heuristic: %s", e)
+                logger.warning("Laya output safety check failed, falling back to local heuristic: %s", e)
                 output_provider = "local_fallback"
 
         # 3. Local System Prompt Echo Scrubbing (Secondary defense)

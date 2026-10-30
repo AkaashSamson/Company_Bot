@@ -27,7 +27,7 @@ def _resolve_observation_type(name: str) -> str:
     Valid types: 'span', 'generation', 'retriever', 'tool', 'agent', 'chain', 'guardrail'.
     """
     lower = name.lower()
-    if lower.startswith("jev_"):
+    if lower.startswith("laya_"):
         return "guardrail"
     if "retrieval" in lower or "retriever" in lower or "vector" in lower:
         return "retriever"
@@ -217,9 +217,9 @@ class LangfuseProvider(BaseObservabilityProvider):
                     },
                 }
 
-                # Attach model & token metrics for generation and guardrail / JEV stages
-                is_jev_or_guardrail = (obs_type == "guardrail") or stage_val.startswith("JEV_")
-                if obs_type == "generation" or "generation" in stage_val.lower() or is_jev_or_guardrail:
+                # Attach model & token metrics for generation and guardrail / LAYA stages
+                is_laya_or_guardrail = (obs_type == "guardrail") or stage_val.startswith("LAYA_")
+                if obs_type == "generation" or "generation" in stage_val.lower() or is_laya_or_guardrail:
                     model_name = getattr(span, "input_metadata", {}).get("model")
                     if model_name:
                         span_kwargs["model"] = model_name
@@ -253,20 +253,16 @@ class LangfuseProvider(BaseObservabilityProvider):
                     out_meta = getattr(span, "output_metadata", {}) or {}
                     if getattr(span, "error", None):
                         child_obs.update(level="ERROR", status_message=str(span.error))
-                    elif is_jev_or_guardrail:
+                    elif is_laya_or_guardrail:
                         # Highlight threats or policy blocks in Langfuse UI
                         is_safe = out_meta.get("is_safe")
                         has_leak = out_meta.get("has_leak")
-                        is_grounded = out_meta.get("is_grounded")
                         if is_safe is False:
                             threat = out_meta.get("threat_type") or out_meta.get("selection", {}).get("threat_type", "attack")
                             child_obs.update(level="WARNING", status_message=f"Threat blocked: {threat}")
                         elif has_leak is True:
                             leak = out_meta.get("leak_type") or out_meta.get("selection", {}).get("leak_type", "leak")
                             child_obs.update(level="WARNING", status_message=f"Leak detected: {leak}")
-                        elif is_grounded is False:
-                            score = out_meta.get("hallucination_score", 1.0)
-                            child_obs.update(level="WARNING", status_message=f"Ungrounded answer (score={score})")
 
                     dur_ms = getattr(span, "duration_ms", 0.0) or 0.0
                     # Ensure at least 0.1ms (100,000 ns) so span is visible and strictly monotonic
@@ -357,7 +353,7 @@ class LangfuseProvider(BaseObservabilityProvider):
         state: str,
         questions: Dict[str, Any],
         selection: Dict[str, Any],
-        model: str = "typesafe/jev-1.14",
+        model: str = "laya",
         token_usage: Optional[TokenUsage] = None,
         latency_ms: float = 0.0,
         metadata: Optional[Dict[str, Any]] = None,

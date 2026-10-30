@@ -59,13 +59,11 @@ class PipelineStage(Enum):
     QUALITY_ASSESSMENT = "quality_assessment"
     CACHE_WRITE = "cache_write"
 
-    # JEV (System-1 judge) guardrail / decision stages
-    JEV_INPUT_SAFETY = "jev_input_safety"
-    JEV_OUTPUT_SAFETY = "jev_output_safety"
-    JEV_QUERY_INTENT = "jev_query_intent"
-    JEV_FOLLOWUP_INTENT = "jev_followup_intent"
-    JEV_CONTEXT_SUFFICIENCY = "jev_context_sufficiency"
-    JEV_GROUNDEDNESS = "jev_groundedness"
+    # LAYA (System-1 judge) guardrail / decision stages
+    LAYA_INPUT_SAFETY = "laya_input_safety"
+    LAYA_OUTPUT_SAFETY = "laya_output_safety"
+    LAYA_QUERY_INTENT = "laya_query_intent"
+    LAYA_FOLLOWUP_INTENT = "laya_followup_intent"
 
 
 @dataclass
