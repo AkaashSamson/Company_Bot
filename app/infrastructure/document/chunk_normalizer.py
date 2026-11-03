@@ -340,7 +340,7 @@ class ChunkNormalizer:
 
     @staticmethod
     def _clean_source_name(meta: Dict[str, Any]) -> str:
-        # Keep the exact document name in the Policy section so users know the document to refer to
+        # Add exact Name of the Document as the Header of the Policy in the Chunk
         raw_src = (
             meta.get("document_name")
             or meta.get("source_filename")
@@ -349,9 +349,9 @@ class ChunkNormalizer:
             or meta.get("document_id")
             or "HR_Policy"
         )
-    
-        stem = Path(str(raw_src)).stem
-        return re.sub(r"[_-]+", " ", stem).strip() or "HR Policy"
+        # Retain document name (stripping file extension if present)
+        name = Path(str(raw_src)).stem if "." in str(raw_src) else str(raw_src)
+        return str(name).strip() or "HR Policy"
 
     @staticmethod
     def _format_hierarchy_string(raw: Any) -> str:

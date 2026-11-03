@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 import logging
@@ -103,7 +104,16 @@ class ChromaVectorStore:
                     clean_m[k] = str(v)
             cleaned_metadatas.append(clean_m)
 
-        embeddings = self.embedding_model.encode(texts_to_add, convert_to_numpy=True).tolist()
+        # Do not vectorize Document name / Policy header prefix; vectorize clean body content
+        _prefix_strip_re = re.compile(r"^(?:\[(?:Policy|Doc|Document Scope):[^\n]+\]\s*\n?)+", re.IGNORECASE)
+        texts_to_embed = []
+        for doc, meta in zip(documents, cleaned_metadatas):
+            raw = meta.get("raw_text")
+            if not raw:
+                raw = _prefix_strip_re.sub("", doc["text"]).strip()
+            texts_to_embed.append(raw if raw else doc["text"])
+
+        embeddings = self.embedding_model.encode(texts_to_embed, convert_to_numpy=True).tolist()
 
         try:
             self.collection.upsert(
