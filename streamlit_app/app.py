@@ -128,11 +128,6 @@ with top_col2:
             st.session_state.last_response = None
             st.session_state.session_id = str(uuid.uuid4())
             st.rerun()
-    with btn_col2:
-        with st.popover("ℹ️ Info", use_container_width=True):
-            st.markdown(f"**Session:** `{st.session_state.session_id[:8]}...`")
-            st.markdown(f"**User:** {user.get('name') or user.get('username') or 'User'}")
-            st.markdown(f"**Scope:** {selected_project_name}")
 
 
 def _strip_citation_numbering(text: str) -> str:
