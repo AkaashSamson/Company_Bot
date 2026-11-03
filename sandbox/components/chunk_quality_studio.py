@@ -32,6 +32,14 @@ from sandbox.engine.chunk_quarantine_manager import (
     load_quarantined_chunks,
     quarantine_chunk_from_chroma,
 )
+from sandbox.engine.chunk_editor import (
+    validate_chunk_content,
+    auto_normalize_edited_chunk,
+    edit_and_ingest_chunk,
+    load_staged_chunks_for_review,
+    stage_chunk_for_review,
+    remove_from_staged_review,
+)
 
 DEFAULT_REPORT_PATHS = [
     Path(BASE_DIR) / "test_results" / "trial_chunk_quality_report.json",
@@ -149,13 +157,14 @@ def execute_evaluation(
     records: List[ChunkRecord] = []
     for _, row in df_chunks.iterrows():
         meta = {
-            "document_id": str(row.get("doc_id", "")),
+            "document_id": str(row.get("document_id") or row.get("doc_id", "")),
             "project_id": str(row.get("project_id", "unassigned")),
-            "source_filename": str(row.get("source", "unknown")),
+            "source_filename": str(row.get("source_filename") or row.get("source", "unknown")),
             "chunk_index": int(row.get("chunk_index", 0) if "chunk_index" in row and pd.notna(row["chunk_index"]) else 0),
             "content_type": str(row.get("content_type", "text")),
-            "hierarchy_path": row.get("hierarchy_path", ""),
-            "section_heading": row.get("heading_text", ""),
+            "hierarchy_path": str(row.get("hierarchy_path") or row.get("heading_hierarchy", "")),
+            "heading_hierarchy": str(row.get("heading_hierarchy") or row.get("hierarchy_path", "")),
+            "section_heading": str(row.get("section_heading") or row.get("heading_text", "")),
             "page_number": int(row.get("page_number", 1) if "page_number" in row and pd.notna(row["page_number"]) else 1),
         }
         records.append(
@@ -244,21 +253,37 @@ def render_seven_parameter_quality_studio(df_chunks: pd.DataFrame) -> None:
 
     # In-Place 5-Phase Chunk Normalizer Workbench
     with st.expander("🛠️ Deterministic In-Place Chunk Normalizer (Zero Data Loss + Noise Stripping + Standardization)", expanded=False):
-        st.markdown("""
-        **Pipeline Mechanics:**
-        1. **Zero Data Loss Token Budgeting**: Chunks $> 256$ tokens are cleanly split; remaining tokens are pushed to the next chunk with hidden tags (`<!-- CUTOFF_START -->` / `<!-- CUTOFF_END -->`). Zero data is deleted.
+        st.markdown(r"""
+        **Pipeline Mechanics (Strict [80, 200] Optimal Token Density Invariant):**
+        1. **Zero Data Loss Token Budgeting**: Chunks $> 200$ tokens are cleanly partitioned using Average Mean Splitting ($\mu \approx 140$ tokens); remaining tokens are linked with hidden tags (`<!-- CUTOFF_START -->` / `<!-- CUTOFF_END -->`). Zero data is deleted.
         2. **Noise & Punctuation Stripping**: Strips repeated symbols, TOC leader dots, and repeated punctuation while safeguarding Markdown tables and headings.
-        3. **Standardize Chunk Length**: Coalesces low-density micro-fragments and rebalances sentences across neighbors into the 80..220 token sweet spot.
+        3. **Standardize Chunk Length**: Coalesces low-density micro-fragments and rebalances sentences/tables into the strict **80–200 token optimal density window**.
         4. **Context Injected Anchors**: Injects `[Policy: ... | Section: ...]` and updates canonical metadata.
         """)
-        n_col1, n_col2, n_col3 = st.columns([1, 1, 1.5])
-        with n_col1:
-            norm_ceiling = st.number_input("Hard Token Ceiling", min_value=100, max_value=250, value=245, step=5, key="norm_ui_ceiling")
-        with n_col2:
-            norm_min_frag = st.number_input("Min Density / Fragment Threshold", min_value=20, max_value=100, value=55, step=5, key="norm_ui_frag")
-        with n_col3:
-            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-            run_norm_btn = st.button("⚡ Apply 5-Phase Normalization to Corpus", type="secondary", use_container_width=True, key="btn_apply_norm_ui")
+
+        norm_c1, norm_c2 = st.columns(2)
+        with norm_c1:
+            norm_ceiling = st.number_input(
+                "Hard Token Ceiling",
+                min_value=120,
+                max_value=256,
+                value=240,
+                step=10,
+                key="norm_hard_token_ceiling_input",
+                help="Maximum word-piece tokens per chunk. Chunks larger than this are cleanly split with zero data loss.",
+            )
+        with norm_c2:
+            norm_min_density = st.number_input(
+                "Min Density / Fragment Threshold",
+                min_value=40,
+                max_value=120,
+                value=80,
+                step=5,
+                key="norm_min_density_threshold_input",
+                help="Minimum word-piece tokens per chunk. Chunks below this threshold are coalesced or rebalanced.",
+            )
+
+        run_norm_btn = st.button("⚡ Apply 5-Phase Normalization to Corpus", type="primary", use_container_width=True, key="btn_apply_norm_ui")
 
         if run_norm_btn:
             if df_chunks.empty:
@@ -266,7 +291,12 @@ def render_seven_parameter_quality_studio(df_chunks: pd.DataFrame) -> None:
             else:
                 with st.spinner("Applying deterministic 5-phase chunk normalization to ChromaDB..."):
                     try:
-                        from app.infrastructure.document.chunk_normalizer import ChunkNormalizer, NormalizedChunk
+                        import re
+                        from app.infrastructure.document.chunk_normalizer import (
+                            ChunkNormalizer,
+                            NormalizedChunk,
+                            concatenate_cutoff_sequence,
+                        )
                         from app.infrastructure.vector.chroma_client import ChromaVectorStore
                         
                         raw_list = [
@@ -277,9 +307,12 @@ def render_seven_parameter_quality_studio(df_chunks: pd.DataFrame) -> None:
                             )
                             for _, row in df_chunks.iterrows()
                         ]
+                        # Pre-stitch contiguous cutoff chunks so re-normalization acts on complete text blocks
+                        raw_list = concatenate_cutoff_sequence(raw_list)
                         normalizer = ChunkNormalizer(
                             hard_token_ceiling=norm_ceiling,
-                            min_fragment_tokens=norm_min_frag,
+                            coalesce_max_tokens=norm_ceiling,
+                            min_fragment_tokens=norm_min_density,
                             enable_sentence_overlap=False,
                             enable_cutoff_tags=True,
                         )
@@ -293,7 +326,18 @@ def render_seven_parameter_quality_studio(df_chunks: pd.DataFrame) -> None:
                                 store.collection.delete(ids=existing_ids[b_idx : b_idx + 500])
                         
                         new_records = []
+                        seen_ids = set()
                         for c in normalized:
+                            cid = str(c.chunk_id).strip()
+                            if not cid:
+                                cid = f"doc_chunk_{len(new_records)}"
+                            if cid in seen_ids:
+                                dup_idx = 1
+                                while f"{cid}_{dup_idx}" in seen_ids:
+                                    dup_idx += 1
+                                cid = f"{cid}_{dup_idx}"
+                            seen_ids.add(cid)
+
                             m = {}
                             for k, v in c.metadata.items():
                                 if isinstance(v, (list, tuple)):
@@ -304,7 +348,8 @@ def render_seven_parameter_quality_studio(df_chunks: pd.DataFrame) -> None:
                                     m[k] = v
                                 else:
                                     m[k] = str(v)
-                            new_records.append({"id": c.chunk_id, "text": c.text, "metadata": m})
+                            m["token_count"] = normalizer.count_tokens(c.text)
+                            new_records.append({"id": cid, "text": c.text, "metadata": m})
                         
                         for b_idx in range(0, len(new_records), 100):
                             store.add_documents(new_records[b_idx : b_idx + 100])
@@ -455,12 +500,15 @@ def render_seven_parameter_quality_studio(df_chunks: pd.DataFrame) -> None:
         # Token ranges breakdown table
         if not df_chunks.empty:
             tok_series = df_chunks["token_count"]
+            active_ceiling = int(st.session_state.get("norm_hard_token_ceiling_input", 240))
+            active_min_density = int(st.session_state.get("norm_min_density_threshold_input", 80))
+            sweet_upper = min(active_ceiling, 240)
             ranges = [
-                {"Zone": "🚨 Severe Truncation (> 256 tok)", "Count": (tok_series > 256).sum(), "Status": "FAIL (Silent Data Loss)"},
-                {"Zone": "⚠️ Near Ceiling Warning (241–256 tok)", "Count": ((tok_series >= 241) & (tok_series <= 256)).sum(), "Status": "WARNING (Risk)"},
-                {"Zone": "🟢 Optimal Sweet Spot (80–240 tok)", "Count": ((tok_series >= 80) & (tok_series <= 240)).sum(), "Status": "PASS (Ideal)"},
-                {"Zone": "🟡 Below Sweet Spot (40–79 tok)", "Count": ((tok_series >= 40) & (tok_series < 80)).sum(), "Status": "ACCEPTABLE"},
-                {"Zone": "🔴 Micro-Fragments (< 40 tok)", "Count": (tok_series < 40).sum(), "Status": "PENALTY (Consolidate)"},
+                {"Zone": "🚨 Severe Truncation (> 256 tok)", "Count": int((tok_series > 256).sum()), "Status": "FAIL (Silent Data Loss)"},
+                {"Zone": f"⚠️ Near Ceiling Warning ({sweet_upper + 1}–256 tok)" if sweet_upper < 256 else "⚠️ Near Ceiling Warning (241–256 tok)", "Count": int(((tok_series > sweet_upper) & (tok_series <= 256)).sum()), "Status": "WARNING (Risk)"},
+                {"Zone": f"🟢 Optimal Sweet Spot ({active_min_density}–{sweet_upper} tok)", "Count": int(((tok_series >= active_min_density) & (tok_series <= sweet_upper)).sum()), "Status": "PASS (Ideal)"},
+                {"Zone": f"🟡 Below Sweet Spot (40–{active_min_density - 1} tok)", "Count": int(((tok_series >= 40) & (tok_series < active_min_density)).sum()), "Status": "ACCEPTABLE"},
+                {"Zone": "🔴 Micro-Fragments (< 40 tok)", "Count": int((tok_series < 40).sum()), "Status": "PENALTY (Consolidate)"},
             ]
             st.dataframe(pd.DataFrame(ranges), use_container_width=True)
 
@@ -551,6 +599,58 @@ def render_seven_parameter_quality_studio(df_chunks: pd.DataFrame) -> None:
                 key="worst_chunks_display_limit",
             )
 
+        # Pre-Ingestion Staging Review Queue (Intercepts bad chunks before ChromaDB writes)
+        staged_chunks_dict = load_staged_chunks_for_review()
+        if staged_chunks_dict:
+            with st.expander(f"🚨 Pre-Ingestion Review Queue ({len(staged_chunks_dict)} bad chunks intercepted)", expanded=True):
+                st.markdown(
+                    "The following chunks were flagged as **low-quality or broken** and intercepted before ingestion into ChromaDB. "
+                    "Edit their content and metadata below to ensure only high-quality vectors enter the database."
+                )
+                staged_cids = list(staged_chunks_dict.keys())
+                sel_staged = st.selectbox(
+                    "Select Staged Chunk to Inspect & Edit",
+                    options=staged_cids,
+                    format_func=lambda cid: f"⚠️ [{cid}] Issues: {', '.join(staged_chunks_dict[cid].get('quality_issues', []))}",
+                    key="sel_staged_chunk_box",
+                )
+                if sel_staged and sel_staged in staged_chunks_dict:
+                    staged_item = staged_chunks_dict[sel_staged]
+                    staged_text = st.text_area(
+                        "Edit Staged Content Before Ingesting",
+                        value=staged_item.get("text", ""),
+                        height=150,
+                        key=f"staged_txt_{sel_staged}",
+                    )
+                    st_val = validate_chunk_content(staged_text, staged_item.get("metadata"))
+                    if st_val["is_truncated"]:
+                        st.error(f"🚨 Truncated ({st_val['token_count']} tok > 245). Shorten before ingesting.")
+                    elif st_val["is_micro"]:
+                        st.warning(f"🔴 Micro-fragment ({st_val['token_count']} tok < 55).")
+                    else:
+                        st.success(f"🟢 Token window safe ({st_val['token_count']} tokens). Quality score: ~{st_val['quality_score']}")
+
+                    s_col1, s_col2 = st.columns(2)
+                    with s_col1:
+                        if st.button("💾 Approve & Ingest to ChromaDB", type="primary", key=f"btn_approve_staged_{sel_staged}"):
+                            succ, msg, _ = edit_and_ingest_chunk(
+                                chunk_id=sel_staged,
+                                new_text=staged_text,
+                                metadata=staged_item.get("metadata"),
+                                collection_name=COLLECTION_NAME,
+                            )
+                            if succ:
+                                st.toast(msg, icon="✅")
+                                st.success(msg)
+                                st.rerun()
+                            else:
+                                st.error(msg)
+                    with s_col2:
+                        if st.button("🗑️ Discard Staged Chunk", key=f"btn_discard_staged_{sel_staged}"):
+                            remove_from_staged_review(sel_staged)
+                            st.warning(f"Chunk '{sel_staged}' discarded.")
+                            st.rerun()
+
         all_cards = report.get("all_chunk_scorecards", [])
         if all_cards:
             sorted_worst = sorted(all_cards, key=lambda x: x.get("composite_intrinsic_score", 1.0))[:worst_limit]
@@ -586,6 +686,13 @@ def render_seven_parameter_quality_studio(df_chunks: pd.DataFrame) -> None:
                 delta=f"Rank 1: {sorted_worst[0].get('chunk_id', '')[:20]}",
                 delta_color="off",
             )
+
+            if quarantined_count > 0:
+                st.info(
+                    f"ℹ️ **Audit Report & ChromaDB Sync**: {quarantined_count} of the {len(worst_cids)} displayed chunks are not in the active ChromaDB collection. "
+                    "This occurs when the loaded report was generated prior to chunk normalization or from an earlier corpus run. "
+                    "Click **🚀 Run Live 7-Param Audit** above to generate a fresh quality report directly evaluated against current active ChromaDB chunks."
+                )
 
             st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
@@ -686,50 +793,112 @@ def render_seven_parameter_quality_studio(df_chunks: pd.DataFrame) -> None:
                 if not found_text:
                     found_text = chosen_chunk.get("text", "")
 
-                # Text Content with inspection / editing option
+                # Text Content with live inspection, editing, and quality validation
                 st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
                 chunk_content_input = st.text_area(
-                    "Chunk Content (Inspect or Adjust before Adding Back)",
+                    "✏️ Chunk Content Editor (Modify text to fix defects before ingesting)",
                     value=found_text or "(No text extracted)",
-                    height=160,
+                    height=180,
                     key=f"chunk_content_area_{sel_cid}",
                 )
+
+                # Live Validation & Diagnostic Feedback
+                val_res = validate_chunk_content(chunk_content_input, found_meta)
+                cur_tokens = val_res["token_count"]
+                
+                if val_res["is_truncated"]:
+                    st.error(
+                        f"🚨 **CRITICAL TRUNCATION RISK**: Chunk is **{cur_tokens} tokens** (> 200 limit). "
+                        "Exceeds the strict 200-token hard ceiling. Shorten or partition this chunk before ingesting."
+                    )
+                elif val_res["is_micro"]:
+                    st.warning(
+                        f"🔴 **MICRO-FRAGMENT DETECTED**: Chunk is only **{cur_tokens} tokens** (< 80 limit). "
+                        "Strict optimal density requires 80–200 tokens. Consolidate with neighboring text before ingesting."
+                    )
+                elif not val_res["is_safe_budget"]:
+                    st.info(f"⚠️ **Density Warning**: **{cur_tokens} tokens** (outside strict 80–200 token sweet spot).")
+                else:
+                    st.success(f"🟢 **Optimal Token Density**: **{cur_tokens} tokens** strictly conforms to the 80–200 token sweet spot.")
+
+                if val_res["suggestions"]:
+                    st.caption("💡 **Suggested Fixes:** " + " • ".join(val_res["suggestions"]))
+
+                # Editable Metadata & Hierarchy Drawer
+                with st.expander("🏷️ Edit Metadata & Lineage (Breadcrumbs & Section)", expanded=False):
+                    m_c1, m_c2 = st.columns(2)
+                    with m_c1:
+                        edit_sec = st.text_input(
+                            "Section Heading",
+                            value=str(found_meta.get("section_heading") or chosen_chunk.get("section_heading") or ""),
+                            key=f"edit_sec_{sel_cid}",
+                        )
+                    with m_c2:
+                        edit_hier = st.text_input(
+                            "Heading Hierarchy Breadcrumb",
+                            value=str(found_meta.get("heading_hierarchy") or chosen_chunk.get("heading_hierarchy") or ""),
+                            key=f"edit_hier_{sel_cid}",
+                        )
+                    if edit_sec:
+                        found_meta["section_heading"] = edit_sec
+                    if edit_hier:
+                        found_meta["heading_hierarchy"] = edit_hier
 
                 if chosen_chunk.get("synthetic_query"):
                     st.info(f"**Gate 2 Test Query**: `{chosen_chunk['synthetic_query']}`")
 
-                # Action Buttons
-                btn_col1, btn_col2, btn_col3 = st.columns([1.6, 1.6, 1.8])
+                # Action Buttons Row
+                btn_col1, btn_col2, btn_col3, btn_col4 = st.columns([1.5, 1.5, 1.4, 1.6])
                 with btn_col1:
-                    add_back_btn = st.button(
-                        "✅ Add Back to ChromaDB (Good Enough)",
-                        type="primary",
+                    auto_norm_btn = st.button(
+                        "✨ Auto-Normalize",
                         use_container_width=True,
-                        help="Upserts this chunk back into ChromaDB with vector embeddings and marks it approved.",
-                        key=f"btn_add_back_{sel_cid}",
+                        help="Runs the 5-pass normalizer on edited text to inject breadcrumbs and heal punctuation.",
+                        key=f"btn_auto_norm_{sel_cid}",
                     )
                 with btn_col2:
-                    quarantine_btn = st.button(
-                        "🗑️ Prune / Quarantine from ChromaDB",
-                        type="secondary",
+                    add_back_btn = st.button(
+                        "💾 Ingest Edited Chunk",
+                        type="primary",
                         use_container_width=True,
-                        help="Deletes chunk from ChromaDB to protect search quality and archives it in quarantine.",
-                        key=f"btn_quarantine_{sel_cid}",
+                        help="Validates and indexes this curated chunk into ChromaDB with fresh vector embeddings.",
+                        key=f"btn_add_back_{sel_cid}",
                     )
                 with btn_col3:
-                    if is_in_chroma_now:
-                        st.caption("🟢 Currently active in ChromaDB. Click 'Prune' if you want to exclude it.")
-                    else:
-                        st.caption("🔴 Currently missing or quarantined. Click 'Add Back' to restore it.")
+                    quarantine_btn = st.button(
+                        "🗑️ Quarantine",
+                        type="secondary",
+                        use_container_width=True,
+                        help="Prunes from ChromaDB and archives in quarantine.",
+                        key=f"btn_quarantine_{sel_cid}",
+                    )
+                with btn_col4:
+                    stage_btn = st.button(
+                        "📥 Stage for Review",
+                        use_container_width=True,
+                        help="Holds chunk in pre-ingestion staging review without writing to ChromaDB.",
+                        key=f"btn_stage_review_{sel_cid}",
+                    )
+
+                if auto_norm_btn:
+                    with st.spinner("Applying 5-pass normalization..."):
+                        norm_txt, norm_meta, changes = auto_normalize_edited_chunk(chunk_content_input, found_meta)
+                        st.info("✨ **Applied 5-Pass Normalizer:**\n" + "\n".join(f"- {c}" for c in changes))
+                        st.text_area(
+                            "Normalized Preview (Copy or Ingest Below)",
+                            value=norm_txt,
+                            height=120,
+                            key=f"norm_preview_{sel_cid}",
+                        )
 
                 if add_back_btn:
                     if not chunk_content_input.strip():
                         st.error("Cannot add an empty chunk to ChromaDB.")
                     else:
-                        with st.spinner(f"Adding chunk '{sel_cid}' back to ChromaDB..."):
-                            success, msg = add_chunk_to_chroma(
+                        with st.spinner(f"Ingesting edited chunk '{sel_cid}' into ChromaDB..."):
+                            success, msg, _ = edit_and_ingest_chunk(
                                 chunk_id=sel_cid,
-                                text=chunk_content_input,
+                                new_text=chunk_content_input,
                                 metadata=found_meta,
                                 collection_name=COLLECTION_NAME,
                             )
@@ -755,6 +924,17 @@ def render_seven_parameter_quality_studio(df_chunks: pd.DataFrame) -> None:
                             st.rerun()
                         else:
                             st.error(msg)
+
+                if stage_btn:
+                    stage_chunk_for_review(
+                        chunk_id=sel_cid,
+                        text=chunk_content_input,
+                        metadata=found_meta,
+                        quality_issues=val_res["issues"],
+                    )
+                    st.toast(f"Chunk '{sel_cid}' held in pre-ingestion review.", icon="📥")
+                    st.info(f"Chunk '{sel_cid}' is now staged for pre-ingestion review.")
+                    st.rerun()
 
             # Batch Operations Expander
             with st.expander("⚡ Batch Actions for Worst Chunks", expanded=False):

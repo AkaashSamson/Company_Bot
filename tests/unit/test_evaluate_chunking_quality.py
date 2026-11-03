@@ -259,3 +259,23 @@ def test_compile_report_cqi_and_grades(evaluator):
     assert "A+ (Exceptional)" in report["summary"]["quality_grade"]
     assert report["token_stats"]["mean_tokens"] == 135.0
     assert "UNFINISHED_SENTENCE_END" in report["failure_flag_distribution"]
+
+
+
+# ---------------------------------------------------------------------------
+# Parameter 7: Anchored Synthetic Query Verification
+# ---------------------------------------------------------------------------
+def test_build_synthetic_query_anchors_policy_and_section():
+    chunk = ChunkRecord(
+        chunk_id="travel-01",
+        text="[Policy: Travel Policy | Section: Meals]\nDaily meal allowance for Level 4 managers is capped at $75 per day.",
+        metadata={
+            "source_filename": "travel_policy.pdf",
+            "section_heading": "Meals",
+            "hierarchy_path": ["Finance", "Travel Policy", "Meals"],
+        },
+    )
+    query = KnowLayerChunkEvaluator._build_synthetic_query(chunk)
+    assert "In the travel policy under Finance > Travel Policy > Meals" in query
+    assert "requirements regarding" in query
+    assert "meal allowance" in query

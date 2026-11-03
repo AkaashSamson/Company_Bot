@@ -46,6 +46,33 @@ class RetrievalService:
         self.quality_gate = quality_gate or RetrievalQualityGate()
         self.reranker = reranker or get_reranker()
         self.last_quality_result: QualityGateResult | None = None
+        self._bm25_retriever: Optional[Any] = None
+        self._bm25_indexed_count: int = -1
+
+    def _get_bm25_retriever(self) -> Optional[Any]:
+        """Lazy-loads and synchronizes BM25 index with current ChromaDB collection."""
+        try:
+            from app.infrastructure.search.bm25 import BM25Retriever
+            count = self.store.collection.count()
+            if self._bm25_retriever is not None and self._bm25_indexed_count == count:
+                return self._bm25_retriever
+
+            raw = self.store.collection.get(include=["documents", "metadatas"])
+            docs = raw.get("documents") or []
+            metas = raw.get("metadatas") or []
+            ids = raw.get("ids") or []
+            chunks = [
+                {"id": cid, "text": doc, "metadata": meta or {}}
+                for cid, doc, meta in zip(ids, docs, metas)
+            ]
+            retriever = BM25Retriever()
+            retriever.index_chunks(chunks)
+            self._bm25_retriever = retriever
+            self._bm25_indexed_count = count
+            return self._bm25_retriever
+        except Exception as e:
+            logger.warning("BM25 index initialization failed, falling back to pure dense retrieval: %s", e)
+            return None
 
 
     def retrieve_raw_candidates(
@@ -82,9 +109,22 @@ class RetrievalService:
         elif project_ids_for_filter is not None:
             query_kwargs["project_ids"] = project_ids_for_filter
 
-        candidates = []
+        vector_candidates = []
         for candidate in self.store.query(query_text, **query_kwargs):
-            candidates.append({**candidate, "_query_part_index": 0})
+            vector_candidates.append({**candidate, "_query_part_index": 0})
+
+        candidates = vector_candidates
+        bm25_retriever = self._get_bm25_retriever()
+        if bm25_retriever is not None:
+            try:
+                from app.infrastructure.search.bm25 import compute_rrf
+                bm25_results = bm25_retriever.search(query_text, top_k=top_k)
+                if bm25_results:
+                    for b in bm25_results:
+                        b["_query_part_index"] = 0
+                    candidates = compute_rrf(vector_candidates, bm25_results, k=60, top_k=top_k)
+            except Exception as e:
+                logger.warning("BM25 RRF fusion in retrieve_raw_candidates failed: %s", e)
 
         if authorized_project_ids is not None or authorized_document_ids is not None:
             from app.domain.services.document_project_service import get_document_project_service
@@ -132,7 +172,7 @@ class RetrievalService:
                 where_filter = document_filter
             logger.info("retrieval document scope for user: %s", list(authorized_document_ids))
 
-        candidates = []
+        vector_candidates = []
         query_kwargs = {"top_k": top_k}
         if where_filter is not None:
             query_kwargs["where"] = where_filter
@@ -140,7 +180,20 @@ class RetrievalService:
             query_kwargs["project_ids"] = project_ids_for_filter
             
         for candidate in self.store.query(query_text, **query_kwargs):
-            candidates.append({**candidate, "_query_part_index": 0})
+            vector_candidates.append({**candidate, "_query_part_index": 0})
+
+        candidates = vector_candidates
+        bm25_retriever = self._get_bm25_retriever()
+        if bm25_retriever is not None:
+            try:
+                from app.infrastructure.search.bm25 import compute_rrf
+                bm25_results = bm25_retriever.search(query_text, top_k=top_k)
+                if bm25_results:
+                    for b in bm25_results:
+                        b["_query_part_index"] = 0
+                    candidates = compute_rrf(vector_candidates, bm25_results, k=60, top_k=top_k)
+            except Exception as e:
+                logger.warning("BM25 RRF fusion in retrieve failed: %s", e)
 
         # Post-retrieval verification using DocumentProjectMappingService:
         # Strictly ensure zero unauthorized chunks pass into reranking or LLM generation

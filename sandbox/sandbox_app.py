@@ -452,27 +452,48 @@ def load_all_chunks():
         ids = data.get("ids", [])
         documents = data.get("documents", [])
         metadatas = data.get("metadatas", [])
+        normalizer_inst = None
         for chunk_id, text, meta in zip(ids, documents, metadatas):
             meta = meta or {}
-            tokens = len(text.split())
+            tok_val = meta.get("token_count")
+            if tok_val is not None and str(tok_val).isdigit() and int(tok_val) > 0:
+                tokens = int(tok_val)
+            else:
+                if normalizer_inst is None:
+                    try:
+                        from app.infrastructure.document.chunk_normalizer import ChunkNormalizer
+                        normalizer_inst = ChunkNormalizer()
+                    except Exception:
+                        pass
+                tokens = normalizer_inst.count_tokens(text) if normalizer_inst else len(text.split())
+
+            src_val = str(meta.get("source_filename") or meta.get("source_file") or meta.get("source") or "unknown")
+            doc_id_val = str(meta.get("document_id") or meta.get("doc_id") or "unknown")
+            hierarchy_val = str(meta.get("heading_hierarchy") or meta.get("hierarchy_path") or "")
+            heading_val = str(meta.get("section_heading") or meta.get("heading_text") or "")
+
             records.append({
                 "chunk_id": chunk_id,
                 "text": text,
                 "token_count": tokens,
                 "char_count": len(text),
-                "doc_id": meta.get("doc_id", meta.get("document_id", "unknown")),
-                "source": meta.get("source", "unknown"),
+                "doc_id": doc_id_val,
+                "document_id": doc_id_val,
+                "source": src_val,
+                "source_filename": src_val,
                 "department": meta.get("department", "unassigned"),
                 "classification": meta.get("classification", "Public"),
                 "project_id": str(meta.get("project_id", "unassigned")),
-                "hierarchy_path": str(meta.get("hierarchy_path", "")),
-                "heading_text": str(meta.get("heading_text", "")),
+                "hierarchy_path": hierarchy_val,
+                "heading_hierarchy": hierarchy_val,
+                "heading_text": heading_val,
+                "section_heading": heading_val,
                 "produced_by": str(meta.get("produced_by", "")),
                 "route": str(meta.get("route", "")),
-                "content_type": str(meta.get("content_type", "text")),
+                "content_type": str(meta.get("chunk_type") or meta.get("content_type", "text")),
                 "layout_type": str(meta.get("layout_type", "")),
                 "bbox": str(meta.get("bbox", "")),
-                "is_table": bool(meta.get("is_table", False)),
+                "is_table": bool(meta.get("is_table", False) or meta.get("chunk_type") == "table"),
             })
         return pd.DataFrame(records)
     except Exception as e:

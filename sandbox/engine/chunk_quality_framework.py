@@ -2123,9 +2123,14 @@ def audit_single_chunk(chunk_record: dict, target_window: int = 256) -> ChunkAud
     metrics.extend(evaluate_security_and_access(chunk_id, text, metadata))
 
     hard_fails = sum(1 for m in metrics if m.status == "fail" and m.check_type == "hard_validation")
+    # Only critical-severity heuristic issues block pristine; medium/low/high are advisory-only.
+    blocking_warnings = sum(
+        1 for m in metrics
+        if m.status in ("fail", "warning") and m.check_type != "hard_validation" and m.severity == "critical"
+    )
     warnings = sum(1 for m in metrics if m.status in ("fail", "warning") and m.check_type != "hard_validation")
 
-    overall = "fail" if hard_fails > 0 else ("warning" if warnings > 0 else "pass")
+    overall = "fail" if hard_fails > 0 else ("warning" if blocking_warnings > 0 else "pass")
 
     return ChunkAuditReport(
         chunk_id=chunk_id,
@@ -2155,9 +2160,13 @@ def audit_corpus_comprehensive(records: Sequence[dict], target_window: int = 256
         report.metrics.extend(rel_metrics)
         report.hard_failures_count += sum(1 for m in rel_metrics if m.status == "fail" and m.check_type == "hard_validation")
         report.warnings_count += sum(1 for m in rel_metrics if m.status in ("fail", "warning") and m.check_type != "hard_validation")
+        blocking_rel = sum(
+            1 for m in rel_metrics
+            if m.status in ("fail", "warning") and m.check_type != "hard_validation" and m.severity == "critical"
+        )
         if report.hard_failures_count > 0:
             report.overall_status = "fail"
-        elif report.warnings_count > 0 and report.overall_status == "pass":
+        elif blocking_rel > 0 and report.overall_status == "pass":
             report.overall_status = "warning"
 
     total = len(chunk_reports)

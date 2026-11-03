@@ -413,3 +413,29 @@ def test_pass2_dynamic_prose_split_exceeding_200_tokens(normalizer: ChunkNormali
         toks = normalizer.count_tokens(p.text)
         assert toks <= 200, f"Expected part <= 200 tokens, got {toks}"
         assert toks >= 55, f"Expected part >= 55 tokens, got {toks}"
+
+
+
+def test_pass2_splits_on_semantic_dip_under_token_ceiling(normalizer: ChunkNormalizer):
+    """
+    Verifies that Pass 2/3 splits compound-topic chunks on semantic dips (< 0.30)
+    even when total tokens is well under the 245 token ceiling (~130 tokens).
+    """
+    topic1 = (
+        "Dental insurance benefits cover comprehensive oral examinations, twice-yearly teeth cleanings, "
+        "and emergency tooth extractions for all active employees."
+    )
+    topic2 = (
+        "International business travel itineraries exceeding seven calendar days require written approval "
+        "from the regional vice president and human resources."
+    )
+    compound_text = f"{topic1} {topic2}"
+    tokens = normalizer.count_tokens(compound_text)
+    assert tokens < 200, f"Expected compound text under 200 tokens, got {tokens}"
+
+    c = NormalizedChunk(chunk_id="compound_chunk", text=compound_text, metadata=_meta())
+    parts = normalizer._pass2_enforce_token_budget_zero_data_loss([c])
+
+    assert len(parts) >= 2, "Expected compound-topic chunk to split on semantic dip"
+    assert "Dental insurance" in parts[0].text
+    assert "business travel" in parts[1].text

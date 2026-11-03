@@ -104,3 +104,27 @@ def test_duplicate_similar_chunks(mock_cross_encoder):
     assert result[0]["id"] == 1
     assert result[1]["id"] == 2
     assert result[2]["id"] == 3
+
+
+def test_clean_text_for_reranker_strips_noise():
+    from app.infrastructure.vector.bge_reranker import clean_text_for_reranker
+    raw = "<!-- CUTOFF_START -->\n| Tier | Allowance |\n| :--- | :---: |\n| L4 | $75 |\n<!-- CUTOFF_END -->"
+    cleaned = clean_text_for_reranker(raw)
+    assert "<!-- CUTOFF_START -->" not in cleaned
+    assert "<!-- CUTOFF_END -->" not in cleaned
+    assert "| :--- |" not in cleaned
+    assert "| L4 | $75 |" in cleaned
+
+
+def test_reranker_passes_cleaned_text_but_preserves_candidate_text(mock_cross_encoder):
+    mock_cross_encoder.predict.return_value = [0.95]
+    reranker = BgeReranker()
+    raw_text = "<!-- CUTOFF_START --> Some policy clause. <!-- CUTOFF_END -->"
+    candidates = [{"text": raw_text, "id": "c1"}]
+    result = reranker.rerank("What is the policy?", candidates, top_k=1)
+    
+    # Model should have been called with stripped text
+    mock_cross_encoder.predict.assert_called_once_with([["What is the policy?", "Some policy clause."]])
+    # Candidate returned should preserve the original text for prompt generation
+    assert result[0]["text"] == raw_text
+    assert result[0]["_rerank_score"] == 0.95

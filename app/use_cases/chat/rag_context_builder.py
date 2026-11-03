@@ -90,6 +90,7 @@ class RAGContextBuilder:
                 concatenate_cutoff_sequence,
                 strip_cutoff_tags,
             )
+            # pyrefly: ignore[bad-argument-type, bad-assignment]
             context_chunks = concatenate_cutoff_sequence(context_chunks)
         except Exception:
             strip_cutoff_tags = lambda t: t

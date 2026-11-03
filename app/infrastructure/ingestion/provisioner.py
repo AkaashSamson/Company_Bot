@@ -78,6 +78,7 @@ def provision_document(
     target_tokens: int | None = None,
     overlap_pct: int | None = None,
     enable_bridge_linking: bool = True,
+    stage_bad_chunks: bool = False,
 ) -> int:
     """Extract, chunk, and embed a document into the vector store.
 
@@ -236,6 +237,29 @@ def provision_document(
     # Establish Doubly Linked List pointers and typed boundary bridges across all chunks
     if enable_bridge_linking and records:
         records = link_store_records_with_bridges(records, doc_id=document.document_id)
+
+    # Pre-Ingestion Quality Gate: intercept bad chunks before writing to ChromaDB
+    if stage_bad_chunks and records:
+        from sandbox.engine.chunk_editor import stage_chunk_for_review, validate_chunk_content
+
+        clean_records = []
+        for r in records:
+            val = validate_chunk_content(r["text"], r.get("metadata"))
+            if val["is_truncated"] or val["is_micro"] or val["quality_score"] < 0.60:
+                stage_chunk_for_review(
+                    chunk_id=r["id"],
+                    text=r["text"],
+                    metadata=r.get("metadata"),
+                    quality_issues=val["issues"],
+                    document_id=document.document_id,
+                )
+                logger.warning(
+                    "Intercepted bad chunk %r before ingestion (score: %.2f, issues: %s)",
+                    r["id"], val["quality_score"], val["issues"],
+                )
+            else:
+                clean_records.append(r)
+        records = clean_records
 
     store = store or ChromaVectorStore(collection_name=COLLECTION_NAME, persist_directory=str(BASE_DIR / ".chroma"))
     store.add_documents(records)

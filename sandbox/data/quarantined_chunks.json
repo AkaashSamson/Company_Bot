@@ -1,1 +1,34 @@
-{}
+{
+  "2021-AUDIT-REPORT-77_sub_1": {
+    "chunk_id": "2021-AUDIT-REPORT-77_sub_1",
+    "text": "[Policy: 2021 AUDIT REPORT | Section: PERMANENT SECRETARIAT OF THE TRANSPORT COMMUNITY Notes to the Financial Statements - Financial Year 2021]\n00 ^.1 c a ^ i. s \u00a3- 1 (U t co 1/1 M r-1 ^ U-) S \u00a3 TO I < -S ^li i/i- I cu I, 4 = 8 0 fD m >. 00 = ro 3. s \u00a3- 1 (U t co 1/1 M r-1 ^ U-) S \u00a3 TO I < -S ^li i/i- I cu I, 5 = I. s",
+    "metadata": {
+      "chunk_id": "2021-AUDIT-REPORT-77_sub_1",
+      "text": "[Policy: 2021 AUDIT REPORT | Section: PERMANENT SECRETARIAT OF THE TRANSPORT COMMUNITY Notes to the Financial Statements - Financial Year 2021]\n00 ^.1 c a ^ i. s \u00a3- 1 (U t co 1/1 M r-1 ^ U-) S \u00a3 TO I < -S ^li i/i- I cu I, 4 = 8 0 fD m >. 00 = ro 3. s \u00a3- 1 (U t co 1/1 M r-1 ^ U-) S \u00a3 TO I < -S ^li i/i- I cu I, 5 = I. s",
+      "token_count": 86,
+      "char_count": 319,
+      "doc_id": "2021-AUDIT-REPORT",
+      "source": "2021-AUDIT-REPORT.pdf",
+      "department": "unassigned",
+      "classification": "Public",
+      "project_id": "unassigned",
+      "hierarchy_path": "['PERMANENT SECRETARIAT OF THE TRANSPORT COMMUNITY Notes to the Financial Statements - Financial Year 2021']",
+      "heading_text": "",
+      "produced_by": "",
+      "route": "",
+      "content_type": "table",
+      "layout_type": "table",
+      "bbox": "87.2,726.2,392.1,109.6",
+      "is_table": true
+    },
+    "quarantined_at": "2026-10-29 15:33:03",
+    "reason": "Flagged as low quality in 7-Parameter Studio"
+  },
+  "2021-AUDIT-REPORT-67_tbl_0_part_2": {
+    "chunk_id": "2021-AUDIT-REPORT-67_tbl_0_part_2",
+    "text": "[Policy: unknown policy | Section: General]\n<!-- CUTOFF_START --> N a> ra lsl . ^ ^, 6 = [^ in T-( ID r^ U3. <!-- CUTOFF_END -->\n\n<!-- CUTOFF_START --> (ft 0 c S | - |\n| --- | --- |\n.0 Q -0 <? <!-- CUTOFF_END -->",
+    "metadata": {},
+    "quarantined_at": "2026-11-03 12:08:37",
+    "reason": "Flagged as low quality in 7-Parameter Studio"
+  }
+}

@@ -74,6 +74,11 @@ from app.core.settings import (
     RAG_RERANKER_MODEL,
     SEMANTIC_MERGE_SIMILARITY_THRESHOLD,
 )
+try:
+    from app.infrastructure.vector.bge_reranker import clean_text_for_reranker
+except Exception:
+    def clean_text_for_reranker(text: str) -> str:
+        return text.strip()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -155,6 +160,7 @@ class ChunkScorecard:
     failure_flags: List[str] = field(default_factory=list)
     synthetic_query: Optional[str] = None
     retrieval_rank: Optional[int] = None
+    text: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -491,30 +497,82 @@ class KnowLayerChunkEvaluator:
     # Parameter 7: Reverse-Query Retrievability (s_ret) — Gate 2
     # -----------------------------------------------------------------------
     @staticmethod
-    def _build_synthetic_query(chunk: ChunkRecord) -> str:
-        """Build a deterministic synthetic employee query from heading + key phrase.
+    def _extract_policy_title(chunk: ChunkRecord) -> str:
+        """Extract readable Policy title from metadata or [Policy: ...] header."""
+        meta = chunk.metadata or {}
+        for key in ("policy_title", "policy", "source_filename", "source_file", "source", "document_id"):
+            val = meta.get(key)
+            if val and str(val).strip() not in ("", "None", "unknown", "unknown_policy.pdf"):
+                stem = Path(str(val)).stem
+                clean = re.sub(r"[_-]+", " ", stem).strip()
+                if clean:
+                    return clean
+        m = re.search(r"\[Policy:\s*([^|\]\n]+)", chunk.text, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+        return "Company Policy"
 
-        This is the zero-LLM-cost fallback. For higher-quality synthetic
-        queries, an LLM call (e.g. Groq llama-3.1-8b-instant) can be
-        substituted by the caller.
-        """
-        hierarchy = chunk.metadata.get("hierarchy_path")
-        section = chunk.metadata.get("section_heading") or chunk.metadata.get("section")
+    @staticmethod
+    def _extract_section_heading(chunk: ChunkRecord) -> str:
+        """Extract readable section/hierarchy heading from metadata or [Section: ...] header."""
+        meta = chunk.metadata or {}
+        hierarchy = meta.get("hierarchy_path") or meta.get("heading_hierarchy")
+        section = meta.get("section_heading") or meta.get("section")
 
-        heading = ""
         if isinstance(hierarchy, (list, tuple)) and hierarchy:
-            heading = " ".join(str(h) for h in hierarchy)
-        elif isinstance(hierarchy, str) and hierarchy:
-            heading = hierarchy.replace(">", " ").strip()
-        elif section:
-            heading = str(section)
+            parts = [str(h).strip("[]'\" ") for h in hierarchy if str(h).strip("[]'\" ")]
+            if parts:
+                return " > ".join(parts)
+        elif isinstance(hierarchy, str) and hierarchy.strip():
+            clean_h = hierarchy.replace(">", " > ").strip()
+            if clean_h:
+                return clean_h
+        elif section and str(section).strip() not in ("", "None"):
+            return str(section).strip()
 
-        sentences = SENTENCE_SPLIT_REGEX.split(chunk.text.strip())
-        anchor_sent = max(sentences, key=len) if sentences else chunk.text[:120]
-        anchor_clean = re.sub(r"[|#*_`\[\]]+", " ", anchor_sent).strip()
-        anchor_words = anchor_clean.split()[:14]
-        query = f"What is the policy regarding {heading} {' '.join(anchor_words)}?".strip()
-        return re.sub(r"\s+", " ", query)
+        m = re.search(r"\|\s*Section:\s*([^|\]\n]+)", chunk.text, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+        return "General Section"
+
+    @classmethod
+    def _build_synthetic_query(cls, chunk: ChunkRecord) -> str:
+        """Build an anchored synthetic query incorporating Policy title and Section heading.
+
+        Guarantees a unique 1-to-1 ground-truth target in the corpus instead of generic
+        unanchored questions that hit multiple chunks across policies.
+        """
+        policy_title = cls._extract_policy_title(chunk)
+        section_heading = cls._extract_section_heading(chunk)
+
+        # Strip contextual prefix, HTML comments, markdown symbols to extract anchor phrase
+        clean_body = re.sub(
+            r"^\s*\[(?:Policy|Doc|Document Scope):[^\n]+\]\s*\n?",
+            "",
+            chunk.text.strip(),
+            flags=re.IGNORECASE,
+        ).strip()
+        clean_body = re.sub(r"<!--\s*CUTOFF_(?:START|END)\s*-->", "", clean_body).strip()
+        clean_body = re.sub(r"^\s*[\]\)\}\>]+\s*\n?", "", clean_body).strip()
+
+        sentences = [
+            s.strip()
+            for s in SENTENCE_SPLIT_REGEX.split(clean_body)
+            if len(s.strip()) > 10
+        ]
+        anchor_sent = max(sentences, key=len) if sentences else clean_body[:120]
+        anchor_clean = re.sub(r"[|#*_`\[\]:]+", " ", anchor_sent).strip()
+        anchor_words = [
+            w for w in anchor_clean.split()
+            if w.lower() not in {"the", "a", "an", "is", "are", "of", "in", "to", "for", "and", "or", "that", "this"}
+        ][:10]
+        anchor_phrase = " ".join(anchor_words).strip()
+        if not anchor_phrase:
+            anchor_phrase = "policy requirements and rules"
+
+        extracted_question = f"what are the requirements regarding {anchor_phrase}?"
+        query = f"In the {policy_title} under {section_heading}, {extracted_question}"
+        return re.sub(r"\s+", " ", query).strip()
 
     def evaluate_retrievability_sample(
         self,
@@ -576,9 +634,9 @@ class KnowLayerChunkEvaluator:
                 card.failure_flags.append(f"MISSED_VECTOR_TOP_{candidate_k}")
                 continue
 
-            # Rerank with BGE cross-encoder
+            # Rerank with BGE cross-encoder (clean text fed to reranker to eliminate structural noise)
             if self.reranker is not None:
-                pairs = [[query, all_chunks[c_idx].text] for c_idx in top_cand_indices]
+                pairs = [[query, clean_text_for_reranker(all_chunks[c_idx].text)] for c_idx in top_cand_indices]
                 rerank_scores = self.reranker.predict(pairs, show_progress_bar=False)
                 ranked_order = np.argsort(rerank_scores)[::-1]
                 reranked_indices = [int(top_cand_indices[r]) for r in ranked_order]
@@ -677,6 +735,7 @@ class KnowLayerChunkEvaluator:
                 s_ret=None,
                 composite_intrinsic_score=round(composite, 4),
                 failure_flags=flags,
+                text=chunk.text,
             )
 
         # Gate 2: Sampled Reverse-Query Retrievability
@@ -988,7 +1047,41 @@ def main() -> None:
         metavar="CHUNK_ID",
         help="Quarantine / prune a specific chunk from ChromaDB into quarantine archive",
     )
+    parser.add_argument(
+        "--edit",
+        type=str,
+        default=None,
+        metavar="CHUNK_ID",
+        help="Edit and re-ingest a chunk into ChromaDB with fresh vector embeddings",
+    )
+    parser.add_argument(
+        "--new-text",
+        type=str,
+        default=None,
+        help="Replacement text for the chunk when using --edit",
+    )
     args = parser.parse_args()
+
+    # Fast-path 0: Edit and re-ingest a chunk into ChromaDB
+    if getattr(args, "edit", None):
+        from sandbox.engine.chunk_editor import edit_and_ingest_chunk
+        target_id = args.edit
+        new_text = args.new_text
+        if not new_text:
+            print("ERROR: --new-text must be provided when using --edit.")
+            sys.exit(1)
+        succ, msg, val = edit_and_ingest_chunk(
+            chunk_id=target_id,
+            new_text=new_text,
+            collection_name=args.collection,
+            persist_directory=args.chroma_dir,
+        )
+        if succ:
+            print(f"✅ {msg}")
+            sys.exit(0)
+        else:
+            print(f"❌ {msg}")
+            sys.exit(1)
 
     # Fast-path 1: Add chunk back to ChromaDB
     if args.add_back:

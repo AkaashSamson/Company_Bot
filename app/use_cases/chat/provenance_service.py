@@ -51,8 +51,16 @@ class ProvenanceService:
             metadata = result.get("metadata", {})
             raw_text = result.get("text", "")
             raw_section = metadata.get("section", "Policy")
+            doc_name = (
+                metadata.get("source")
+                or metadata.get("source_filename")
+                or metadata.get("document_name")
+                or metadata.get("source_file")
+                or metadata.get("document_id")
+                or "NEXORA TECHNOLOGIES PVT.docx"
+            )
             c_dict = {
-                "source": metadata.get("source", "NEXORA TECHNOLOGIES PVT.docx"),
+                "source": doc_name,
                 "section": _clean_section(raw_section),
                 "text": _strip_numbering(raw_text),
             }
