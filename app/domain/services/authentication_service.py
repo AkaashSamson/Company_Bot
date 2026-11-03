@@ -107,7 +107,9 @@ class AuthenticationServiceImpl:
             user = uow.users.get_by_uid(principal.uid)
             if user is None or user.status != "active" or not self.password_hasher.verify(current_password, user.password_representation):
                 raise AuthenticationError("Invalid credentials")
-            user.password_representation = self.password_hasher.hash(new_password)
+            new_hash = self.password_hasher.hash(new_password)
+            user.password_representation = new_hash
+            user.password_hash = new_hash
             user.password_changed_at = datetime.now(timezone.utc)
             user.must_change_password = False
             uow.users.save(user)
@@ -123,7 +125,9 @@ class AuthenticationServiceImpl:
                 raise ForbiddenError("Admin access required")
             if target is None or target.status != "active":
                 raise AuthenticationError("User not found")
-            target.password_representation = self.password_hasher.hash(new_password)
+            new_hash = self.password_hasher.hash(new_password)
+            target.password_representation = new_hash
+            target.password_hash = new_hash
             target.password_changed_at = datetime.now(timezone.utc)
             target.must_change_password = True
             uow.users.save(target)
