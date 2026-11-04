@@ -80,9 +80,10 @@ async def lifespan(app: FastAPI):
         logger.warning("Zombie document recovery skipped or failed: %s", exc)
 
     is_testing = bool(os.getenv("PYTEST_CURRENT_TEST"))
+    warmup_task = None
     if not is_testing:
-        logger.info("Lifespan: warming up orchestrator in background thread…")
-        await asyncio.to_thread(init_orchestrator)
+        logger.info("Lifespan: warming up orchestrator in background task…")
+        warmup_task = asyncio.create_task(asyncio.to_thread(init_orchestrator))
         try:
             from app.infrastructure.channels.registry import register_channel_adapter
             from app.infrastructure.channels.teams.adapter import TeamsChannelAdapter
@@ -100,6 +101,8 @@ async def lifespan(app: FastAPI):
     
     yield
     logger.info("Lifespan: shutdown.")
+    if warmup_task is not None and not warmup_task.done():
+        warmup_task.cancel()
     if cleanup_task is not None:
         cleanup_task.cancel()
         try:

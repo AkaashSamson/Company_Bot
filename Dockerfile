@@ -1,60 +1,84 @@
 # ==============================================================================
-# Dockerfile for KnowLayer (FastAPI Backend & Streamlit Frontend)
+# Multi-Stage Dockerfile for KnowLayer (FastAPI Backend & Streamlit Frontend)
 # ==============================================================================
-# REASONING FOR MULTI-SERVICE SINGLE DOCKERFILE:
-# Both FastAPI and Streamlit share the same core Python dependencies (langchain,
-# chromadb, pydantic, etc.). Using one shared base image allows Docker to build and
-# cache the dependencies once, saving disk space and drastically speeding up builds.
-# We then differentiate the service at runtime using `docker-compose.yml` commands.
+# ARCHITECTURE:
+# This Dockerfile produces two distinct, optimized production images:
+#   1. Target `frontend`: Minimal Streamlit UI (~180 MB) without heavy ML packages.
+#   2. Target `backend`:  Modular Monolith FastAPI API (~1.3 GB) with PyTorch CPU,
+#                         Docling, ChromaDB, and document processing libraries.
+#
+# USAGE:
+#   docker build --target frontend -t knowlayer-frontend:latest .
+#   docker build --target backend  -t knowlayer-backend:latest .
+#   Or simply run via docker-compose: docker compose up --build
 # ==============================================================================
 
-# BASE IMAGE
-# REASONING:
-# 1. We choose `python:3.12-slim` instead of `alpine`.
-#    Alpine uses `musl libc` which causes compatibility issues with pre-compiled wheels
-#    for PyTorch, chromadb, and sentence-transformers (causing massive compile times or failures).
-# 2. `slim` uses Debian glibc, ensuring 100% binary compatibility while remaining small (~150MB).
-FROM python:3.12-slim
+# ==============================================================================
+# STAGE 1: BASE IMAGE
+# ==============================================================================
+FROM python:3.12-slim AS base
 
-# ENVIRONMENT VARIABLES
-# REASONING:
-# - PYTHONDONTWRITEBYTECODE=1: Prevents Python from writing .pyc files to disk inside the container.
-# - PYTHONUNBUFFERED=1: Forces stdout/stderr to be flushed immediately, ensuring logs stream in real-time.
-# - PYTHONPATH=/app: Ensures imports like `from app.core import settings` resolve from the root.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app
 
-# WORKING DIRECTORY
-# REASONING: All subsequent instructions and runtime commands will execute inside `/app`.
 WORKDIR /app
 
-# SYSTEM DEPENDENCIES
-# REASONING:
-# - `curl`: Needed for Docker container healthcheck probes (`curl -f http://localhost:8000/health`).
-# - `build-essential`: Provides gcc/g++ compilers needed if any Python package requires C-extension compilation.
-# - `--no-install-recommends`: Avoids installing optional packages, keeping image footprint minimal.
-# - `rm -rf /var/lib/apt/lists/*`: Cleans the apt cache in the same layer to avoid bloating the final image.
+# ==============================================================================
+# STAGE 2: STREAMLIT FRONTEND TARGET (~180 MB)
+# ==============================================================================
+FROM base AS frontend
+
+# Install curl for container health check
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install lightweight presentation dependencies via uv
+RUN pip install --no-cache-dir uv
+COPY requirements-frontend.txt .
+RUN uv pip install --system --no-cache -r requirements-frontend.txt
+
+# Copy Streamlit configuration and presentation code
+COPY .streamlit/ ./.streamlit/
+COPY streamlit_app/ ./streamlit_app/
+
+EXPOSE 8501
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+
+CMD ["streamlit", "run", "streamlit_app/app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]
+
+# ==============================================================================
+# STAGE 3: FASTAPI MODULAR MONOLITH BACKEND TARGET (~1.3 GB)
+# ==============================================================================
+FROM base AS backend
+
+# Install Linux system dependencies:
+# - curl: healthcheck probes
+# - build-essential: gcc/g++ compilers for C-extensions
+# - libgl1, libglib2.0-0: required at runtime by OpenCV and EasyOCR
+# - poppler-utils: PDF rendering and page extraction fallbacks
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     build-essential \
+    libgl1 \
+    libglib2.0-0 \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# DOCKER LAYER CACHING: DEPENDENCIES STEP
-# REASONING:
-# Docker caches each layer. By copying ONLY `requirements.txt` first and running `pip install`,
-# Docker reuses this cached layer whenever you change Python code. Pip will ONLY re-run when
-# `requirements.txt` actually changes, saving minutes per build.
-COPY requirements.txt .
+# Install uv for high-speed multi-threaded parallel downloads
+RUN pip install --no-cache-dir uv
 
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Pre-install PyTorch CPU wheel explicitly via uv (prevents multi-gigabyte CUDA downloads)
+RUN uv pip install --system --no-cache --extra-index-url https://download.pytorch.org/whl/cpu "torch>=2.2"
 
-# PRE-CREATE RUNTIME DIRECTORIES
-# REASONING:
-# The application expects these directories to exist for SQLite DB, Chroma vector store,
-# uploaded docs, and conversation logs. Pre-creating them ensures proper filesystem permissions
-# before persistent Docker volumes are mounted over them.
+# Install backend dependencies in parallel via uv
+COPY requirements-backend.txt .
+RUN uv pip install --system --no-cache --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cpu -r requirements-backend.txt
+
+# Pre-create runtime directories for persistent volumes
 RUN mkdir -p /app/instance \
              /app/.chroma \
              /app/conversation_logs \
@@ -62,24 +86,15 @@ RUN mkdir -p /app/instance \
              /app/data \
              /app/input
 
-# COPY APPLICATION CODE
-# REASONING:
-# Source code changes frequently. Placing this step near the bottom ensures only this
-# final, lightweight layer rebuilds during iterative feature development.
+# Copy application domain, config, and seed data
 COPY app/ ./app/
-COPY streamlit_app/ ./streamlit_app/
+COPY config/ ./config/
 COPY data/ ./data/
 COPY input/ ./input/
 
-# EXPOSE PORTS
-# REASONING:
-# EXPOSE serves as documentation for developers and container orchestrators:
-# - 8000: FastAPI backend REST API
-# - 8501: Streamlit interactive web frontend
-EXPOSE 8000 8501
+EXPOSE 8000
 
-# DEFAULT RUNTIME COMMAND
-# REASONING:
-# By default, running this container starts the FastAPI backend.
-# When running as the Streamlit UI, `docker-compose.yml` overrides this command.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -54,3 +54,15 @@ cache/
 .idea/
 .DS_Store
 Thumbs.db
+.agents/
+.specify/
+
+# 7. TESTS & DOCUMENTATION
+# REASONING: Not needed inside production runtime containers.
+tests/
+docs/
+Documentation/
+specs/
+report.html
+research_doc.md
+

@@ -1,0 +1,11 @@
+# ==============================================================================
+# KnowLayer Frontend Dependencies (Streamlit UI)
+# ==============================================================================
+# Keeps the frontend container image lean (~180 MB) by excluding heavy ML libraries
+# (PyTorch, Docling, ChromaDB, Transformers) that are only required by the backend.
+# ==============================================================================
+
+streamlit>=1.40.0
+streamlit-cookies-controller>=0.0.4
+requests>=2.31.0
+python-dotenv>=1.0.1
