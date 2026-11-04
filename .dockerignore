@@ -1,0 +1,56 @@
+# ==============================================================================
+# .dockerignore for KnowLayer (Company-Bot)
+# ==============================================================================
+# REASONING:
+# The Docker build context is sent as a tar archive from the host machine to the
+# Docker daemon. Ignoring unnecessary files drastically speeds up build times,
+# reduces container image size, and prevents sensitive credentials from leaking into layers.
+# ==============================================================================
+
+# 1. PYTHON BYTECODE & CACHES
+# REASONING: Bytecode compiled on Windows host will not work inside Linux container
+# and bloats the build context unnecessarily.
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 2. LOCAL VIRTUAL ENVIRONMENTS
+# REASONING: The host virtual environment (.venv) contains Windows binaries and
+# libraries. The container must install its own Linux-compatible packages via pip.
+.venv/
+env/
+venv/
+ENV/
+
+# 3. GIT & VERSION CONTROL
+# REASONING: .git history is heavy and not needed at runtime inside the production container.
+.git/
+.gitignore
+.github/
+
+# 4. SENSITIVE CREDENTIALS & SECRETS
+# REASONING: Never bake .env secrets directly into the image layers.
+# Secrets should be injected at runtime via docker-compose (env_file / environment).
+.env
+*.pem
+*.key
+
+# 5. EPHEMERAL RUNTIME & LOCAL DATA
+# REASONING: Local database files and cache should not overwrite container state.
+# These will be mounted as persistent Docker volumes at runtime instead.
+instance/*.db3
+instance/*.db
+conversation_logs/
+.chroma/
+cache/
+
+# 6. IDE & SYSTEM FILES
+# REASONING: Host operating system and editor metadata irrelevant to the Linux container.
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

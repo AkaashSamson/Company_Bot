@@ -20,7 +20,7 @@ def test_faq_store_upserts_normalized_question():
     store.save(
         "  How many leave days do I get? ",
         "18 days.",
-        [{"source": "handbook.docx", "section": "Annual Leave", "text": "18 days."}],
+        [{"source": "handbook.docx", "text": "18 days."}],
     )
 
     collection.create_index.assert_called_once_with("question_key", unique=True)

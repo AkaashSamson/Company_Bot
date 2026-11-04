@@ -1,0 +1,1342 @@
+[
+  {
+    "id": "Q001",
+    "query": "What is the policy for remote work?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "HR_Policy_Manual-8",
+        "text": "REMOTE AND HYBRID WORK  Remote or hybrid work is a business arrangement and not an automatic entitlement. Eligibility depends on role requirements, performance, client commitments, information-security requirements and management approval. Employees working remotely must maintain an appropriate prof..."
+      },
+      {
+        "id": "POSH_Policy-7",
+        "text": "4. Scope and Applicability  This Policy applies to all persons associated with the organization, including employees, trainees, interns, consultants, contractors, temporary workers, apprentices, visitors, clients, vendors, and any other persons interacting with the organization in connection with wo..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-33",
+        "text": "Expenses associated with remote work are reimbursable only when specifically covered by the company's applicable expense policy. Employees should obtain approval before incurring significant work-related expenses that they expect the company to reimburse. Reimbursement requests must include required..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-111",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.9 Remote Work Location  Employees must work from a remote location that has been approved or permitted under the applicable work arrangement.  Employees should maintain a work environment that allows them to perform their responsibilities effectively and sec..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-127",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.21 Remote Work During Travel  Employees should not combine personal travel with remote work without ensuring that the proposed location and arrangement are permitted.  Working remotely while travelling may require prior approval, particularly when:  The empl..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-29",
+        "text": "Employees must work from a remote location that has been approved or permitted under the applicable work arrangement. Employees should maintain a work environment that allows them to perform their responsibilities effectively and securely. Employees must not regularly work from public locations wher..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-34",
+        "text": "**6.23 Ending a Remote Work Arrangement** A remote or hybrid arrangement may end when: - The employee requests to return to office-based work. - The employee changes roles. - The employee moves to a role that requires office presence. - Business requirements change. - The approved arrangement expire..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-115",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.11 Remote Work and Information Security  Employees working remotely must comply with all company information security policies.  Employees must:  Use company-approved devices where required.  Protect company credentials and authentication information.  Avoid..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-112",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.9 Remote Work Location  shared workspaces  Public transportation   Other locations where unauthorized individuals may access company information  Exceptions may be permitted for short periods where appropriate security controls are available...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-100",
+        "text": "Section: Fully Remote  Employees perform their assigned responsibilities remotely on a full-time basis where the role and business requirements permit such an arrangement.  The applicable arrangement depends on the employee's role, department, project, client requirements, and manager approval...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-107",
+        "text": "Section: Fully Remote Subsection: 6.7 Working Hours During Remote Work  Employees working remotely must follow their assigned working hours unless an alternative schedule has been approved.  For employees following the standard schedule, the expected working hours remain:..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-102",
+        "text": "Section: Fully Remote Subsection: 6.3 Eligibility for Remote or Hybrid Work  Roles requiring physical presence, specialized equipment, direct customer interaction, or secure facilities may require employees to work from an approved office or client location...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-30",
+        "text": "1. Use company-approved devices where required. 2. Protect company credentials and authentication information. 3. Avoid accessing confidential information on unsecured devices. 4. Use approved networks and security tools. 5. Lock their devices when unattended. 6. Prevent unauthorized individuals fro..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-104",
+        "text": "Section: Fully Remote Subsection: 6.5 Requesting a Remote Work Arrangement  Employees who wish to work remotely or change their existing hybrid schedule should submit a request through the designated company process.  The request should include:  Proposed work arrangement  Requested duration  Propos..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-28",
+        "text": "- Short-term personal emergencies - Temporary transportation difficulties - Minor illness where the employee is able to work - Home-related emergencies - Other circumstances approved by the reporting manager Temporary Work From Home should generally be requested before the start of the working day. ..."
+      }
+    ]
+  },
+  {
+    "id": "Q002",
+    "query": "How many days of paid leave do I get?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-94",
+        "text": "Section: Eligible employees receive 10 days of Sick Leave per calendar year. Subsection: 5.25 Leave Responsibilities  Managers are responsible for reviewing leave requests fairly while considering business requirements, team availability, and applicable policies...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-333",
+        "text": "Section: 19. Frequently Asked Questions Subsection: 19.1 How many Annual Leave days do I receive?  Eligible regular employees receive 18 days of Annual Leave per calendar year. Employees joining during the year receive a prorated entitlement...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-95",
+        "text": "Section: Eligible employees receive 10 days of Sick Leave per calendar year. Subsection: 5.26 Leave Policy Questions  Questions regarding leave balances, eligibility, approval, carry-forward, documentation, or holidays should be directed to the People & Culture Department.  Where an employee's emplo..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-93",
+        "text": "Section: Eligible employees receive 10 days of Sick Leave per calendar year. Subsection: 5.25 Leave Responsibilities  Employees are responsible for:  Planning leave in advance whenever possible.  Submitting leave requests through the designated HR system.  Obtaining approval before taking planned le..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-91",
+        "text": "Section: Eligible employees receive 10 days of Sick Leave per calendar year. Subsection: 5.23 Leave Records  Employees can view their leave balances and submitted requests through the designated HR system.  Employees are responsible for reviewing their leave records and reporting discrepancies to Pe..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-153",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.16 Unpaid Leave Deduction  When an employee takes approved Unpaid Leave, the corresponding salary deduction will generally be calculated based on the employee's applicable payroll rules and the number of unpaid days.  The deduction may appear in the..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-92",
+        "text": "Section: Eligible employees receive 10 days of Sick Leave per calendar year. Subsection: 5.24 Leave Encashment  Annual Leave may be eligible for encashment only where specifically permitted by company policy, employment terms, or applicable law.  Casual Leave and Sick Leave are not normally eligible..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-18",
+        "text": "Annual Leave may be used for planned personal activities, vacations, family commitments, or other personal reasons. Employees should generally submit Annual Leave requests at least **five working days in advance** . Approval is subject to business requirements and team availability. **5.4 Annual Lea..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-152",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.15 Salary During Leave  Salary treatment during leave depends on the type of leave and the employee's eligibility.  Approved paid leave will generally be treated as paid time in accordance with the applicable leave policy.  Unpaid Leave may result i..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-23",
+        "text": "Employees should ensure that each leave category is recorded correctly in the HR system. **5.19 Public and Company Holidays** Nexora observes a designated holiday calendar each year. The holiday calendar may include: - National holidays - Public holidays - Regional holidays - Company-designated holi..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-192",
+        "text": "Section: 8. Employee Benefits Subsection: 8.20 Paid Volunteer Time  Eligible regular employees may receive up to 2 paid working days per calendar year to participate in approved community service or volunteering activities.  Volunteer time must:  Be requested in advance.  Be approved by the reportin..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-40",
+        "text": "- Performance rating - Achievement of objectives - Disciplinary status - Business performance - Duration of employment during the applicable period - Other conditions stated in the bonus plan Employees should refer to the applicable bonus communication for specific terms. **7.14 Salary During Probat..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-19",
+        "text": "Eligible employees receive **6 days of Casual Leave per calendar year** . Casual Leave is intended for short-term personal requirements that do not require extended time away from work. Examples may include: - Attending to urgent personal matters - Family commitments - Personal appointments - Unexpe..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-324",
+        "text": "Section: 18. Resignation and Separation Subsection: 18.5 Notice Period Leave  Employees may request leave during the notice period in accordance with the Leave Policy.  Approval is subject to business requirements and applicable employment terms.  Extended leave during the notice period may affect t..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-328",
+        "text": "Section: 18. Resignation and Separation Subsection: 18.9 Final Settlement  The final settlement may include applicable:  Salary up to the final working date  Approved reimbursements  Eligible leave encashment  Applicable variable compensation  Statutory payments  Authorized recoveries or deductions ..."
+      }
+    ]
+  },
+  {
+    "id": "Q003",
+    "query": "What is the procedure for performance reviews?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-77",
+        "text": "Employees may receive defined objectives at the beginning of a performance cycle. Objectives may relate to: - Quality of work - Delivery timelines - Technical or functional performance - Customer outcomes - Team contribution - Professional development Objectives may be updated when business or proje..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-294",
+        "text": "Section: 14. Performance Management Subsection: 14.3 Performance Reviews  Formal performance reviews are generally conducted twice each year.  Employees may also receive informal feedback throughout the year.  Performance reviews may consider both results achieved and how the employee performed thei..."
+      },
+      {
+        "id": "POSH_Policy-25",
+        "text": "12. Complaint Handling Process > Step 2 \u2013 Preliminary Administrative Review  The Internal Committee may seek clarification or supporting information necessary to proceed, while avoiding premature conclusions about the merits of the complaint...."
+      },
+      {
+        "id": "HR_Policy_Manual-23",
+        "text": "DISCIPLINARY ACTION  Depending on the seriousness and circumstances of an issue, the Company may take corrective action ranging from coaching and warnings to more serious employment action. Reviews will consider available facts, applicable procedures and relevant contractual or legal requirements...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-295",
+        "text": "Section: 14. Performance Management Subsection: 14.4 Performance Ratings  Where a formal rating system is used, employees may receive ratings based on achievement of their objectives and demonstrated behaviours.  Performance ratings may influence decisions regarding:  Development plans  Recognition ..."
+      },
+      {
+        "id": "HR_Policy_Manual-17",
+        "text": "9. PERFORMANCE MANAGEMENT  Performance management is an ongoing process involving goal setting, feedback, coaching and periodic review. Managers are expected to communicate expectations clearly and provide constructive feedback. Where performance is below expectations, the Company may provide feedba..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-297",
+        "text": "Section: 14. Performance Management Subsection: 14.6 Performance Improvement  When performance does not meet expectations, the manager may establish a Performance Improvement Plan (PIP).  A PIP may specify:  Performance concerns  Expected improvements  Actions required  Review period  Support availa..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-296",
+        "text": "Section: 14. Performance Management Subsection: 14.5 Performance Feedback  Managers are expected to provide employees with constructive and timely feedback.  Employees are encouraged to discuss:  Progress toward objectives  Challenges  Support required  Career goals  Development opportunities  Emplo..."
+      },
+      {
+        "id": "POSH_Policy-28",
+        "text": "12. Complaint Handling Process > Step 5 \u2013 Findings and Recommendations  After completing the inquiry, the Internal Committee prepares findings and recommendations in accordance with applicable law and internal procedures...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-347",
+        "text": "Section: 19. Frequently Asked Questions Subsection: 19.15 How often are performance reviews conducted?  Formal performance reviews are generally conducted twice each year, with informal feedback provided throughout the year...."
+      },
+      {
+        "id": "POSH_Policy-27",
+        "text": "12. Complaint Handling Process > Step 4 \u2013 Inquiry  The Internal Committee conducts an inquiry using a fair, impartial, and confidential process. Relevant parties and witnesses may be heard, and available evidence may be reviewed...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-315",
+        "text": "Section: 17. Disciplinary Policy Subsection: 17.3 Disciplinary Process  Depending on the circumstances, the company may:  Review the reported concern.  Conduct an investigation.  Give the employee an opportunity to provide an explanation.  Determine appropriate corrective or disciplinary action.  Co..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-319",
+        "text": "Section: 17. Disciplinary Policy Subsection: 17.7 Appeals  Where an appeal process is available, an employee may request a review of a disciplinary decision through the designated People & Culture process.  The applicable appeal deadline and procedure will be communicated with the disciplinary decis..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-292",
+        "text": "Section: 14. Performance Management Subsection: 14.1 Purpose  Nexora's performance management process helps employees understand expectations, receive feedback, identify development opportunities, and contribute to organizational goals.  Performance evaluation is based on the requirements of the emp..."
+      },
+      {
+        "id": "POSH_Policy-29",
+        "text": "12. Complaint Handling Process > Step 6 \u2013 Management Action  The organization considers and implements appropriate action based on the findings and recommendations, subject to applicable law and organizational authority...."
+      }
+    ]
+  },
+  {
+    "id": "Q004",
+    "query": "Who do I contact for IT support?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-278",
+        "text": "Section: 12. IT Equipment and Acceptable Use Subsection: 12.7 IT Support  Technical issues should be reported through the designated IT support channel.  Employees should provide sufficient information about the problem to allow IT to diagnose and resolve the issue efficiently...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-352",
+        "text": "Section: 19. Frequently Asked Questions Subsection: 19.20 Who should I contact if I cannot find an answer in this handbook?  Contact the People & Culture Department through the designated employee support channel. For specialized matters, you may be directed to Payroll, IT, Finance, Information Secu..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-343",
+        "text": "Section: 19. Frequently Asked Questions Subsection: 19.11 What should I do if I lose my company laptop?  Report the loss immediately to the IT or Information Security team. Do not delay reporting the incident...."
+      },
+      {
+        "id": "POSH_Policy-51",
+        "text": "Section: Submit the complaint to the IC  Send it through your company's prescribed channel\u2014for example, the designated POSH email address or directly to the Presiding Officer/IC member.  If you are unable to put the complaint in writing yourself, the law requires the Presiding Officer or an IC membe..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-129",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.22 Loss or Theft of Company Equipment  Employees must immediately report the loss or theft of company equipment to the IT or Information Security team.  The employee may also be required to:  Change affected passwords.  Disconnect or secure the device remote..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-73",
+        "text": "- Access unlawful content - Install malicious software - Attempt unauthorized system access - Circumvent security controls - Conduct fraudulent activities - Store or distribute unauthorized confidential information - Harass or threaten others **12.4 Software Installation** Employees must install sof..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-259",
+        "text": "Section: 10. Workplace Harassment and Anti-Harassment Policy Subsection: 10.9 Support for Employees  Employees who report or experience harassment may request information about available support resources through People & Culture.  Depending on the circumstances, support may include:  Employee Assis..."
+      },
+      {
+        "id": "POSH_Policy-23",
+        "text": "11. How to Raise a Concern or Complaint > Emergency Situations  If there is an immediate threat to personal safety, the affected person should seek emergency assistance through appropriate authorities and local emergency channels. The organization's internal process does not prevent a person from ex..."
+      },
+      {
+        "id": "POSH_Policy-22",
+        "text": "11. How to Raise a Concern or Complaint > Assistance  Where a complainant is unable to prepare a written complaint, reasonable assistance may be provided in accordance with applicable law and organizational procedure...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-201",
+        "text": "Section: 8. Employee Benefits Subsection: 8.28 Benefits Support  Employees with questions regarding benefits should contact People & Culture or use the designated benefits support channel.  For insurance-specific questions, employees may also be directed to the insurance provider or third-party bene..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-177",
+        "text": "Section: 8. Employee Benefits Subsection: 8.8 Employee Assistance Program  Eligible employees may have access to an Employee Assistance Program (EAP) offering confidential support for personal and workplace-related concerns.  Depending on the applicable program, services may include:  Counselling su..."
+      },
+      {
+        "id": "POSH_Policy-24",
+        "text": "12. Complaint Handling Process > Step 1 \u2013 Receipt and Acknowledgement  The complaint is received through an authorized channel and acknowledged appropriately. The Internal Committee assesses whether it falls within its scope and jurisdiction...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-353",
+        "text": "Section: 20. Important Contacts  Employees should use the following channels for workplace support...."
+      },
+      {
+        "id": "HR_Policy_Manual-27",
+        "text": "CONTACT  For HR policy questions, employees may contact the Human Resources Department through the approved internal communication channels...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-54",
+        "text": "Employees with questions regarding benefits should contact People & Culture or use the designated benefits support channel. For insurance-specific questions, employees may also be directed to the insurance provider or third-party benefits administrator. Questions may include: - Benefit eligibility -..."
+      }
+    ]
+  },
+  {
+    "id": "Q005",
+    "query": "Can I expense my home internet bill?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-118",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.13 Internet and Utilities  Employees working remotely are responsible for maintaining a reasonably reliable internet connection and suitable working environment unless the company has specifically agreed to provide or reimburse such expenses.  Where internet..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-186",
+        "text": "Section: 8. Employee Benefits Subsection: 8.15 Internet and Remote Work Support  Employees who are formally approved for remote or hybrid work may be eligible for limited reimbursement or support for work-related internet expenses where such a benefit is included in the company's applicable program...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-126",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.20 Remote Work Expenses  Expenses associated with remote work are reimbursable only when specifically covered by the company's applicable expense policy.  Employees should obtain approval before incurring significant work-related expenses that they expect th..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-287",
+        "text": "Section: 13. Travel and Expense Policy Subsection: 13.9 Corporate Cards  Employees issued a company credit or corporate card must use it only for authorized business expenses.  Employees are responsible for submitting supporting documentation and reporting lost cards immediately.  Personal purchases..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-75",
+        "text": "Personal upgrades or additional charges are normally not reimbursable. **13.6 Meals** Employees may claim reasonable meal expenses incurred during approved business travel, subject to applicable limits. Personal meals outside the permitted limits, alcoholic beverages, and expenses for personal guest..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-33",
+        "text": "Expenses associated with remote work are reimbursable only when specifically covered by the company's applicable expense policy. Employees should obtain approval before incurring significant work-related expenses that they expect the company to reimburse. Reimbursement requests must include required..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-30",
+        "text": "1. Use company-approved devices where required. 2. Protect company credentials and authentication information. 3. Avoid accessing confidential information on unsecured devices. 4. Use approved networks and security tools. 5. Lock their devices when unattended. 6. Prevent unauthorized individuals fro..."
+      },
+      {
+        "id": "HR_Policy_Manual-12",
+        "text": "EXPENSES AND REIMBURSEMENTS  Business expenses must be reasonable, necessary, supported by appropriate documentation and approved according to the Company\u2019s authority matrix. Personal expenses must not be submitted as business expenses...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-286",
+        "text": "Section: 13. Travel and Expense Policy Subsection: 13.8 Non-Reimbursable Expenses  The following expenses are generally not reimbursable:  Personal entertainment  Fines or penalties  Personal purchases  Expenses for family members  Alcohol unless specifically permitted for an approved business event..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-282",
+        "text": "Section: 13. Travel and Expense Policy Subsection: 13.4 Transportation  Reasonable transportation expenses incurred for approved business travel may be reimbursed.  Employees should use cost-effective transportation options appropriate to the business requirement.  Examples include:  Economy-class a..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-283",
+        "text": "Section: 13. Travel and Expense Policy Subsection: 13.5 Accommodation  Employees travelling for business may claim reimbursement for reasonable accommodation expenses within the limits established by the company.  Employees should use company-preferred hotels or approved booking channels where avail..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-289",
+        "text": "Section: 13. Travel and Expense Policy Subsection: 13.11 Travel During Personal Leave  Business travel must not be combined with personal travel in a way that creates additional company costs without prior approval.  Any additional personal travel expenses are the employee's responsibility...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-49",
+        "text": "The insurance provider's policy terms will determine how beneficiary claims are handled. **8.13 Meal and Transportation Benefits** Nexora may provide meal, transportation, or other workplace allowances to employees based on their role, location, work schedule, or applicable company programs. These b..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-304",
+        "text": "Section: 15. Learning and Development Subsection: 15.5 Learning Expenses  Approved learning expenses may be reimbursed when the employee meets the applicable eligibility and approval requirements.  Employees must retain receipts and submit claims through the designated expense process...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-273",
+        "text": "Section: 12. IT Equipment and Acceptable Use Subsection: 12.2 Appropriate Use  Company equipment and systems must primarily be used for legitimate business purposes.  Limited personal use may be permitted when it:  Does not interfere with work.  Does not create security risks.  Does not violate comp..."
+      }
+    ]
+  },
+  {
+    "id": "Q006",
+    "query": "What are the core hours for the engineering team?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-338",
+        "text": "Section: 19. Frequently Asked Questions Subsection: 19.6 What are the standard working hours?  The standard schedule is 9:30 AM to 6:30 PM, Monday to Friday, unless a different schedule applies to your role...."
+      },
+      {
+        "id": "DOC-006-2",
+        "text": "Week 1  Complete mandatory training, understand team processes, review the employee handbook, configure development tools, and attend project orientation...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-131",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.24 Employee Responsibilities  Employees working remotely or under a hybrid arrangement are responsible for:  Following their approved work schedule.  Maintaining availability during working hours.  Attending required meetings.  Protecting company and client ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-108",
+        "text": "Section: 9:30 AM to 6:30 PM  Remote work does not change the employee's expected working hours.  Employees must remain available through approved communication and collaboration platforms during working hours...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-103",
+        "text": "Section: Fully Remote Subsection: 6.4 Standard Hybrid Arrangement  Where a team follows a hybrid arrangement, employees may generally be required to work from the office three days per week and may work remotely for the remaining two working days.  The exact schedule may vary between teams.  Manager..."
+      },
+      {
+        "id": "DOC-006-1",
+        "text": "Day 1  Complete HR documentation, collect laptop and access credentials, review security guidelines, meet the manager and immediate team...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-110",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.8 Availability and Communication  Repeated unavailability during working hours may result in the remote work arrangement being reviewed...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-13",
+        "text": "- Team coverage - Client requirements - Business operations - Employee responsibilities - Meeting schedules Flexible working hours do not automatically reduce the employee's required weekly working hours. **4.11 Overtime** Employees may occasionally be required to work beyond their normal working ho..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-9",
+        "text": "Questions regarding an employee's employment category, probation status, confirmation, transfer, or employment records should be directed to the People & Culture Department. Employees should refer to their individual employment agreement for terms that are specific to their employment. Where this ha..."
+      },
+      {
+        "id": "DOC-006-3",
+        "text": "Weeks 2-3  Shadow team members, understand assigned responsibilities, review relevant project documentation, and complete a small starter task...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-107",
+        "text": "Section: Fully Remote Subsection: 6.7 Working Hours During Remote Work  Employees working remotely must follow their assigned working hours unless an alternative schedule has been approved.  For employees following the standard schedule, the expected working hours remain:..."
+      },
+      {
+        "id": "DOC-006-4",
+        "text": "Week 4  Discuss progress with the manager, identify learning gaps, confirm responsibilities, and agree on goals for the next 60 days...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-109",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.8 Availability and Communication  Employees working remotely are expected to maintain effective communication with their teams.  Employees should:  Remain reachable during scheduled working hours.  Attend scheduled meetings.  Respond to important work commun..."
+      },
+      {
+        "id": "DOC-005-0",
+        "text": "**NEW EMPLOYEE ONBOARDING GUIDE \u2014 TEST DOCUMENT** **Employee onboarding begins before the first working day and continues through the employee's first month.** The manager, HR, IT, and the employee share responsibility for completing the onboarding activities and ensuring the employee has the inform..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-121",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.16 Office Attendance Requirements  Employees with an approved hybrid arrangement may still be required to attend the office on specific days.  Employees may also be required to attend the office for:  Important team meetings  Client meetings  Training progra..."
+      }
+    ]
+  },
+  {
+    "id": "Q007",
+    "query": "Is there a maternity leave policy?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-21",
+        "text": "- Spouse - Parents - Children - Siblings Additional leave may be considered based on individual circumstances and applicable law. Employees should inform their reporting manager or People & Culture Department as soon as reasonably possible. Documentation may be requested where required for administr..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-173",
+        "text": "Section: 8. Employee Benefits Subsection: 8.5 Adding or Removing Dependents  Late requests may not be accepted unless permitted by the insurance provider...."
+      },
+      {
+        "id": "HR_Policy_Manual-9",
+        "text": "5. LEAVE AND HOLIDAYS  Leave categories, eligibility, accrual, approval, carry-forward and encashment rules are administered according to Company policy and applicable requirements. Employees should plan leave in advance whenever reasonably possible. - Submit planned leave through the approved HR sy..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-25",
+        "text": "Employees should contact People & Culture for the applicable rules regarding leave encashment at the time of separation or other eligible circumstances. **5.25 Leave Responsibilities** Employees are responsible for: 1. Planning leave in advance whenever possible. 2. Submitting leave requests through..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-172",
+        "text": "Section: 8. Employee Benefits Subsection: 8.5 Adding or Removing Dependents  Employees may add or remove eligible dependents during:  The designated annual benefits enrollment period  A permitted life-event enrollment window  Another period specifically authorized by the insurance provider  Examples..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-324",
+        "text": "Section: 18. Resignation and Separation Subsection: 18.5 Notice Period Leave  Employees may request leave during the notice period in accordance with the Leave Policy.  Approval is subject to business requirements and applicable employment terms.  Extended leave during the notice period may affect t..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-46",
+        "text": "Eligible employees may be permitted to include approved dependents under the company health insurance program. Eligible dependents may include: - Spouse - Children - Parents Dependent eligibility and coverage limits are determined by the applicable insurance plan. Employees may be required to submit..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-95",
+        "text": "Section: Eligible employees receive 10 days of Sick Leave per calendar year. Subsection: 5.26 Leave Policy Questions  Questions regarding leave balances, eligibility, approval, carry-forward, documentation, or holidays should be directed to the People & Culture Department.  Where an employee's emplo..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-1",
+        "text": "- Working hours and attendance - Leave and holidays - Remote and hybrid work - Compensation and payroll - Employee benefits - Workplace conduct - Information security - Performance management - Employee grievances - Disciplinary procedures - Resignation and separation Employees are expected to read ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-93",
+        "text": "Section: Eligible employees receive 10 days of Sick Leave per calendar year. Subsection: 5.25 Leave Responsibilities  Employees are responsible for:  Planning leave in advance whenever possible.  Submitting leave requests through the designated HR system.  Obtaining approval before taking planned le..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-22",
+        "text": "However, employees should understand that taking leave during probation may affect the evaluation period where the absence significantly limits the company's ability to assess performance. Where necessary, the probation period may be extended in accordance with the Employment Basics policy. **5.16 L..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-331",
+        "text": "Section: 18. Resignation and Separation Subsection: 18.12 Abandonment of Employment  Failure to report to work or communicate with the company for an extended period without authorization may be treated as abandonment of employment, subject to applicable law and company procedures.  The company may ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-92",
+        "text": "Section: Eligible employees receive 10 days of Sick Leave per calendar year. Subsection: 5.24 Leave Encashment  Annual Leave may be eligible for encashment only where specifically permitted by company policy, employment terms, or applicable law.  Casual Leave and Sick Leave are not normally eligible..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-197",
+        "text": "Section: 8. Employee Benefits Subsection: 8.24 Benefits After Resignation  Certain employee benefits may continue until the employee's final working date, while other benefits may end earlier depending on their terms.  Health insurance and other benefits may be subject to the rules of the applicable..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-326",
+        "text": "Section: 18. Resignation and Separation Subsection: 18.7 Return of Company Property  Before separation, employees must return company property assigned to them.  This may include:  Laptop  Mobile device  Access card  Documents  Storage devices  Other company equipment  Access to company systems may ..."
+      }
+    ]
+  },
+  {
+    "id": "Q008",
+    "query": "How do I request a new laptop?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-342",
+        "text": "Section: 19. Frequently Asked Questions Subsection: 19.10 Can I install software on my company laptop?  Only authorized software should be installed. Use the company's approved software catalogue or IT support process when requesting new software...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-343",
+        "text": "Section: 19. Frequently Asked Questions Subsection: 19.11 What should I do if I lose my company laptop?  Report the loss immediately to the IT or Information Security team. Do not delay reporting the incident...."
+      },
+      {
+        "id": "DOC-006-1",
+        "text": "Day 1  Complete HR documentation, collect laptop and access credentials, review security guidelines, meet the manager and immediate team...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-104",
+        "text": "Section: Fully Remote Subsection: 6.5 Requesting a Remote Work Arrangement  Employees who wish to work remotely or change their existing hybrid schedule should submit a request through the designated company process.  The request should include:  Proposed work arrangement  Requested duration  Propos..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-73",
+        "text": "- Access unlawful content - Install malicious software - Attempt unauthorized system access - Circumvent security controls - Conduct fraudulent activities - Store or distribute unauthorized confidential information - Harass or threaten others **12.4 Software Installation** Employees must install sof..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-30",
+        "text": "1. Use company-approved devices where required. 2. Protect company credentials and authentication information. 3. Avoid accessing confidential information on unsecured devices. 4. Use approved networks and security tools. 5. Lock their devices when unattended. 6. Prevent unauthorized individuals fro..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-278",
+        "text": "Section: 12. IT Equipment and Acceptable Use Subsection: 12.7 IT Support  Technical issues should be reported through the designated IT support channel.  Employees should provide sufficient information about the problem to allow IT to diagnose and resolve the issue efficiently...."
+      },
+      {
+        "id": "DOC-006-0",
+        "text": "NEW EMPLOYEE ONBOARDING GUIDE - TEST DOCUMENT  Employee onboarding begins before the first working day and continues through the employee's first month. The manager, HR, IT, and the employee share responsibility for completing the onboarding activities and ensuring the employee has the information a..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-326",
+        "text": "Section: 18. Resignation and Separation Subsection: 18.7 Return of Company Property  Before separation, employees must return company property assigned to them.  This may include:  Laptop  Mobile device  Access card  Documents  Storage devices  Other company equipment  Access to company systems may ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-129",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.22 Loss or Theft of Company Equipment  Employees must immediately report the loss or theft of company equipment to the IT or Information Security team.  The employee may also be required to:  Change affected passwords.  Disconnect or secure the device remote..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-117",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.12 Use of Company Equipment  Employees working remotely may be provided with company equipment required to perform their duties.  Company equipment may include:  Laptops  Monitors  Headsets  Mobile devices  Security equipment  Other approved accessories  Emp..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-277",
+        "text": "Section: 12. IT Equipment and Acceptable Use Subsection: 12.6 Returning Equipment  Employees must return company equipment when:  Employment ends  Equipment is replaced  The employee changes roles and the equipment is no longer required  The company requests its return  Employees must not retain com..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-272",
+        "text": "Section: 12. IT Equipment and Acceptable Use Subsection: 12.1 Company Equipment  Nexora may provide employees with equipment required to perform their responsibilities, including:  Laptops  Monitors  Mobile devices  Headsets  Access cards  Other approved equipment  Equipment remains company property..."
+      },
+      {
+        "id": "HR_Policy_Manual-15",
+        "text": "ACCEPTABLE USE OF TECHNOLOGY  Company devices, networks, email and collaboration platforms must be used responsibly. Employees must not install unauthorized software, bypass security controls or use Company systems for unlawful, offensive or inappropriate activities...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-264",
+        "text": "Section: 11. Information Security and Data Privacy Subsection: 11.4 Company Devices  Company devices must be protected against unauthorized access.  Employees must:  Lock devices when unattended.  Install security updates when required.  Use approved security software.  Report lost or stolen devices..."
+      }
+    ]
+  },
+  {
+    "id": "Q009",
+    "query": "What are the benefits for part-time employees?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "HR_Policy_Manual-11",
+        "text": "BENEFITS  - Statutory benefits, where applicable, are administered in accordance with prevailing requirements. - The Company may provide insurance, wellness, learning or other benefits subject to eligibility and plan rules. - Benefits may be amended, replaced or withdrawn based on business requireme..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-202",
+        "text": "Section: 8. Employee Benefits Subsection: 8.29 Employee Responsibilities  Employees are responsible for:  Reviewing their benefit eligibility.  Completing required enrollment within applicable deadlines.  Providing accurate dependent and beneficiary information.  Keeping benefit information up to da..."
+      },
+      {
+        "id": "HR_Policy_Manual-2",
+        "text": "DOCUMENT CONTROL AND TABLE OF CONTENTS > Contents  1. Purpose and Scope 2. Company Values and Equal Opportunity 3. Employment Categories and Probation 4. Working Hours and Attendance 5. Leave and Holidays 6. Compensation and Benefits 7. Code of Conduct and Workplace Behaviour 8. Information Security..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-186",
+        "text": "Section: 8. Employee Benefits Subsection: 8.15 Internet and Remote Work Support  Employees who are formally approved for remote or hybrid work may be eligible for limited reimbursement or support for work-related internet expenses where such a benefit is included in the company's applicable program...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-168",
+        "text": "Section: 8. Employee Benefits Subsection: 8.2 Benefits Eligibility  Unless a benefit specifically states otherwise, regular full-time employees are eligible for the standard employee benefits package.  Eligibility for certain benefits may begin:  From the date of joining  After completion of probati..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-185",
+        "text": "Section: 8. Employee Benefits Subsection: 8.14 Transportation Support for Late Shifts  Employees working approved late-night or overnight shifts may be eligible for company-arranged transportation subject to applicable safety and transportation policies.  Eligibility may depend on:  Shift timing  Wo..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-1",
+        "text": "- Working hours and attendance - Leave and holidays - Remote and hybrid work - Compensation and payroll - Employee benefits - Workplace conduct - Information security - Performance management - Employee grievances - Disciplinary procedures - Resignation and separation Employees are expected to read ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-177",
+        "text": "Section: 8. Employee Benefits Subsection: 8.8 Employee Assistance Program  Eligible employees may have access to an Employee Assistance Program (EAP) offering confidential support for personal and workplace-related concerns.  Depending on the applicable program, services may include:  Counselling su..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-167",
+        "text": "Section: 8. Employee Benefits Subsection: 8.1 Overview  Nexora Technologies provides a range of benefits to support employees' financial security, well-being, professional development, and work-life balance.  Benefits may vary based on:  Employment category  Length of service  Work location  Applica..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-187",
+        "text": "Section: 8. Employee Benefits Subsection: 8.16 Professional Development Benefits  Nexora encourages employees to develop their technical and professional skills.  Eligible employees may receive support for approved learning activities such as:  Professional certifications  Technical courses  Worksho..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-138",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.2 Salary Structure  Component: Other Allowances | Description: Additional components applicable to specific roles or employees..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-49",
+        "text": "The insurance provider's policy terms will determine how beneficiary claims are handled. **8.13 Meal and Transportation Benefits** Nexora may provide meal, transportation, or other workplace allowances to employees based on their role, location, work schedule, or applicable company programs. These b..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-131",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.24 Employee Responsibilities  Employees working remotely or under a hybrid arrangement are responsible for:  Following their approved work schedule.  Maintaining availability during working hours.  Attending required meetings.  Protecting company and client ..."
+      },
+      {
+        "id": "DOC-006-1",
+        "text": "Day 1  Complete HR documentation, collect laptop and access credentials, review security guidelines, meet the manager and immediate team...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-184",
+        "text": "Section: 8. Employee Benefits Subsection: 8.13 Meal and Transportation Benefits  Nexora may provide meal, transportation, or other workplace allowances to employees based on their role, location, work schedule, or applicable company programs.  These benefits are subject to the limits and eligibility..."
+      }
+    ]
+  },
+  {
+    "id": "Q010",
+    "query": "What is the severance pay if I am laid off?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-328",
+        "text": "Section: 18. Resignation and Separation Subsection: 18.9 Final Settlement  The final settlement may include applicable:  Salary up to the final working date  Approved reimbursements  Eligible leave encashment  Applicable variable compensation  Statutory payments  Authorized recoveries or deductions ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-161",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.23 Final Salary  When an employee leaves Nexora, the company will process the employee's final salary and other applicable dues through the separation and payroll process.  The final settlement may include applicable:  Salary up to the final working..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-162",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.23 Final Salary  under applicable law and employment terms   The timing of final settlement may depend on completion of the exit process and applicable legal or company requirements...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-152",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.15 Salary During Leave  Salary treatment during leave depends on the type of leave and the employee's eligibility.  Approved paid leave will generally be treated as paid time in accordance with the applicable leave policy.  Unpaid Leave may result i..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-198",
+        "text": "Section: 8. Employee Benefits Subsection: 8.25 Benefits After Termination  Benefits following termination of employment will be handled in accordance with applicable company policy, employment terms, insurance agreements, and applicable law.  Employees whose employment has ended should contact Peopl..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-153",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.16 Unpaid Leave Deduction  When an employee takes approved Unpaid Leave, the corresponding salary deduction will generally be calculated based on the employee's applicable payroll rules and the number of unpaid days.  The deduction may appear in the..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-40",
+        "text": "- Performance rating - Achievement of objectives - Disciplinary status - Business performance - Duration of employment during the applicable period - Other conditions stated in the bonus plan Employees should refer to the applicable bonus communication for specific terms. **7.14 Salary During Probat..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-43",
+        "text": "Employees are expected to handle their own compensation information responsibly. Employees must not access, disclose, copy, or distribute another employee's confidential compensation information without authorization. Authorized managers and company personnel may access compensation information when..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-351",
+        "text": "Section: 19. Frequently Asked Questions Subsection: 19.19 What happens to my benefits after resignation?  Some benefits may continue until your final working date, while others may end earlier according to the applicable benefit plan. Contact People & Culture for details regarding your specific bene..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-195",
+        "text": "Section: 8. Employee Benefits Subsection: 8.22 Benefits During Leave  Benefits generally continue during approved paid leave in accordance with the applicable benefit plan.  Benefits during unpaid leave may be affected depending on:  Duration of the unpaid leave  Type of benefit  Insurance provider ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-85",
+        "text": "The timing of final settlement depends on completion of required exit procedures and applicable legal requirements. **18.10 Employment Documents** After completing the required separation process, eligible employees may receive applicable employment documents such as: - Relieving documentation - Exp..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-35",
+        "text": "The employee's approved work arrangement and any written instructions issued by the company should be treated as the authoritative source for their individual working arrangement. **7. Compensation and Payroll** **7.1 Compensation Overview** Nexora Technologies provides compensation to employees bas..."
+      },
+      {
+        "id": "HR_Policy_Manual-10",
+        "text": "6. COMPENSATION AND BENEFITS  Compensation is determined based on role, skills, experience, performance, market conditions and business requirements. Individual salary details are confidential and governed by the employee\u2019s employment documentation. Salary is processed according to the Company payro..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-330",
+        "text": "Section: 18. Resignation and Separation Subsection: 18.11 Termination by the Company  Nexora may terminate employment in accordance with the employee's employment agreement, company policies, and applicable law.  Termination may occur due to reasons including:  Serious misconduct  Persistent perform..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-332",
+        "text": "Section: 18. Resignation and Separation Subsection: 18.13 Post-Employment Responsibilities  Certain obligations may continue after employment ends.  These may include obligations relating to:  Confidentiality  Intellectual property  Return of company property  Protection of company and client inform..."
+      }
+    ]
+  },
+  {
+    "id": "Q011",
+    "query": "Are there any allowances for training and development?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-301",
+        "text": "Section: 15. Learning and Development Subsection: 15.2 Training Programs  Employees may participate in:  Technical training  Professional skills workshops  Leadership programs  Compliance training  Role-specific training  External courses and conferences  Certain training programs may be mandatory b..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-303",
+        "text": "Section: 15. Learning and Development Subsection: 15.4 Professional Certifications  Employees may request company support for relevant professional certifications.  Prior approval is normally required before registering for a reimbursable certification.  Reimbursement is subject to the applicable ce..."
+      },
+      {
+        "id": "HR_Policy_Manual-18",
+        "text": "LEARNING AND DEVELOPMENT  The Company encourages continuous learning through internal knowledge sharing, role-based training, mentoring and approved external development opportunities. Employees are expected to take ownership of maintaining relevant professional skills...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-305",
+        "text": "Section: 15. Learning and Development Subsection: 15.6 Development Discussions  Employees are encouraged to discuss career goals and development needs with their managers.  Development plans may include:  Training  Mentoring  New responsibilities  Internal projects  Job-shadowing opportunities  Cert..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-304",
+        "text": "Section: 15. Learning and Development Subsection: 15.5 Learning Expenses  Approved learning expenses may be reimbursed when the employee meets the applicable eligibility and approval requirements.  Employees must retain receipts and submit claims through the designated expense process...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-189",
+        "text": "Section: 8. Employee Benefits Subsection: 8.17 Certification Reimbursement  & Culture or Learning & Development approval   Certification reimbursement is not guaranteed solely because an employee completed a certification...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-302",
+        "text": "Section: 15. Learning and Development Subsection: 15.3 Mandatory Training  Employees must complete mandatory training within the deadlines communicated by the company.  Mandatory training may include:  Information security  Data privacy  Workplace conduct  Compliance  Health and safety  Failure to c..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-79",
+        "text": "- Information security - Data privacy - Workplace conduct - Compliance - Health and safety Failure to complete required training may result in escalation to the employee's manager. **15.4 Professional Certifications** Employees may request company support for relevant professional certifications. Pr..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-187",
+        "text": "Section: 8. Employee Benefits Subsection: 8.16 Professional Development Benefits  Nexora encourages employees to develop their technical and professional skills.  Eligible employees may receive support for approved learning activities such as:  Professional certifications  Technical courses  Worksho..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-78",
+        "text": "- Performance concerns - Expected improvements - Actions required - Review period - Support available - Consequences of failing to improve The duration and structure of a PIP may vary depending on the circumstances. **14.7 Promotions** Promotions may be considered based on factors including: - Perfo..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-188",
+        "text": "Section: 8. Employee Benefits Subsection: 8.17 Certification Reimbursement  Employees may request reimbursement for approved professional certifications where the certification is relevant to their role or career development.  The certification must normally be approved before the employee registers..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-50",
+        "text": "Nexora encourages employees to develop their technical and professional skills. Eligible employees may receive support for approved learning activities such as: - Professional certifications - Technical courses - Workshops - Conferences - Training programs - Industry events Employees must obtain the..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-138",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.2 Salary Structure  Component: Other Allowances | Description: Additional components applicable to specific roles or employees..."
+      },
+      {
+        "id": "HR_Policy_Manual-19",
+        "text": "CAREER MOVEMENT  Promotions and internal opportunities are based on business needs, role availability, demonstrated capability, performance and other relevant criteria. Participation in a development program does not guarantee promotion...."
+      },
+      {
+        "id": "HR_Policy_Manual-2",
+        "text": "DOCUMENT CONTROL AND TABLE OF CONTENTS > Contents  1. Purpose and Scope 2. Company Values and Equal Opportunity 3. Employment Categories and Probation 4. Working Hours and Attendance 5. Leave and Holidays 6. Compensation and Benefits 7. Code of Conduct and Workplace Behaviour 8. Information Security..."
+      }
+    ]
+  },
+  {
+    "id": "Q012",
+    "query": "What is the dress code in the office?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-233",
+        "text": "Section: 9. Code of Conduct and Workplace Behaviour Subsection: 9.22 Dress and Personal Presentation  Employees are expected to maintain a professional appearance appropriate to their role and work environment.  Dress requirements may vary depending on:  Client requirements  Safety requirements  Nat..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-245",
+        "text": "Section: 9. Code of Conduct and Workplace Behaviour Subsection: 9.32 Employee Responsibilities  Every employee is responsible for:  Reading and understanding the Code of Conduct.  Acting honestly and professionally.  Treating others with dignity and respect.  Avoiding conflicts of interest.  Protect..."
+      },
+      {
+        "id": "HR_Policy_Manual-2",
+        "text": "DOCUMENT CONTROL AND TABLE OF CONTENTS > Contents  1. Purpose and Scope 2. Company Values and Equal Opportunity 3. Employment Categories and Probation 4. Working Hours and Attendance 5. Leave and Holidays 6. Compensation and Benefits 7. Code of Conduct and Workplace Behaviour 8. Information Security..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-206",
+        "text": "Section: 9. Code of Conduct and Workplace Behaviour Subsection: 9.2 Professional Conduct  Employees must perform their responsibilities honestly, professionally, and responsibly.  Employees are expected to:  Treat colleagues, clients, vendors, and visitors with respect.  Communicate professionally. ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-208",
+        "text": "Section: 9. Code of Conduct and Workplace Behaviour Subsection: 9.3 Respectful Workplace  Nexora is committed to maintaining a workplace where employees are treated with dignity and respect.  Employees must not engage in behaviour that is intimidating, threatening, humiliating, abusive, or deliberat..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-235",
+        "text": "Section: 9. Code of Conduct and Workplace Behaviour Subsection: 9.24 Confidentiality  Employees may have access to confidential information belonging to Nexora, its employees, clients, vendors, or business partners.  Employees must:  Access information only when authorized.  Use confidential informa..."
+      },
+      {
+        "id": "POSH_Policy-45",
+        "text": "25. Employee Acknowledgement > Acknowledgement Template  I acknowledge that I have received access to the Prevention of Sexual Harassment (POSH) Policy of ABC Technologies India Private Limited. I understand my responsibility to maintain a respectful workplace and comply with the applicable policy a..."
+      },
+      {
+        "id": "HR_Policy_Manual-13",
+        "text": "7. CODE OF CONDUCT  Employees are expected to act honestly, professionally and responsibly. Misconduct may result in corrective or disciplinary action after appropriate review. - Maintain professional and respectful behaviour. - Avoid conflicts of interest and disclose potential conflicts. - Do not ..."
+      },
+      {
+        "id": "POSH_Policy-15",
+        "text": "7. Conduct Expected from Everyone  - Treat colleagues and all workplace participants with dignity and respect. - Maintain professional boundaries. - Avoid unwelcome conduct, comments, jokes, messages, or gestures. - Respect personal space and individual boundaries. - Cooperate honestly and respectfu..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-205",
+        "text": "Section: 9. Code of Conduct and Workplace Behaviour Subsection: 9.1 Purpose  travelling for business  At a company event   At another location while performing company-related work..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-204",
+        "text": "Section: 9. Code of Conduct and Workplace Behaviour Subsection: 9.1 Purpose  Nexora Technologies expects all employees to conduct themselves with professionalism, integrity, respect, and accountability.  The Code of Conduct establishes the standards of behaviour expected from employees while perform..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-222",
+        "text": "Section: 9. Code of Conduct and Workplace Behaviour Subsection: 9.12 Company Property  Company property must be used responsibly and primarily for authorized business purposes.  Company property may include:  Laptops  Mobile devices  Office equipment  Software  Access cards  Documents  Data  Intelle..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-244",
+        "text": "Section: 9. Code of Conduct and Workplace Behaviour Subsection: 9.31 Disciplinary Consequences  permitted by company policy and applicable law   Serious violations may result in immediate escalation...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-98",
+        "text": "Section: Office-Based  Employees work primarily from their designated Nexora office or another company-approved workplace...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-237",
+        "text": "Section: 9. Code of Conduct and Workplace Behaviour Subsection: 9.25 Intellectual Property  Employees should refer to their employment agreement and applicable intellectual property policy for detailed requirements...."
+      }
+    ]
+  },
+  {
+    "id": "Q013",
+    "query": "How does the promotion cycle work?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-298",
+        "text": "Section: 14. Performance Management Subsection: 14.7 Promotions  Promotions may be considered based on factors including:  Performance  Demonstrated skills  Experience  Role requirements  Business needs  Availability of suitable positions  Employees are not entitled to a promotion solely because the..."
+      },
+      {
+        "id": "HR_Policy_Manual-19",
+        "text": "CAREER MOVEMENT  Promotions and internal opportunities are based on business needs, role availability, demonstrated capability, performance and other relevant criteria. Participation in a development program does not guarantee promotion...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-148",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.11 Promotion and Compensation Changes  A promotion or change in job responsibilities may result in a compensation adjustment.  However, a promotion does not automatically guarantee a specific percentage increase.  Any compensation change associated ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-39",
+        "text": "- Individual performance - Role responsibilities - Market conditions - Business performance - Internal compensation structures - Promotion or role changes A salary revision is not automatic solely because an employee has completed a particular period of service. Where a revision is approved, the emp..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-295",
+        "text": "Section: 14. Performance Management Subsection: 14.4 Performance Ratings  Where a formal rating system is used, employees may receive ratings based on achievement of their objectives and demonstrated behaviours.  Performance ratings may influence decisions regarding:  Development plans  Recognition ..."
+      },
+      {
+        "id": "HR_Policy_Manual-17",
+        "text": "9. PERFORMANCE MANAGEMENT  Performance management is an ongoing process involving goal setting, feedback, coaching and periodic review. Managers are expected to communicate expectations clearly and provide constructive feedback. Where performance is below expectations, the Company may provide feedba..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-78",
+        "text": "- Performance concerns - Expected improvements - Actions required - Review period - Support available - Consequences of failing to improve The duration and structure of a PIP may vary depending on the circumstances. **14.7 Promotions** Promotions may be considered based on factors including: - Perfo..."
+      },
+      {
+        "id": "DOC-006-3",
+        "text": "Weeks 2-3  Shadow team members, understand assigned responsibilities, review relevant project documentation, and complete a small starter task...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-77",
+        "text": "Employees may receive defined objectives at the beginning of a performance cycle. Objectives may relate to: - Quality of work - Delivery timelines - Technical or functional performance - Customer outcomes - Team contribution - Professional development Objectives may be updated when business or proje..."
+      },
+      {
+        "id": "DOC-006-4",
+        "text": "Week 4  Discuss progress with the manager, identify learning gaps, confirm responsibilities, and agree on goals for the next 60 days...."
+      },
+      {
+        "id": "HR_Policy_Manual-18",
+        "text": "LEARNING AND DEVELOPMENT  The Company encourages continuous learning through internal knowledge sharing, role-based training, mentoring and approved external development opportunities. Employees are expected to take ownership of maintaining relevant professional skills...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-4",
+        "text": "All newly hired employees must complete the company's onboarding process. The onboarding process may include: 1. Submission and verification of required employment documents. 2. Creation of company email and system accounts. 3. Completion of mandatory HR and compliance forms. 4. Completion of inform..."
+      },
+      {
+        "id": "DOC-006-2",
+        "text": "Week 1  Complete mandatory training, understand team processes, review the employee handbook, configure development tools, and attend project orientation...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-51",
+        "text": "Nexora may negotiate employee discounts or special offers with selected external service providers. Such offers may include discounts on: - Learning platforms - Fitness services - Travel - Retail products - Technology services Offers are subject to availability and may change or expire without becom..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-296",
+        "text": "Section: 14. Performance Management Subsection: 14.5 Performance Feedback  Managers are expected to provide employees with constructive and timely feedback.  Employees are encouraged to discuss:  Progress toward objectives  Challenges  Support required  Career goals  Development opportunities  Emplo..."
+      }
+    ]
+  },
+  {
+    "id": "Q014",
+    "query": "Can I work from a different country?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-341",
+        "text": "Section: 19. Frequently Asked Questions Subsection: 19.9 Can I work remotely from another country?  Not without prior written approval. International remote work may require additional review for tax, immigration, security, legal, and client-related requirements...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-113",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.10 Working From Another City or Country  Employees must obtain prior approval before working remotely from a location different from their approved remote work location when the change is expected to be more than a short temporary arrangement.  Employees mus..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-29",
+        "text": "Employees must work from a remote location that has been approved or permitted under the applicable work arrangement. Employees should maintain a work environment that allows them to perform their responsibilities effectively and securely. Employees must not regularly work from public locations wher..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-114",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.10 Working From Another City or Country  requirements  Employment regulations   Client contractual obligations  Information security requirements  Approval is not guaranteed...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-340",
+        "text": "Section: 19. Frequently Asked Questions Subsection: 19.8 Can I work from home when I am sick?  If you are unwell but still able to work, you may request temporary Work From Home where your role permits it.  If you are unable to work, you should use the applicable Sick Leave process...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-127",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.21 Remote Work During Travel  Employees should not combine personal travel with remote work without ensuring that the proposed location and arrangement are permitted.  Working remotely while travelling may require prior approval, particularly when:  The empl..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-111",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.9 Remote Work Location  Employees must work from a remote location that has been approved or permitted under the applicable work arrangement.  Employees should maintain a work environment that allows them to perform their responsibilities effectively and sec..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-87",
+        "text": "The standard schedule is **9:30 AM to 6:30 PM, Monday to Friday** , unless a different schedule applies to your role. **19.7 Is there a grace period for late arrival?** Yes. A **15-minute grace period** is provided for occasional delays. For the standard schedule, arrival by 9:45 AM falls within the..."
+      },
+      {
+        "id": "HR_Policy_Manual-8",
+        "text": "REMOTE AND HYBRID WORK  Remote or hybrid work is a business arrangement and not an automatic entitlement. Eligibility depends on role requirements, performance, client commitments, information-security requirements and management approval. Employees working remotely must maintain an appropriate prof..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-101",
+        "text": "Section: Fully Remote Subsection: 6.3 Eligibility for Remote or Hybrid Work  Remote or hybrid work may be available to employees whose roles can be effectively performed outside the office.  Eligibility may depend on:  Nature of the employee's role  Business and operational requirements  Client requ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-105",
+        "text": "Section: Fully Remote Subsection: 6.6 Temporary Work From Home  Employees may request temporary Work From Home when circumstances make office attendance difficult.  Examples may include:  Short-term personal emergencies  Temporary transportation difficulties  Minor illness where the employee is able..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-33",
+        "text": "Expenses associated with remote work are reimbursable only when specifically covered by the company's applicable expense policy. Employees should obtain approval before incurring significant work-related expenses that they expect the company to reimburse. Reimbursement requests must include required..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-133",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.25 Questions Regarding Remote and Hybrid Work  Employees with questions about eligibility, remote work locations, hybrid schedules, temporary Work From Home, international remote work, or exceptions should contact their reporting manager or the People & Cult..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-128",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.21 Remote Work During Travel  Personal travel does not automatically create a right to work remotely from the travel destination...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-102",
+        "text": "Section: Fully Remote Subsection: 6.3 Eligibility for Remote or Hybrid Work  Roles requiring physical presence, specialized equipment, direct customer interaction, or secure facilities may require employees to work from an approved office or client location...."
+      }
+    ]
+  },
+  {
+    "id": "Q015",
+    "query": "What is the process for onboarding new hires?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "DOC-006-0",
+        "text": "NEW EMPLOYEE ONBOARDING GUIDE - TEST DOCUMENT  Employee onboarding begins before the first working day and continues through the employee's first month. The manager, HR, IT, and the employee share responsibility for completing the onboarding activities and ensuring the employee has the information a..."
+      },
+      {
+        "id": "DOC-005-0",
+        "text": "**NEW EMPLOYEE ONBOARDING GUIDE \u2014 TEST DOCUMENT** **Employee onboarding begins before the first working day and continues through the employee's first month.** The manager, HR, IT, and the employee share responsibility for completing the onboarding activities and ensuring the employee has the inform..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-4",
+        "text": "All newly hired employees must complete the company's onboarding process. The onboarding process may include: 1. Submission and verification of required employment documents. 2. Creation of company email and system accounts. 3. Completion of mandatory HR and compliance forms. 4. Completion of inform..."
+      },
+      {
+        "id": "DOC-006-2",
+        "text": "Week 1  Complete mandatory training, understand team processes, review the employee handbook, configure development tools, and attend project orientation...."
+      },
+      {
+        "id": "DOC-006-1",
+        "text": "Day 1  Complete HR documentation, collect laptop and access credentials, review security guidelines, meet the manager and immediate team...."
+      },
+      {
+        "id": "HR_Policy_Manual-19",
+        "text": "CAREER MOVEMENT  Promotions and internal opportunities are based on business needs, role availability, demonstrated capability, performance and other relevant criteria. Participation in a development program does not guarantee promotion...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-78",
+        "text": "- Performance concerns - Expected improvements - Actions required - Review period - Support available - Consequences of failing to improve The duration and structure of a PIP may vary depending on the circumstances. **14.7 Promotions** Promotions may be considered based on factors including: - Perfo..."
+      },
+      {
+        "id": "DOC-006-3",
+        "text": "Weeks 2-3  Shadow team members, understand assigned responsibilities, review relevant project documentation, and complete a small starter task...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-8",
+        "text": "Employees should review their employment agreement carefully and contact the People & Culture Department if they require clarification regarding their employment terms. **3.13 Background Verification** Nexora may conduct background verification before or after an employee joins the company, subject ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-6",
+        "text": "**3.7 Internal Transfers** Employees may apply for or be considered for transfer to another department, team, project, or company location based on business requirements and available opportunities. An internal transfer may require: - Approval from the current reporting manager - Approval from the r..."
+      },
+      {
+        "id": "HR_Policy_Manual-6",
+        "text": "3. EMPLOYMENT CATEGORIES AND PROBATION  Employment categories may include permanent employees, probationary employees, fixed-term employees, interns and consultants. Specific terms are communicated through the applicable appointment letter or agreement. New employees may be subject to a probation pe..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-51",
+        "text": "Nexora may negotiate employee discounts or special offers with selected external service providers. Such offers may include discounts on: - Learning platforms - Fitness services - Travel - Retail products - Technology services Offers are subject to availability and may change or expire without becom..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-302",
+        "text": "Section: 15. Learning and Development Subsection: 15.3 Mandatory Training  Employees must complete mandatory training within the deadlines communicated by the company.  Mandatory training may include:  Information security  Data privacy  Workplace conduct  Compliance  Health and safety  Failure to c..."
+      },
+      {
+        "id": "HR_Policy_Manual-18",
+        "text": "LEARNING AND DEVELOPMENT  The Company encourages continuous learning through internal knowledge sharing, role-based training, mentoring and approved external development opportunities. Employees are expected to take ownership of maintaining relevant professional skills...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-131",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.24 Employee Responsibilities  Employees working remotely or under a hybrid arrangement are responsible for:  Following their approved work schedule.  Maintaining availability during working hours.  Attending required meetings.  Protecting company and client ..."
+      }
+    ]
+  },
+  {
+    "id": "Q016",
+    "query": "How are annual bonuses calculated?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-150",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.13 Performance Bonuses  Where a performance bonus is offered, the applicable bonus plan will specify the relevant eligibility criteria and assessment period.  A bonus may be affected by:  Performance rating  Achievement of objectives  Disciplinary s..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-39",
+        "text": "- Individual performance - Role responsibilities - Market conditions - Business performance - Internal compensation structures - Promotion or role changes A salary revision is not automatic solely because an employee has completed a particular period of service. Where a revision is approved, the emp..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-40",
+        "text": "- Performance rating - Achievement of objectives - Disciplinary status - Business performance - Duration of employment during the applicable period - Other conditions stated in the bonus plan Employees should refer to the applicable bonus communication for specific terms. **7.14 Salary During Probat..."
+      },
+      {
+        "id": "HR_Policy_Manual-10",
+        "text": "6. COMPENSATION AND BENEFITS  Compensation is determined based on role, skills, experience, performance, market conditions and business requirements. Individual salary details are confidential and governed by the employee\u2019s employment documentation. Salary is processed according to the Company payro..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-149",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.12 Variable Pay  Certain employees may be eligible for variable or performance-based compensation.  Eligibility and payment may depend on:  Employee performance  Achievement of individual objectives  Team performance  Company performance  Applicable..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-148",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.11 Promotion and Compensation Changes  A promotion or change in job responsibilities may result in a compensation adjustment.  However, a promotion does not automatically guarantee a specific percentage increase.  Any compensation change associated ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-295",
+        "text": "Section: 14. Performance Management Subsection: 14.4 Performance Ratings  Where a formal rating system is used, employees may receive ratings based on achievement of their objectives and demonstrated behaviours.  Performance ratings may influence decisions regarding:  Development plans  Recognition ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-142",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.5 Payslips  Employees receive a monthly payslip through the designated employee or HR portal.  The payslip generally contains information such as:  Employee identification details  Pay period  Earnings  Allowances  Deductions  Net salary  Applicable..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-36",
+        "text": "Basic Salary, **Description** = Fixed component of an employee's compensation. House Rent Allowance, **Description** = Allowance provided where applicable under the employee's compensation structure. Special Allowance, **Description** = Fixed allowance determined by the employee's compensation struc..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-17",
+        "text": "Annual Leave, **Annual Entitlement** = 18 days. Annual Leave, **General Purpose** = Planned personal or recreational time off. Casual Leave, **Annual Entitlement** = 6 days. Casual Leave, **General Purpose** = Short-term personal requirements. Sick Leave, **Annual Entitlement** = 10 days. Sick Leave..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-143",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.6 Gross Salary and Net Salary  Gross salary refers to the employee's earnings before applicable deductions.  Net salary refers to the amount credited to the employee's bank account after applicable deductions.  Deductions may include legally require..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-181",
+        "text": "Section: 8. Employee Benefits Subsection: 8.10 Gratuity  Eligible employees may receive gratuity or other statutory separation benefits in accordance with applicable law.  Eligibility, calculation, and payment requirements are governed by the applicable legislation and the employee's circumstances. ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-153",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.16 Unpaid Leave Deduction  When an employee takes approved Unpaid Leave, the corresponding salary deduction will generally be calculated based on the employee's applicable payroll rules and the number of unpaid days.  The deduction may appear in the..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-333",
+        "text": "Section: 19. Frequently Asked Questions Subsection: 19.1 How many Annual Leave days do I receive?  Eligible regular employees receive 18 days of Annual Leave per calendar year. Employees joining during the year receive a prorated entitlement...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-140",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.3 Payroll Cycle  Nexora operates a monthly payroll cycle.  Employees are generally paid once per month.  Salary for a particular month is normally processed so that employees receive payment by the last working day of that month, subject to banking ..."
+      }
+    ]
+  },
+  {
+    "id": "Q017",
+    "query": "What is the policy on workplace harassment?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-260",
+        "text": "Section: 10. Workplace Harassment and Anti-Harassment Policy Subsection: 10.10 Policy Responsibilities  Employees are expected to maintain respectful workplace behaviour and report serious concerns through appropriate channels.  Managers who become aware of a potential harassment concern must respon..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-257",
+        "text": "Section: 10. Workplace Harassment and Anti-Harassment Policy Subsection: 10.7 Protection Against Retaliation  Retaliation against an employee who raises a concern in good faith or participates in an investigation is prohibited.  Employees should report suspected retaliation through the same reportin..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-249",
+        "text": "Section: 10. Workplace Harassment and Anti-Harassment Policy Subsection: 10.2 Prohibited Harassment  Harassment includes unwelcome behaviour that may reasonably create an intimidating, hostile, humiliating, or offensive work environment.  Examples may include:  Offensive comments or jokes  Repeated ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-250",
+        "text": "Section: 10. Workplace Harassment and Anti-Harassment Policy Subsection: 10.2 Prohibited Harassment  conduct intended to undermine another person   A single serious incident may also constitute harassment depending on the circumstances...."
+      },
+      {
+        "id": "HR_Policy_Manual-22",
+        "text": "ANTI-HARASSMENT AND PROFESSIONAL RESPECT  Harassment, bullying, intimidation and other inappropriate workplace behaviour are not acceptable. The Company expects all employees to maintain a respectful and inclusive professional environment. Complaints relating to sexual harassment will be addressed t..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-258",
+        "text": "Section: 10. Workplace Harassment and Anti-Harassment Policy Subsection: 10.8 False or Malicious Complaints  Employees are encouraged to report concerns in good faith.  A complaint will not be considered malicious merely because the allegation cannot be substantiated.  However, knowingly making a fa..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-253",
+        "text": "Section: 10. Workplace Harassment and Anti-Harassment Policy Subsection: 10.4 Harassment Through Digital Platforms  The anti-harassment policy applies to workplace-related digital communication, including:  Email  Company messaging platforms  Video meetings  Collaboration tools  Work-related social ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-67",
+        "text": "This policy applies to employees, interns, trainees, contractors, clients, vendors, and other individuals interacting with Nexora employees in a work-related context. **10.2 Prohibited Harassment** Harassment includes unwelcome behaviour that may reasonably create an intimidating, hostile, humiliati..."
+      },
+      {
+        "id": "POSH_Policy-6",
+        "text": "3. Legal and Regulatory Context  This Policy is intended to align, at a high level, with applicable Indian law relating to prevention of sexual harassment at the workplace, including the Sexual Harassment of Women at Workplace (Prevention, Prohibition and Redressal) Act, 2013 and relevant rules, ame..."
+      },
+      {
+        "id": "POSH_Policy-5",
+        "text": "2. Purpose  The purpose of this Policy is to establish a clear framework for preventing and addressing sexual harassment at the workplace. The Policy aims to create awareness, define unacceptable conduct, provide a complaint and inquiry mechanism, protect confidentiality, prohibit retaliation, and e..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-252",
+        "text": "Section: 10. Workplace Harassment and Anti-Harassment Policy Subsection: 10.3 Sexual Harassment  creates a sexually hostile work environment   Employees should report concerns even if they are uncertain whether the conduct formally meets the definition of sexual harassment...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-68",
+        "text": "The anti-harassment policy applies to workplace-related digital communication, including: - Email - Company messaging platforms - Video meetings - Collaboration tools - Work-related social media groups Harassment does not become acceptable simply because it occurs online or outside the physical work..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-256",
+        "text": "Section: 10. Workplace Harassment and Anti-Harassment Policy Subsection: 10.6 Investigation  Information will be handled as confidentially as reasonably possible, subject to the requirements of the investigation and applicable law...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-307",
+        "text": "Section: 16. Employee Grievances Subsection: 16.2 Types of Grievances  Employees may raise concerns relating to:  Workplace behaviour  Harassment or discrimination  Compensation or payroll  Leave and attendance  Working conditions  Managerial concerns  Workplace safety  Policy violations  Conflicts ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-56",
+        "text": "- Verbal communication - Written communication - Email - Messaging platforms - Video meetings - Social interactions at work - Company events - Client interactions Employees are expected to consider the impact of their behaviour on others. **9.4 Discrimination** Nexora does not tolerate unlawful disc..."
+      }
+    ]
+  },
+  {
+    "id": "Q018",
+    "query": "How do I claim travel expenses?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-285",
+        "text": "Section: 13. Travel and Expense Policy Subsection: 13.7 Expense Claims  Employees must submit expense claims through the designated expense management system.  Claims should normally be submitted within 30 days of the expense date.  Employees must provide:  Date of expense  Business purpose  Amount ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-283",
+        "text": "Section: 13. Travel and Expense Policy Subsection: 13.5 Accommodation  Employees travelling for business may claim reimbursement for reasonable accommodation expenses within the limits established by the company.  Employees should use company-preferred hotels or approved booking channels where avail..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-281",
+        "text": "Section: 13. Travel and Expense Policy Subsection: 13.3 Travel Approval  Employees must obtain approval from their reporting manager before booking business travel.  International travel may require additional approval from the relevant department or management.  Employees should not assume that exp..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-290",
+        "text": "Section: 13. Travel and Expense Policy Subsection: 13.12 Expense Fraud  Employees must not submit false, duplicate, inflated, or misleading expense claims.  Submitting fraudulent expenses may result in disciplinary action and recovery of the amount involved...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-155",
+        "text": "Section: 7. Compensation and Payroll Subsection: 7.18 Expense Reimbursements  Approved business expenses may be reimbursed separately from the employee's salary.  Examples include eligible:  Business travel expenses  Client-related expenses  Approved accommodation expenses  Local transportation  Oth..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-282",
+        "text": "Section: 13. Travel and Expense Policy Subsection: 13.4 Transportation  Reasonable transportation expenses incurred for approved business travel may be reimbursed.  Employees should use cost-effective transportation options appropriate to the business requirement.  Examples include:  Economy-class a..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-289",
+        "text": "Section: 13. Travel and Expense Policy Subsection: 13.11 Travel During Personal Leave  Business travel must not be combined with personal travel in a way that creates additional company costs without prior approval.  Any additional personal travel expenses are the employee's responsibility...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-291",
+        "text": "Section: 13. Travel and Expense Policy Subsection: 13.13 Responsibilities  Employees are responsible for obtaining approvals, maintaining receipts, submitting accurate claims, and complying with applicable expense limits.  Questions regarding reimbursement should be directed to the Finance or People..."
+      },
+      {
+        "id": "HR_Policy_Manual-12",
+        "text": "EXPENSES AND REIMBURSEMENTS  Business expenses must be reasonable, necessary, supported by appropriate documentation and approved according to the Company\u2019s authority matrix. Personal expenses must not be submitted as business expenses...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-288",
+        "text": "Section: 13. Travel and Expense Policy Subsection: 13.10 Expense Exceptions  Exceptions to expense limits require prior approval from the appropriate authority.  An exception may be considered when:  No reasonable lower-cost option was available.  Business requirements required additional expenditur..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-284",
+        "text": "Section: 13. Travel and Expense Policy Subsection: 13.6 Meals  Employees may claim reasonable meal expenses incurred during approved business travel, subject to applicable limits.  Personal meals outside the permitted limits, alcoholic beverages, and expenses for personal guests are not normally rei..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-280",
+        "text": "Section: 13. Travel and Expense Policy Subsection: 13.2 Business Travel  Business travel may be required for:  Client meetings  Conferences and industry events  Training programs  Project assignments  Business meetings at another company location  Travel should be planned in advance whenever reasona..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-286",
+        "text": "Section: 13. Travel and Expense Policy Subsection: 13.8 Non-Reimbursable Expenses  The following expenses are generally not reimbursable:  Personal entertainment  Fines or penalties  Personal purchases  Expenses for family members  Alcohol unless specifically permitted for an approved business event..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-74",
+        "text": "**13.1 Purpose** Nexora Technologies reimburses employees for reasonable and necessary expenses incurred while performing authorized business activities. Employees must obtain required approvals before making significant business-related expenses. **13.2 Business Travel** Business travel may be requ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-75",
+        "text": "Personal upgrades or additional charges are normally not reimbursable. **13.6 Meals** Employees may claim reasonable meal expenses incurred during approved business travel, subject to applicable limits. Personal meals outside the permitted limits, alcoholic beverages, and expenses for personal guest..."
+      }
+    ]
+  },
+  {
+    "id": "Q019",
+    "query": "What is the company's policy on intellectual property?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-236",
+        "text": "Section: 9. Code of Conduct and Workplace Behaviour Subsection: 9.25 Intellectual Property  Work products created by employees as part of their employment may constitute company intellectual property, subject to applicable law and the employee's employment agreement.  Employees must not:  Copy compa..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-237",
+        "text": "Section: 9. Code of Conduct and Workplace Behaviour Subsection: 9.25 Intellectual Property  Employees should refer to their employment agreement and applicable intellectual property policy for detailed requirements...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-222",
+        "text": "Section: 9. Code of Conduct and Workplace Behaviour Subsection: 9.12 Company Property  Company property must be used responsibly and primarily for authorized business purposes.  Company property may include:  Laptops  Mobile devices  Office equipment  Software  Access cards  Documents  Data  Intelle..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-63",
+        "text": "Employees should communicate professionally through company communication channels. Employees must not use workplace communication systems to: - Send threatening messages - Harass another person - Distribute offensive content - Deliberately spread false information - Share confidential information w..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-59",
+        "text": "Employees should disclose questionable gifts to their manager or People & Culture. **9.11 Anti-Bribery** Nexora prohibits bribery and improper payments. Employees must not directly or indirectly offer, promise, authorize, request, or accept anything of value for the purpose of improperly influencing..."
+      },
+      {
+        "id": "HR_Policy_Manual-15",
+        "text": "ACCEPTABLE USE OF TECHNOLOGY  Company devices, networks, email and collaboration platforms must be used responsibly. Employees must not install unauthorized software, bypass security controls or use Company systems for unlawful, offensive or inappropriate activities...."
+      },
+      {
+        "id": "POSH_Policy-2",
+        "text": "Policy Statement  ABC Technologies India Private Limited is committed to providing a workplace that is safe, respectful, inclusive, and free from sexual harassment. The organization follows a zero-tolerance approach toward sexual harassment and is committed to maintaining mechanisms for prevention, ..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-273",
+        "text": "Section: 12. IT Equipment and Acceptable Use Subsection: 12.2 Appropriate Use  Company equipment and systems must primarily be used for legitimate business purposes.  Limited personal use may be permitted when it:  Does not interfere with work.  Does not create security risks.  Does not violate comp..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-224",
+        "text": "Section: 9. Code of Conduct and Workplace Behaviour Subsection: 9.14 Prohibited Use of Company Systems  Employees must not use company systems to:  Access unlawful content.  Distribute malicious software.  Attempt unauthorized access to systems.  Harass or threaten another person.  Conduct fraudulen..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-264",
+        "text": "Section: 11. Information Security and Data Privacy Subsection: 11.4 Company Devices  Company devices must be protected against unauthorized access.  Employees must:  Lock devices when unattended.  Install security updates when required.  Use approved security software.  Report lost or stolen devices..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-274",
+        "text": "Section: 12. IT Equipment and Acceptable Use Subsection: 12.3 Prohibited Activities  Employees must not use company systems to:  Access unlawful content  Install malicious software  Attempt unauthorized system access  Circumvent security controls  Conduct fraudulent activities  Store or distribute u..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-72",
+        "text": "Employees must retain company information only for the period required by business, legal, or policy requirements. Confidential documents must be disposed of using approved secure disposal methods. Employees must not permanently delete or destroy records that are subject to a legal, regulatory, or c..."
+      },
+      {
+        "id": "HR_Policy_Manual-3",
+        "text": "DOCUMENT CONTROL AND TABLE OF CONTENTS > Policy Governance  The HR Department owns this manual and is responsible for maintaining the current approved version. Employees are expected to review policy updates communicated through official company channels. Where applicable law, an employment agreemen..."
+      },
+      {
+        "id": "HR_Policy_Manual-26",
+        "text": "POLICY AMENDMENTS  The Company may revise, suspend, replace or withdraw policies when business requirements, operational practices or applicable requirements change. Material updates will normally be communicated through official channels...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-223",
+        "text": "Section: 9. Code of Conduct and Workplace Behaviour Subsection: 9.13 Acceptable Use of Company Resources  Employees may use company systems for limited personal activities when such use:  Does not interfere with work.  Does not create a security risk.  Does not violate company policies.  Does not in..."
+      }
+    ]
+  },
+  {
+    "id": "Q020",
+    "query": "Are there any mental health resources available?",
+    "relevant_chunks": [],
+    "candidates_for_review": [
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-177",
+        "text": "Section: 8. Employee Benefits Subsection: 8.8 Employee Assistance Program  Eligible employees may have access to an Employee Assistance Program (EAP) offering confidential support for personal and workplace-related concerns.  Depending on the applicable program, services may include:  Counselling su..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-47",
+        "text": "Nexora does not determine whether a specific medical expense is covered. Coverage decisions are made according to the applicable insurance policy. **8.7 Preventive Health Programs** Nexora may provide preventive health and wellness programs for eligible employees. Programs may include: - Annual heal..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-259",
+        "text": "Section: 10. Workplace Harassment and Anti-Harassment Policy Subsection: 10.9 Support for Employees  Employees who report or experience harassment may request information about available support resources through People & Culture.  Depending on the circumstances, support may include:  Employee Assis..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-176",
+        "text": "Section: 8. Employee Benefits Subsection: 8.7 Preventive Health Programs  Nexora may provide preventive health and wellness programs for eligible employees.  Programs may include:  Annual health check-ups  Health awareness sessions  Wellness workshops  Fitness initiatives  Mental well-being resource..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-178",
+        "text": "Section: 8. Employee Benefits Subsection: 8.8 Employee Assistance Program  Employees may access the program through the contact information provided by People & Culture...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-120",
+        "text": "Section: 9:30 AM to 6:30 PM Subsection: 6.15 Remote Work During Illness  Employees who are unwell but capable of working may request temporary Work From Home where permitted by their role and manager.  Employees who are unable to work due to illness should use the applicable Sick Leave process rathe..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-340",
+        "text": "Section: 19. Frequently Asked Questions Subsection: 19.8 Can I work from home when I am sick?  If you are unwell but still able to work, you may request temporary Work From Home where your role permits it.  If you are unable to work, you should use the applicable Sick Leave process...."
+      },
+      {
+        "id": "HR_Policy_Manual-33",
+        "text": "Section: CONTACT  For HR policy questions, employees may contact the Human Resources Department through the approved internal communication channels...."
+      },
+      {
+        "id": "HR_Policy_Manual-27",
+        "text": "CONTACT  For HR policy questions, employees may contact the Human Resources Department through the approved internal communication channels...."
+      },
+      {
+        "id": "POSH_Policy-35",
+        "text": "18. Support Measures  Where appropriate and legally permissible, temporary support measures may be considered to help protect the integrity of the process and the well-being and safety of affected individuals...."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-174",
+        "text": "Section: 8. Employee Benefits Subsection: 8.6 Health Insurance Claims  Employees may submit eligible medical claims through the insurance provider's designated process.  Depending on the plan, claims may be processed through:  Cashless treatment at network hospitals  Reimbursement of eligible expens..."
+      },
+      {
+        "id": "POSH_Policy-58",
+        "text": "Section: Appendix A \u2013 Dummy POSH Complaint Intake Template  Field: Reference Number | Information: POSH-2026-XXXX Field: Date Received | Information: DD/MM/YYYY Field: Complainant | Information: Dummy / Sample Field: Respondent | Information: Dummy / Sample Field: Summary | Information: Brief factua..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-201",
+        "text": "Section: 8. Employee Benefits Subsection: 8.28 Benefits Support  Employees with questions regarding benefits should contact People & Culture or use the designated benefits support channel.  For insurance-specific questions, employees may also be directed to the insurance provider or third-party bene..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-105",
+        "text": "Section: Fully Remote Subsection: 6.6 Temporary Work From Home  Employees may request temporary Work From Home when circumstances make office attendance difficult.  Examples may include:  Short-term personal emergencies  Temporary transportation difficulties  Minor illness where the employee is able..."
+      },
+      {
+        "id": "NEXORA TECHNOLOGIES PVT-352",
+        "text": "Section: 19. Frequently Asked Questions Subsection: 19.20 Who should I contact if I cannot find an answer in this handbook?  Contact the People & Culture Department through the designated employee support channel. For specialized matters, you may be directed to Payroll, IT, Finance, Information Secu..."
+      }
+    ]
+  }
+]

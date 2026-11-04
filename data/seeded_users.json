@@ -1,0 +1,122 @@
+[
+  {
+    "uid": "aarav.sharma",
+    "username": "aarav",
+    "name": "Aarav Sharma",
+    "email": "aarav.sharma@nexora.local",
+    "role": "Manager",
+    "department": "Human Resources",
+    "department_id": "DEPT-001",
+    "employee_id": "MSS-001",
+    "password": "ChangeMe123!",
+    "must_change_password": true
+  },
+  {
+    "uid": "priya.nair",
+    "username": "priya",
+    "name": "Priya Nair",
+    "email": "priya.nair@nexora.local",
+    "role": "Tester",
+    "department": "Human Resources",
+    "department_id": "DEPT-001",
+    "employee_id": "MSS-002",
+    "password": "ChangeMe123!",
+    "must_change_password": true
+  },
+  {
+    "uid": "rohan.yadav",
+    "username": "rohan",
+    "name": "Rohan Yadav",
+    "email": "rohan.yadav@nexora.local",
+    "role": "Manager",
+    "department": "Engineering",
+    "department_id": "DEPT-002",
+    "employee_id": "MSS-003",
+    "password": "ChangeMe123!",
+    "must_change_password": true
+  },
+  {
+    "uid": "vikram.singh",
+    "username": "vikram",
+    "name": "Vikram Singh",
+    "email": "vikram.singh@nexora.local",
+    "role": "Developer",
+    "department": "Engineering",
+    "department_id": "DEPT-002",
+    "employee_id": "MSS-004",
+    "password": "ChangeMe123!",
+    "must_change_password": true
+  },
+  {
+    "uid": "anita.gupta",
+    "username": "anita",
+    "name": "Anita Gupta",
+    "email": "anita.gupta@nexora.local",
+    "role": "Developer",
+    "department": "Engineering",
+    "department_id": "DEPT-002",
+    "employee_id": "MSS-005",
+    "password": "ChangeMe123!",
+    "must_change_password": true
+  },
+  {
+    "uid": "meera.iyer",
+    "username": "meera",
+    "name": "Meera Iyer",
+    "email": "meera.iyer@nexora.local",
+    "role": "Solution Architect",
+    "department": "Engineering",
+    "department_id": "DEPT-002",
+    "employee_id": "MSS-006",
+    "password": "ChangeMe123!",
+    "must_change_password": true
+  },
+  {
+    "uid": "karan.mehta",
+    "username": "karan",
+    "name": "Karan Mehta",
+    "email": "karan.mehta@nexora.local",
+    "role": "Manager",
+    "department": "Marketing",
+    "department_id": "DEPT-003",
+    "employee_id": "MSS-007",
+    "password": "ChangeMe123!",
+    "must_change_password": true
+  },
+  {
+    "uid": "sneha.patel",
+    "username": "sneha",
+    "name": "Sneha Patel",
+    "email": "sneha.patel@nexora.local",
+    "role": "Tester",
+    "department": "Marketing",
+    "department_id": "DEPT-003",
+    "employee_id": "MSS-008",
+    "password": "ChangeMe123!",
+    "must_change_password": true
+  },
+  {
+    "uid": "ritu.sharma",
+    "username": "ritu",
+    "name": "Ritu Sharma",
+    "email": "ritu.sharma@nexora.local",
+    "role": "Manager",
+    "department": "Finance",
+    "department_id": "DEPT-004",
+    "employee_id": "MSS-009",
+    "password": "ChangeMe123!",
+    "must_change_password": true
+  },
+  {
+    "uid": "deepak.kumar",
+    "username": "deepak",
+    "name": "Deepak Kumar",
+    "email": "deepak.kumar@nexora.local",
+    "role": "Developer",
+    "department": "Finance",
+    "department_id": "DEPT-004",
+    "employee_id": "MSS-010",
+    "password": "ChangeMe123!",
+    "must_change_password": true
+  }
+]

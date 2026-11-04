@@ -1,13 +1,53 @@
-streamlit>=1.36.0
-fastapi>=0.111.0
-pydantic>=2.7.0
+streamlit>=1.60.0
+streamlit-cookies-controller>=0.0.4
+fastapi>=0.110.0
+pydantic>=2.10.0
+email-validator>=2.2.0
 uvicorn>=0.30.0
 python-dotenv>=1.0.1
+PyYAML>=6.0
 langchain>=0.3.0
+langsmith>=0.2.0
 chromadb>=0.5.0
 sentence-transformers>=3.0.0
 python-docx>=1.1.0
+docling>=2.130.0
+docling-core>=2.99.0
+# Optional visual enrichment used when DOCLING_VISUAL_ENRICHMENT_ENABLED=true.
+pillow>=10.0
+transformers>=4.49
+torch>=2.2
 httpx>=0.27.0
+openai>=1.0.0
 pytest>=8.2.0
 pytest-asyncio>=0.23.0
+pytest-playwright>=0.5.0
+playwright>=1.40.0
+pytest-html>=4.0.0
 pymongo>=4.8.0
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+PyJWT>=2.8.0
+
+# ============================================
+# AB-13: New Dependencies for V3 Features
+# ============================================
+
+# TypeSafe Decision Models (Laya via Ollama)
+typesafe-sdk>=0.7.0
+
+# Semantic Cache (AB-4, AB-14)
+langcache>=0.1.0
+
+# Cross-Encoder Reranking (future AB-10)
+cohere>=5.0.0
+
+# Observability (AB-6)
+langfuse>=0.2.0
+
+# Dynamic Spell Checking (AB-3)
+pyspellchecker>=0.8.0
+
+# PDF Extraction fallback
+pypdf>=4.0.0
+

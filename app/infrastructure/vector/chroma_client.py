@@ -1,26 +1,84 @@
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import logging
 
 import chromadb
-from sentence_transformers import SentenceTransformer
+
+from app.core.settings import COLLECTION_NAME, EMBEDDING_MODEL
+
+logger = logging.getLogger("knowlayer.retrieval")
+
+_CHROMA_CLIENT_REGISTRY: dict[str, chromadb.PersistentClient] = {}
+_SHARED_EMBEDDING_MODEL = None
+_DEFAULT_VECTOR_STORE = None
+
+def get_default_vector_store():
+    global _DEFAULT_VECTOR_STORE
+    if _DEFAULT_VECTOR_STORE is None:
+        _DEFAULT_VECTOR_STORE = ChromaVectorStore()
+    return _DEFAULT_VECTOR_STORE
 
 
 class ChromaVectorStore:
     def __init__(
         self,
-        collection_name: str = "hr_policy_docs",
+        collection_name: str = COLLECTION_NAME,
         persist_directory: Optional[str] = None,
     ):
         self.collection_name = collection_name
-        self.persist_directory = Path(persist_directory or ".chroma")
+        self.persist_directory = Path(
+            persist_directory or os.getenv("CHROMA_PERSIST_DIRECTORY", ".chroma")
+        ).resolve()
         self.persist_directory.mkdir(parents=True, exist_ok=True)
 
-        self.client = chromadb.PersistentClient(path=str(self.persist_directory))
+        key = str(self.persist_directory)
+        if key not in _CHROMA_CLIENT_REGISTRY:
+            _CHROMA_CLIENT_REGISTRY[key] = chromadb.PersistentClient(path=key)
+        self.client = _CHROMA_CLIENT_REGISTRY[key]
         self.collection = self.client.get_or_create_collection(
             name=self.collection_name,
             metadata={"hnsw:space": "cosine"},
         )
-        self.embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+        self._embedding_model = None
+        global _DEFAULT_VECTOR_STORE
+        _DEFAULT_VECTOR_STORE = self
+
+    @property
+    def embedding_model(self):
+        """Lazy load the embedding model to avoid blocking on startup."""
+        global _SHARED_EMBEDDING_MODEL
+        if os.getenv("MOCK_EMBEDDINGS", "false").lower() == "true":
+            class DummyModel:
+                def encode(self, texts, convert_to_numpy=True):
+                    class Array:
+                        def tolist(self):
+                            if isinstance(texts, list):
+                                return [[0.1] * 384 for _ in texts]
+                            return [0.1] * 384
+                    return Array()
+            return DummyModel()
+
+        if self._embedding_model is not None:
+            return self._embedding_model
+        if _SHARED_EMBEDDING_MODEL is None:
+            from sentence_transformers import SentenceTransformer
+            _SHARED_EMBEDDING_MODEL = SentenceTransformer(EMBEDDING_MODEL)
+        return _SHARED_EMBEDDING_MODEL
+
+    @embedding_model.setter
+    def embedding_model(self, value):
+        self._embedding_model = value
+
+    def delete_document_chunks(self, document_id: str) -> None:
+        """Deletes all chunks associated with a specific document_id."""
+        if not document_id:
+            return
+        try:
+            self.collection.delete(where={"document_id": document_id})
+            logger.info("deleted all existing chunks for document_id %r", document_id)
+        except Exception as e:
+            logger.warning("failed to delete chunks for document_id %r: %s", document_id, e)
 
     def add_documents(self, documents: List[Dict[str, Any]]) -> None:
         if not documents:
@@ -31,35 +89,72 @@ class ChromaVectorStore:
         metadatas = [doc.get("metadata", {}) for doc in documents]
         embeddings = self.embedding_model.encode(texts, convert_to_numpy=True).tolist()
 
-        self.collection.add(
+        self.collection.upsert(
             ids=ids,
             documents=texts,
             metadatas=metadatas,
             embeddings=embeddings,
         )
+        logger.info("stored %d vectors in collection %r (total=%d)", len(ids), self.collection_name, self.collection.count())
 
-    def query(self, query_text: str, top_k: int = 3) -> List[dict]:
+    def query(self, query_text: str, top_k: int = 3, project_ids=None, where=None) -> List[dict]:
         if not query_text.strip():
+            return []
+        if project_ids == []:
             return []
 
         query_embedding = self.embedding_model.encode([query_text], convert_to_numpy=True).tolist()[0]
+        query_kwargs = {
+            "query_embeddings": [query_embedding],
+            "n_results": top_k,
+            "include": ["documents", "metadatas", "distances"],
+        }
+        filters = []
+        if project_ids is not None:
+            filters.append({"project_id": {"$in": list(project_ids)}})
+            logger.info("vector query with project filter: %s", project_ids)
+        if where is not None:
+            if isinstance(where, dict) and len(where) > 1 and "$and" not in where and "$or" not in where:
+                for k, v in where.items():
+                    filters.append({k: v})
+            else:
+                filters.append(where)
+        if len(filters) == 1:
+            query_kwargs["where"] = filters[0]
+        elif len(filters) > 1:
+            query_kwargs["where"] = {"$and": filters}
         result = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
-            include=["documents", "metadatas", "distances"],
+            **query_kwargs,
         )
 
         documents = result.get("documents", [[]])[0]
         metadatas = result.get("metadatas", [[]])[0]
         distances = result.get("distances", [[]])[0]
+        ids = result.get("ids", [[]])[0]
         if not documents:
+            logger.info("vector query returned 0 candidates for query %r", query_text)
             return []
 
+        logger.info(
+            "vector query returned %d candidates for query %r: distances=%s",
+            len(documents), query_text,
+            [round(d, 4) if isinstance(d, (int, float)) else None for d in distances],
+        )
         output: List[dict] = []
         for index, (document, metadata) in enumerate(zip(documents, metadatas)):
+            meta = metadata or {}
+            chunk_id = (
+                ids[index]
+                if index < len(ids) and ids[index]
+                else f"{meta.get('document_id', 'chunk')}-{meta.get('chunk_index', index)}"
+            )
+            dist = distances[index] if index < len(distances) and isinstance(distances[index], (int, float)) else None
+            score = round(1.0 - dist, 4) if dist is not None else 0.0
             output.append({
+                "id": chunk_id,
                 "text": document,
-                "metadata": metadata or {},
-                "distance": distances[index] if index < len(distances) else None,
+                "score": score,
+                "distance": round(dist, 4) if dist is not None else None,
+                "metadata": meta,
             })
         return output

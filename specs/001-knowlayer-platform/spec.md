@@ -11,6 +11,7 @@
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Ask an HR policy question with grounded citations (Priority: P1)
+
 An employee asks a question about the organization's HR policy document. KnowLayer retrieves the relevant section from the approved policy source and returns an answer grounded in that document with citations and provenance.
 
 **Why this priority**: This is the first product value and the immediate use case for an MVP chatbot built on a single internal HR policy document.
@@ -25,6 +26,7 @@ An employee asks a question about the organization's HR policy document. KnowLay
 ---
 
 ### User Story 2 - Search the approved HR policy for relevant guidance (Priority: P2)
+
 A user asks a follow-up or lookup question against the HR policy document and expects the bot to locate the most relevant sentence or section. The system performs retrieval over the single source document and returns the matched policy text with citations.
 
 **Why this priority**: This supports policy lookup, onboarding, and quick knowledge retrieval in the first release without expanding the system beyond a single approved document.
@@ -39,6 +41,7 @@ A user asks a follow-up or lookup question against the HR policy document and ex
 ---
 
 ### User Story 3 - Provide a simple document-backed conversational experience (Priority: P2)
+
 A user interacts with a Streamlit chatbot that asks questions in plain language and receives answers grounded in the single HR policy document. The system keeps the interaction lightweight and focused on a single-source Q&A experience.
 
 **Why this priority**: This is the MVP experience and the simplest way to validate the value of the product before adding broader enterprise data sources.

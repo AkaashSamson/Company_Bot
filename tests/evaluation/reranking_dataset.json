@@ -1,0 +1,149 @@
+[
+  {
+    "id": "Q001",
+    "query": "What is the policy for remote work?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-100",
+      "NEXORA TECHNOLOGIES PVT-102",
+      "NEXORA TECHNOLOGIES PVT-104"
+    ]
+  },
+  {
+    "id": "Q002",
+    "query": "How many days of paid leave do I get?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-333",
+      "NEXORA TECHNOLOGIES PVT-19",
+      "NEXORA TECHNOLOGIES PVT-94"
+    ]
+  },
+  {
+    "id": "Q003",
+    "query": "What is the procedure for performance reviews?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-294",
+      "NEXORA TECHNOLOGIES PVT-296"
+    ]
+  },
+  {
+    "id": "Q004",
+    "query": "Who do I contact for IT support?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-352"
+    ]
+  },
+  {
+    "id": "Q005",
+    "query": "Can I expense my home internet bill?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-186",
+      "NEXORA TECHNOLOGIES PVT-118",
+      "NEXORA TECHNOLOGIES PVT-126"
+    ]
+  },
+  {
+    "id": "Q006",
+    "query": "What are the core hours for the engineering team?",
+    "relevant_chunks": []
+  },
+  {
+    "id": "Q007",
+    "query": "Is there a maternity leave policy?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-21"
+    ]
+  },
+  {
+    "id": "Q008",
+    "query": "How do I request a new laptop?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-343"
+    ]
+  },
+  {
+    "id": "Q009",
+    "query": "What are the benefits for part-time employees?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-168",
+      "NEXORA TECHNOLOGIES PVT-167"
+    ]
+  },
+  {
+    "id": "Q010",
+    "query": "What is the severance pay if I am laid off?",
+    "relevant_chunks": []
+  },
+  {
+    "id": "Q011",
+    "query": "Are there any allowances for training and development?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-187",
+      "NEXORA TECHNOLOGIES PVT-188",
+      "NEXORA TECHNOLOGIES PVT-304"
+    ]
+  },
+  {
+    "id": "Q012",
+    "query": "What is the dress code in the office?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-233"
+    ]
+  },
+  {
+    "id": "Q013",
+    "query": "How does the promotion cycle work?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-298"
+    ]
+  },
+  {
+    "id": "Q014",
+    "query": "Can I work from a different country?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-341",
+      "NEXORA TECHNOLOGIES PVT-113"
+    ]
+  },
+  {
+    "id": "Q015",
+    "query": "What is the process for onboarding new hires?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-4"
+    ]
+  },
+  {
+    "id": "Q016",
+    "query": "How are annual bonuses calculated?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-150"
+    ]
+  },
+  {
+    "id": "Q017",
+    "query": "What is the policy on workplace harassment?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-260"
+    ]
+  },
+  {
+    "id": "Q018",
+    "query": "How do I claim travel expenses?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-285"
+    ]
+  },
+  {
+    "id": "Q019",
+    "query": "What is the company's policy on intellectual property?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-236"
+    ]
+  },
+  {
+    "id": "Q020",
+    "query": "Are there any mental health resources available?",
+    "relevant_chunks": [
+      "NEXORA TECHNOLOGIES PVT-177"
+    ]
+  }
+]

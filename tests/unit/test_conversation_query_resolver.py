@@ -82,3 +82,25 @@ def test_multi_part_follow_up_rewrite_preserves_all_information_needs():
 
     assert "carry-forward" in result
     assert "medical documentation" in result
+
+
+def test_resolver_uses_prompt_from_prompts_yaml():
+    llm = MockLLM("What is the sick leave carry-forward policy?")
+    resolver = ConversationQueryResolver(llm)
+
+    resolver.resolve("What about carrying them forward?", history())
+
+    assert len(llm.calls) == 1
+    system_msg = llm.calls[0][0]["content"]
+    assert "Rewrite a dependent follow-up as one standalone search query" in system_msg
+
+
+def test_resolver_accepts_custom_system_prompt_override():
+    llm = MockLLM("Custom rewritten query")
+    custom_prompt = "You are a custom rewrite engine. Output strictly keywords."
+    resolver = ConversationQueryResolver(llm, system_prompt=custom_prompt)
+
+    resolver.resolve("What about it?", history())
+
+    assert len(llm.calls) == 1
+    assert llm.calls[0][0]["content"] == custom_prompt
